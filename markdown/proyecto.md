@@ -1,36 +1,82 @@
-Automatizacion en busqueda de datos informativos
+# Logica de la implementacion:
 
-Problema: Busqueda manual de novedades y fechas de novedad para las personas dentro de BIMEj
+Objetivo
 
-Objetivo: Crear una aplicacion que permita listar todo el personal recuperando datos especificos sobre su novedad por meses y por los dias de mes.
+Construir un historial anual de cada integrante del personal utilizando los reportes diarios almacenados en los archivos JSON generados previamente.
 
-Logica actual:
+Flujo general
+Procesar todos los meses disponibles.
+Leer los reportes diarios correspondientes a cada mes.
+Identificar de forma única a cada integrante mediante su número de cédula.
+Consolidar todos los registros encontrados en una única estructura histórica por persona.
+Ordenar cronológicamente los registros obtenidos.
+Detectar días sin reporte o inconsistencias en la información.
+Generar una estructura que permita consultar fácilmente la evolución del personal a lo largo del tiempo.
 
-- Traer todas las carpetas de google drive que contenga un mes en su nombre
-- Extraer todos los archivos excel dentro de cada carpeta, excluyendo otro tipo de formato
-- Leer la hoja "DEMOSTRATIVO" de cada archivo
-- Obtener todo el personal dentro de la tabla insertada
-- Extraer campos:
-  - Nombre
-  - Cedula
-  - Subnovedad
-  - Rango de fechas (DESDE/HASTA)
-    Crear archivo .json con la informacion recolectada
-- Crear app web
-  Debe contener:
-- Filtros
-  - Nombre
-  - Cedula
-  - Mes
-  - Dia del mes
-- Busqueda
-- Todos los campos
-- Exportacion PDF,EXCEL y CSV
-- Estatisticas
-  - Por personal
-  - Por mes
-  - por rango de fechas
-  - Por novedad
+Resultado esperado
+
+El sistema dispondrá de una base histórica donde cada persona contará con la totalidad de sus registros diarios, facilitando el cálculo de estadísticas, tendencias y reportes históricos.
+
+# Guia de ayuda:
+
+Los datos provienen de archivos JSON ubicados en la carpeta listadoMeses.
+
+Estructura de datos
+listadoMeses/
+ENERO.json
+FEBRERO.json
+...
+
+Cada JSON tiene esta estructura:
+
+{
+"2026-01-01": {
+"1": {
+"APELLIDOS Y NOMBRES": "...",
+"CEDULA": "...",
+"SUBNOVEDAD": "...",
+"DESCRIPCION": "...",
+"DESDE": "...",
+"HASTA": "..."
+}
+}
+}
+Procesamiento
+
+Al iniciar la aplicación:
+
+Leer todos los JSON.
+Recorrer todos los meses.
+Recorrer todos los días.
+Recorrer todas las personas.
+Agrupar la información usando la cédula como identificador único.
+
+La estructura final en memoria debe ser algo similar a:
+
+cedula
+nombre
+historial[]
+
+Cada elemento del historial contiene
+
+fecha
+subnovedad
+descripcion
+desde
+hasta
+También generar
+
+Un log indicando:
+
+Mes
+
+    Días faltantes
+
+    Días duplicados
+
+    Fechas inválidas
+
+    Reportes vacíos
 
 # Stats de la pagina web:
 
@@ -83,7 +129,7 @@ PERMISO █████
 HOSPITALIZADO ███
 CAPACITACIÓN ██ 4. Personal por estado
 
-Un pastel.
+Otro grafico de barras
 
 Disponible 74%
 Vacaciones 12%
@@ -104,11 +150,7 @@ L M M J V S D
 
 Color según porcentaje de disponibilidad.
 
-Muy visual.
-
 6. Buscador
-
-Este sería el fuerte.
 
 Escribes
 
@@ -278,3 +320,9 @@ Distribuciones.
 Seleccionas una fecha.
 
 Ves exactamente cómo estaba toda la unidad ese día.
+
+- Exportacion PDF,EXCEL y CSV
+- Reporte por personal
+- Reporte por mes
+- Reporte por dia
+  La exportacion PDF debe incluir graficas interactivas
