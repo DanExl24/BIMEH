@@ -17,6 +17,18 @@ Resultado esperado
 
 El sistema dispondrá de una base histórica donde cada persona contará con la totalidad de sus registros diarios, facilitando el cálculo de estadísticas, tendencias y reportes históricos.
 
+# Stack para el desarrollo:
+
+- Python
+- FastApi
+- Vue
+- Vite
+- Tailwind
+- Typescript
+- Vue router
+- Pinia (manejar estados)
+- Apache Echarts
+
 # Guia de ayuda:
 
 Los datos provienen de archivos JSON ubicados en la carpeta listadoMeses.
@@ -326,3 +338,62 @@ Ves exactamente cómo estaba toda la unidad ese día.
 - Reporte por mes
 - Reporte por dia
   La exportacion PDF debe incluir graficas interactivas
+
+- SQLITE:
+
+## PERSONAL
+
+id
+cedula UNIQUE
+nombre
+
+## SUB_NOVEDADES
+
+id
+nombre
+
+## REPORTES
+
+id
+fecha
+archivo
+
+## REGISTRO_PERSONAL
+
+id
+id_reporte
+id_personal
+id_sub_novedad
+descripcion
+fecha_inicio
+fecha_final
+
+- Un personal puede tener muchas sub_novedades
+- Una novedad puede estar en muchos registros
+- un reporte puede estar en muchos registros
+- Un personal solo puede tener una sub_novedad por dia
+- Un personal puede tener muchas registros por mes
+
+# Personal
+
+La cédula es única.
+Un registro pertenece a un único integrante del personal.
+
+# Subnovedades
+
+Una subnovedad puede asociarse a múltiples personas.
+Cada registro solo puede tener una subnovedad.
+
+# Reportes
+
+Un reporte corresponde a una única fecha.
+Una fecha solo puede tener un reporte oficial.
+
+# Detalles
+
+Un registro pertenece a una sola persona.
+Un registro pertenece a un solo reporte.
+Un registro tiene una única subnovedad.
+Un mismo integrante no puede tener dos registros diferentes para la misma fecha de reporte.
+
+hola, necesito que crees una pagina web interactiva ligada unicamente a la visualizacion de reportes diarios y mensuales, con informacion debidamente detallada y coherente. Lee los archivos de la caprte markdown, (no leas start_helpMe.md), necesito desarrollar el objetivo planteado. En la documentacion deje la logica de implementacion, cuales seran los stats de la pagina web y sus debidos modulos. al momento de guardar los datos necesito que lo hagas
