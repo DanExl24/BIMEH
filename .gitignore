@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+*.pyc
+*.db
+personal_consolidado.json
+processing_report.json
+token.json
+credentials.json
+node_modules/
+dist/
+.DS_Store
+.vscode/

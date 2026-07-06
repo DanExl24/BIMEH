@@ -346,6 +346,7 @@ Ves exactamente cómo estaba toda la unidad ese día.
 id
 cedula UNIQUE
 nombre
+fecha_retiro
 
 ## SUB_NOVEDADES
 
@@ -395,5 +396,3 @@ Un registro pertenece a una sola persona.
 Un registro pertenece a un solo reporte.
 Un registro tiene una única subnovedad.
 Un mismo integrante no puede tener dos registros diferentes para la misma fecha de reporte.
-
-hola, necesito que crees una pagina web interactiva ligada unicamente a la visualizacion de reportes diarios y mensuales, con informacion debidamente detallada y coherente. Lee los archivos de la caprte markdown, (no leas start_helpMe.md), necesito desarrollar el objetivo planteado. En la documentacion deje la logica de implementacion, cuales seran los stats de la pagina web y sus debidos modulos. al momento de guardar los datos necesito que lo hagas
