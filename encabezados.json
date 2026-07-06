@@ -1,0 +1,107 @@
+{
+    "Nº": {
+        "nombre": "Nº",
+        "row": 16,
+        "col": 1
+    },
+    "GRD": {
+        "nombre": " GRD  ",
+        "row": 16,
+        "col": 2
+    },
+    "CTG": {
+        "nombre": "CTG",
+        "row": 16,
+        "col": 3
+    },
+    "ARM": {
+        "nombre": "ARM",
+        "row": 16,
+        "col": 4
+    },
+    "APELLIDOS Y NOMBRES": {
+        "nombre": "APELLIDOS Y NOMBRES",
+        "row": 16,
+        "col": 5
+    },
+    "CEDULA": {
+        "nombre": "CEDULA",
+        "row": 16,
+        "col": 6
+    },
+    "BRIGADA": {
+        "nombre": "BRIGADA",
+        "row": 16,
+        "col": 7
+    },
+    "UNIDAD": {
+        "nombre": "UNIDAD",
+        "row": 16,
+        "col": 8
+    },
+    "COMPAÑÍA": {
+        "nombre": "COMPAÑÍA",
+        "row": 16,
+        "col": 9
+    },
+    "PELOTON": {
+        "nombre": "PELOTON",
+        "row": 16,
+        "col": 10
+    },
+    "NOVEDAD": {
+        "nombre": "NOVEDAD",
+        "row": 16,
+        "col": 11
+    },
+    "SUBNOVEDAD": {
+        "nombre": "SUBNOVEDAD",
+        "row": 16,
+        "col": 12
+    },
+    "DESCRIPCION": {
+        "nombre": "DESCRIPCION",
+        "row": 16,
+        "col": 13
+    },
+    "CONTINGENTE": {
+        "nombre": "CONTINGENTE",
+        "row": 16,
+        "col": 14
+    },
+    "DESDE": {
+        "nombre": "DESDE",
+        "row": 16,
+        "col": 15
+    },
+    "HASTA": {
+        "nombre": "HASTA",
+        "row": 16,
+        "col": 16
+    },
+    "APTITUD": {
+        "nombre": "APTITUD",
+        "row": 16,
+        "col": 17
+    },
+    "FECHA NACIMIENTO": {
+        "nombre": "FECHA NACIMIENTO",
+        "row": 16,
+        "col": 18
+    },
+    "JML 9% APTO": {
+        "nombre": "JML 9% APTO",
+        "row": 16,
+        "col": 19
+    },
+    "APTO NO APTO": {
+        "nombre": "APTO NO APTO",
+        "row": 16,
+        "col": 20
+    },
+    "CANTIDAD": {
+        "nombre": "CANTIDAD",
+        "row": 16,
+        "col": 21
+    }
+}
