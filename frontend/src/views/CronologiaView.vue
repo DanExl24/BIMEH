@@ -199,7 +199,7 @@
     </div>
 
     <!-- VIEW 2: HEATMAP MATRIX -->
-    <div v-if="activeSubView === 'heatmap'" class="glass-panel p-6 rounded-2xl flex flex-col space-y-4">
+    <div v-if="activeSubView === 'heatmap'" class="glass-panel p-6 rounded-2xl flex flex-col space-y-4 max-w-full overflow-hidden">
       <div>
         <h4 class="text-sm font-bold text-slate-200 uppercase tracking-tight">Matriz Heatmap: Personal vs Días</h4>
         <p class="text-xs text-slate-500">Muestra la disponibilidad individual diaria de toda la unidad. Filas: Integrantes, Columnas: Días del Mes.</p>
@@ -237,7 +237,7 @@
         <div v-if="loadingHeatmap" class="flex justify-center items-center py-20">
           <div class="w-8 h-8 border-4 border-cyan-500/25 border-t-cyan-500 rounded-full animate-spin"></div>
         </div>
-        <div v-else-if="paginatedHeatmap.length > 0" class="min-w-[900px] bg-darkBg/20">
+        <div v-else-if="paginatedHeatmap.length > 0" class="min-w-[1200px] bg-darkBg/20">
           <table class="w-full text-left border-collapse table-fixed">
             <thead>
               <tr class="border-b border-darkBorder text-[9px] text-slate-400 font-mono bg-darkBg/60">

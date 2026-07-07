@@ -19,7 +19,6 @@
         v-for="item in menuItems" 
         :key="item.path" 
         :to="item.path"
-        v-slice
         class="flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-200 group text-slate-400 hover:text-slate-100 hover:bg-darkBorder/40"
         active-class="bg-cyan-500/10 text-cyan-400 border-l-2 border-cyan-400 rounded-l-none font-medium"
       >
@@ -38,7 +37,7 @@
         <div class="w-2.5 h-2.5 bg-green-500 rounded-full animate-pulse"></div>
         <div>
           <p class="text-[11px] font-medium text-slate-300">Base de Datos</p>
-          <p class="text-[9px] text-slate-500">bimej12.db (SQLite) activa</p>
+          <p class="text-[9px] text-slate-500">bimeh (PostgreSQL) activa</p>
         </div>
       </div>
     </div>
@@ -50,13 +49,15 @@ import {
   LayoutDashboard, 
   Users, 
   BarChart3, 
-  Calendar 
+  Calendar,
+  Download
 } from '@lucide/vue'
 
 const menuItems = [
   { name: 'Dashboard', path: '/', icon: LayoutDashboard },
   { name: 'Buscador Personal', path: '/personal', icon: Users },
   { name: 'Estadísticas Históricas', path: '/estadisticas', icon: BarChart3 },
-  { name: 'Cronología y Heatmap', path: '/cronologia', icon: Calendar }
+  { name: 'Cronología y Heatmap', path: '/cronologia', icon: Calendar },
+  { name: 'Exportar Reportes', path: '/reportes', icon: Download }
 ]
 </script>

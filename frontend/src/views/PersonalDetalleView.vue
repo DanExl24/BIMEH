@@ -135,6 +135,13 @@
             <!-- Selectores de Filtro -->
             <div class="flex items-center gap-2">
               <select 
+                v-model="filtroSubnovedad"
+                class="bg-darkBg border border-darkBorder rounded-lg px-2.5 py-1 text-[11px] text-slate-300 outline-none focus:border-cyan-500/50"
+              >
+                <option value="">Todas las Novedades</option>
+                <option v-for="s in subnovedadesList" :key="s" :value="s">{{ s }}</option>
+              </select>
+              <select 
                 v-model="filtroMes"
                 class="bg-darkBg border border-darkBorder rounded-lg px-2.5 py-1 text-[11px] text-slate-300 outline-none focus:border-cyan-500/50"
               >
@@ -237,11 +244,23 @@ const historial = ref<HistorialEntry[]>([])
 const acumuladoChartDom = ref<HTMLDivElement | null>(null)
 let acumuladoChart: echarts.ECharts | null = null
 
-// Filtros de fecha individuales
+// Filtros de fecha y novedad individuales
 const filtroMes = ref('')
 const filtroDia = ref('')
+const filtroSubnovedad = ref('')
 
 const diasDelMes = Array.from({ length: 31 }, (_, i) => String(i + 1).padStart(2, '0'))
+
+// Get unique subnovedades registered by this member
+const subnovedadesList = computed(() => {
+  const set = new Set<string>()
+  historial.value.forEach(h => {
+    if (h.subnovedad) {
+      set.add(h.subnovedad)
+    }
+  })
+  return Array.from(set).sort()
+})
 
 const filteredHistorial = computed(() => {
   return historial.value.filter(h => {
@@ -251,8 +270,9 @@ const filteredHistorial = computed(() => {
     
     const matchMonth = !filtroMes.value || month === filtroMes.value
     const matchDay = !filtroDia.value || day === filtroDia.value
+    const matchSubnovedad = !filtroSubnovedad.value || h.subnovedad === filtroSubnovedad.value
     
-    return matchMonth && matchDay
+    return matchMonth && matchDay && matchSubnovedad
   })
 })
 
@@ -334,6 +354,13 @@ const initAcumuladoChart = async () => {
             }
           }
         ]
+      })
+
+      // Add click handler to filter by clicked subnovedad
+      acumuladoChart.on('click', (params: any) => {
+        if (params.name) {
+          filtroSubnovedad.value = params.name
+        }
       })
     }
   } catch (error) {

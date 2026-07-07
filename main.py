@@ -1,8 +1,67 @@
 import os
 import json
 import sqlite3
+import psycopg2
+import psycopg2.extras
+import traceback
 import csv
 import io
+
+class CursorWrapper:
+    def __init__(self, cursor):
+        self._cursor = cursor
+        
+    def execute(self, query, vars=None):
+        if isinstance(query, str):
+            query = query.replace("strftime('%m', fecha)", "to_char(to_date(fecha, 'YYYY-MM-DD'), 'MM')")
+            query = query.replace("strftime('%d', fecha)", "to_char(to_date(fecha, 'YYYY-MM-DD'), 'DD')")
+            query = query.replace("strftime('%m', r.fecha)", "to_char(to_date(r.fecha, 'YYYY-MM-DD'), 'MM')")
+            query = query.replace("strftime('%d', r.fecha)", "to_char(to_date(r.fecha, 'YYYY-MM-DD'), 'DD')")
+            query = query.replace('?', '%s')
+        return self._cursor.execute(query, vars)
+        
+    def fetchone(self):
+        return self._cursor.fetchone()
+        
+    def fetchall(self):
+        return self._cursor.fetchall()
+        
+    def __getattr__(self, name):
+        return getattr(self._cursor, name)
+
+class ConnectionWrapper:
+    def __init__(self, conn):
+        self._conn = conn
+        self._conn.cursor_factory = psycopg2.extras.DictCursor
+        
+    def cursor(self, *args, **kwargs):
+        cursor = self._conn.cursor(*args, **kwargs)
+        return CursorWrapper(cursor)
+        
+    def commit(self):
+        return self._conn.commit()
+        
+    def rollback(self):
+        return self._conn.rollback()
+        
+    def close(self):
+        return self._conn.close()
+        
+    def execute(self, query, vars=None):
+        if "PRAGMA" in query:
+            return None
+        if isinstance(query, str):
+            query = query.replace("strftime('%m', fecha)", "to_char(to_date(fecha, 'YYYY-MM-DD'), 'MM')")
+            query = query.replace("strftime('%d', fecha)", "to_char(to_date(fecha, 'YYYY-MM-DD'), 'DD')")
+            query = query.replace("strftime('%m', r.fecha)", "to_char(to_date(r.fecha, 'YYYY-MM-DD'), 'MM')")
+            query = query.replace("strftime('%d', r.fecha)", "to_char(to_date(r.fecha, 'YYYY-MM-DD'), 'DD')")
+            query = query.replace('?', '%s')
+        cursor = self.cursor()
+        cursor.execute(query, vars)
+        return cursor
+
+    def __getattr__(self, name):
+        return getattr(self._conn, name)
 from datetime import datetime, timedelta
 from typing import Optional, List, Dict, Any
 
@@ -34,14 +93,35 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-DATABASE_NAME = "bimej12.db"
+@app.middleware("http")
+async def log_requests(request, call_next):
+    start_time = datetime.now()
+    method = request.method
+    path = request.url.path
+    print(f"--> [REQ] {method} {path}")
+    try:
+        response = await call_next(request)
+        process_time = (datetime.now() - start_time).total_seconds() * 1000
+        print(f"<-- [RES] {method} {path} status={response.status_code} ({process_time:.2f}ms)")
+        return response
+    except Exception as e:
+        process_time = (datetime.now() - start_time).total_seconds() * 1000
+        print(f"❌ [ERR] {method} {path} ({process_time:.2f}ms): {e}")
+        traceback.print_exc()
+        raise e
+
+DATABASE_NAME = "bimeh"
 DISPONIBLE_STATUSES = ["CDO UNIDAD", "AREA OPERACIONES"]
 
 def get_db():
-    conn = sqlite3.connect(DATABASE_NAME, check_same_thread=False)
-    conn.row_factory = sqlite3.Row
-    # Enable foreign keys
-    conn.execute("PRAGMA foreign_keys = ON;")
+    raw_conn = psycopg2.connect(
+        dbname="bimeh",
+        user="postgres",
+        password="postgres",
+        host="localhost",
+        port=5432
+    )
+    conn = ConnectionWrapper(raw_conn)
     try:
         yield conn
     finally:
@@ -57,7 +137,14 @@ def get_month_dates(month_name: str) -> List[str]:
     month_num = month_order.get(month_name.upper(), 1)
     
     # Query database for available dates in this month
-    conn = sqlite3.connect(DATABASE_NAME, check_same_thread=False)
+    raw_conn = psycopg2.connect(
+        dbname="bimeh",
+        user="postgres",
+        password="postgres",
+        host="localhost",
+        port=5432
+    )
+    conn = ConnectionWrapper(raw_conn)
     cursor = conn.cursor()
     cursor.execute("SELECT fecha FROM REPORTES ORDER BY fecha ASC;")
     all_dates = [row[0] for row in cursor.fetchall()]
@@ -423,7 +510,8 @@ def get_cambios(
                         "cedula": today_data["cedula"],
                         "nombre": today_data["nombre"],
                         "novedad_anterior": p_nov,
-                        "novedad_nueva": t_nov
+                        "novedad_nueva": t_nov,
+                        "fecha": r_fecha
                     }
                     
                     p_disp = p_nov in DISPONIBLE_STATUSES
@@ -446,7 +534,8 @@ def get_cambios(
                     "cedula": today_data["cedula"],
                     "nombre": today_data["nombre"],
                     "novedad_anterior": "NO PRESENTADO",
-                    "novedad_nueva": t_nov
+                    "novedad_nueva": t_nov,
+                    "fecha": r_fecha
                 }
                 if t_nov in DISPONIBLE_STATUSES:
                     volvieron_disponibles.append(change_item)
@@ -463,7 +552,8 @@ def get_cambios(
                     "cedula": prev_data["cedula"],
                     "nombre": prev_data["nombre"],
                     "novedad_anterior": p_nov,
-                    "novedad_nueva": "RETIRADO / NO PRESENTADO"
+                    "novedad_nueva": "RETIRADO / NO PRESENTADO",
+                    "fecha": r_fecha
                 }
                 if p_nov in DISPONIBLE_STATUSES:
                     entraron_novedades.append(change_item)
@@ -725,7 +815,7 @@ def get_stats_rankings(db: sqlite3.Connection = Depends(get_db)):
         JOIN PERSONAL p ON rp.id_personal = p.id
         JOIN SUB_NOVEDADES sn ON rp.id_sub_novedad = sn.id
         WHERE sn.nombre NOT IN ({placeholders})
-        GROUP BY p.id
+        GROUP BY p.id, p.cedula, p.nombre
         ORDER BY dias_novedad DESC
         LIMIT 15;
     """, DISPONIBLE_STATUSES)
@@ -814,7 +904,7 @@ def get_inconsistencias():
 
 @app.get("/api/exportar/csv")
 def exportar_csv(
-    tipo: str = Query(..., description="dia, mes o personal"),
+    tipo: str = Query(..., description="dia, mes, personal, personal_db, subnovedades, consolidado_mensual o historial_novedades"),
     fecha: Optional[str] = Query(None),
     mes: Optional[str] = Query(None),
     cedula: Optional[int] = Query(None),
@@ -852,7 +942,7 @@ def exportar_csv(
             cursor.execute("SELECT COUNT(*) FROM REGISTRO_PERSONAL WHERE id_reporte = ?;", (r_id,))
             total = cursor.fetchone()[0]
             
-            placeholders = ",".join("?" for _ in DISPONIBLE_STATUSES)
+            placeholders = ",".join("%s" for _ in DISPONIBLE_STATUSES)
             cursor.execute(f"""
                 SELECT COUNT(*) FROM REGISTRO_PERSONAL 
                 WHERE id_reporte = ? AND id_sub_novedad IN (
@@ -881,6 +971,78 @@ def exportar_csv(
             for row in cursor.fetchall():
                 writer.writerow(list(row))
         filename = f"historial_cedula_{cedula}.csv"
+        
+    elif tipo == "personal_db":
+        writer.writerow(["CEDULA", "APELLIDOS Y NOMBRES", "ESTADO", "FECHA RETIRO"])
+        cursor.execute("""
+            SELECT cedula, nombre, CASE WHEN fecha_retiro IS NULL THEN 'ACTIVO' ELSE 'RETIRADO' END as estado, fecha_retiro
+            FROM PERSONAL
+            ORDER BY nombre ASC;
+        """)
+        for row in cursor.fetchall():
+            writer.writerow(list(row))
+        filename = "base_datos_personal.csv"
+        
+    elif tipo == "subnovedades":
+        writer.writerow(["ID", "NOMBRE NOVEDAD"])
+        cursor.execute("SELECT id, nombre FROM SUB_NOVEDADES ORDER BY nombre ASC;")
+        for row in cursor.fetchall():
+            writer.writerow(list(row))
+        filename = "catalogo_subnovedades.csv"
+        
+    elif tipo == "consolidado_mensual" and mes:
+        dates = get_month_dates(mes)
+        if not dates:
+            raise HTTPException(status_code=400, detail="No hay reportes para el mes especificado.")
+        
+        placeholders = ",".join("%s" for _ in dates)
+        cursor.execute(f"SELECT id, fecha FROM REPORTES WHERE fecha IN ({placeholders}) ORDER BY fecha ASC;", dates)
+        reports_db = cursor.fetchall()
+        report_ids = [r[0] for r in reports_db]
+        report_dates = [r[1] for r in reports_db]
+        
+        headers = ["CEDULA", "INTEGRANTE"] + [f"Dia {d.split('-')[2]}" for d in report_dates]
+        writer.writerow(headers)
+        
+        if report_ids:
+            rep_placeholders = ",".join("%s" for _ in report_ids)
+            cursor.execute(f"""
+                SELECT p.cedula, p.nombre, rp.id_reporte, sn.nombre as subnovedad
+                FROM REGISTRO_PERSONAL rp
+                JOIN PERSONAL p ON rp.id_personal = p.id
+                JOIN SUB_NOVEDADES sn ON rp.id_sub_novedad = sn.id
+                WHERE rp.id_reporte IN ({rep_placeholders})
+                ORDER BY p.nombre ASC;
+            """, report_ids)
+            
+            person_map = {}
+            for row in cursor.fetchall():
+                key = (row[0], row[1])
+                if key not in person_map:
+                    person_map[key] = {}
+                person_map[key][row[2]] = row[3]
+                
+            for (cedula, nombre), reports_dict in sorted(person_map.items(), key=lambda x: x[0][1]):
+                row_data = [cedula, nombre]
+                for r_id in report_ids:
+                    row_data.append(reports_dict.get(r_id, "N/A"))
+                writer.writerow(row_data)
+        filename = f"consolidado_mensual_{mes}.csv"
+        
+    elif tipo == "historial_novedades":
+        writer.writerow(["CEDULA", "APELLIDOS Y NOMBRES", "SUBNOVEDAD", "DESCRIPCION", "DESDE", "HASTA", "FECHA REPORTE"])
+        cursor.execute("""
+            SELECT p.cedula, p.nombre, sn.nombre, rp.descripcion, rp.fecha_inicio, rp.fecha_final, r.fecha
+            FROM REGISTRO_PERSONAL rp
+            JOIN PERSONAL p ON rp.id_personal = p.id
+            JOIN SUB_NOVEDADES sn ON rp.id_sub_novedad = sn.id
+            JOIN REPORTES r ON rp.id_reporte = r.id
+            ORDER BY r.fecha DESC, p.nombre ASC;
+        """)
+        for row in cursor.fetchall():
+            writer.writerow(list(row))
+        filename = "historial_completo_novedades.csv"
+        
     else:
         raise HTTPException(status_code=400, detail="Parámetros inválidos para la exportación.")
         
@@ -1000,7 +1162,7 @@ def exportar_excel(
             cursor.execute("SELECT COUNT(*) FROM REGISTRO_PERSONAL WHERE id_reporte = ?;", (r_id,))
             total = cursor.fetchone()[0]
             
-            placeholders = ",".join("?" for _ in DISPONIBLE_STATUSES)
+            placeholders = ",".join("%s" for _ in DISPONIBLE_STATUSES)
             cursor.execute(f"""
                 SELECT COUNT(*) FROM REGISTRO_PERSONAL 
                 WHERE id_reporte = ? AND id_sub_novedad IN (
@@ -1076,20 +1238,229 @@ def exportar_excel(
                     cell.alignment = Alignment(horizontal="center")
                     
         filename = f"historial_personal_{cedula}.xlsx"
+        
+    elif tipo == "personal_db":
+        ws.title = "Base Personal"
+        ws.merge_cells("A1:D1")
+        ws["A1"] = "BIMEJ12 — BASE DE DATOS DE PERSONAL"
+        ws["A1"].font = title_font
+        ws["A1"].fill = title_fill
+        ws["A1"].alignment = Alignment(horizontal="center", vertical="center")
+        ws.row_dimensions[1].height = 40
+        
+        headers = ["CÉDULA", "APELLIDOS Y NOMBRES", "ESTADO", "FECHA RETIRO"]
+        ws.append([])
+        ws.append(headers)
+        ws.row_dimensions[3].height = 25
+        
+        for col_idx in range(1, 5):
+            cell = ws.cell(row=3, column=col_idx)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.alignment = Alignment(horizontal="center", vertical="center")
+            cell.border = thin_border
+            
+        cursor.execute("""
+            SELECT cedula, nombre, CASE WHEN fecha_retiro IS NULL THEN 'ACTIVO' ELSE 'RETIRADO' END as estado, fecha_retiro
+            FROM PERSONAL
+            ORDER BY nombre ASC;
+        """)
+        for row in cursor.fetchall():
+            ws.append(list(row))
+            
+        for r_idx in range(4, ws.max_row + 1):
+            ws.row_dimensions[r_idx].height = 20
+            for c_idx in range(1, 5):
+                cell = ws.cell(row=r_idx, column=c_idx)
+                cell.font = normal_font
+                cell.border = thin_border
+                if c_idx == 3:
+                    cell.alignment = Alignment(horizontal="center")
+                    if cell.value == "ACTIVO":
+                        cell.font = Font(name="Calibri", size=11, color="10B981", bold=True)
+                    else:
+                        cell.font = Font(name="Calibri", size=11, color="EF4444", bold=True)
+                elif c_idx == 4:
+                    cell.alignment = Alignment(horizontal="center")
+        filename = "base_datos_personal.xlsx"
+        
+    elif tipo == "subnovedades":
+        ws.title = "Catálogo Novedades"
+        ws.merge_cells("A1:B1")
+        ws["A1"] = "BIMEJ12 — CATÁLOGO DE SUBNOVEDADES"
+        ws["A1"].font = title_font
+        ws["A1"].fill = title_fill
+        ws["A1"].alignment = Alignment(horizontal="center", vertical="center")
+        ws.row_dimensions[1].height = 40
+        
+        headers = ["ID", "NOMBRE NOVEDAD"]
+        ws.append([])
+        ws.append(headers)
+        ws.row_dimensions[3].height = 25
+        
+        for col_idx in range(1, 3):
+            cell = ws.cell(row=3, column=col_idx)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.alignment = Alignment(horizontal="center", vertical="center")
+            cell.border = thin_border
+            
+        cursor.execute("SELECT id, nombre FROM SUB_NOVEDADES ORDER BY nombre ASC;")
+        for row in cursor.fetchall():
+            ws.append(list(row))
+            
+        for r_idx in range(4, ws.max_row + 1):
+            ws.row_dimensions[r_idx].height = 20
+            for c_idx in range(1, 3):
+                cell = ws.cell(row=r_idx, column=c_idx)
+                cell.font = normal_font
+                cell.border = thin_border
+                if c_idx == 1:
+                    cell.alignment = Alignment(horizontal="center")
+        filename = "catalogo_subnovedades.xlsx"
+        
+    elif tipo == "consolidado_mensual" and mes:
+        ws.title = f"Consolidado {mes}"
+        dates = get_month_dates(mes)
+        if not dates:
+            raise HTTPException(status_code=400, detail="No hay reportes para el mes especificado.")
+            
+        placeholders = ",".join("%s" for _ in dates)
+        cursor.execute(f"SELECT id, fecha FROM REPORTES WHERE fecha IN ({placeholders}) ORDER BY fecha ASC;", dates)
+        reports_db = cursor.fetchall()
+        report_ids = [r[0] for r in reports_db]
+        report_dates = [r[1] for r in reports_db]
+        
+        num_cols = 2 + len(report_dates)
+        col_letter = get_column_letter(num_cols)
+        
+        ws.merge_cells(f"A1:{col_letter}1")
+        ws["A1"] = f"BIMEJ12 — CONSOLIDADO DIARIO DE PERSONAL — {mes.upper()}"
+        ws["A1"].font = title_font
+        ws["A1"].fill = title_fill
+        ws["A1"].alignment = Alignment(horizontal="center", vertical="center")
+        ws.row_dimensions[1].height = 40
+        
+        headers = ["CÉDULA", "INTEGRANTE"] + [f"Día {d.split('-')[2]}" for d in report_dates]
+        ws.append([])
+        ws.append(headers)
+        ws.row_dimensions[3].height = 25
+        
+        for col_idx in range(1, num_cols + 1):
+            cell = ws.cell(row=3, column=col_idx)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.alignment = Alignment(horizontal="center", vertical="center")
+            cell.border = thin_border
+            
+        if report_ids:
+            rep_placeholders = ",".join("%s" for _ in report_ids)
+            cursor.execute(f"""
+                SELECT p.cedula, p.nombre, rp.id_reporte, sn.nombre as subnovedad
+                FROM REGISTRO_PERSONAL rp
+                JOIN PERSONAL p ON rp.id_personal = p.id
+                JOIN SUB_NOVEDADES sn ON rp.id_sub_novedad = sn.id
+                WHERE rp.id_reporte IN ({rep_placeholders})
+                ORDER BY p.nombre ASC;
+            """, report_ids)
+            
+            person_map = {}
+            for row in cursor.fetchall():
+                key = (row[0], row[1])
+                if key not in person_map:
+                    person_map[key] = {}
+                person_map[key][row[2]] = row[3]
+                
+            for (cedula, nombre), reports_dict in sorted(person_map.items(), key=lambda x: x[0][1]):
+                row_data = [cedula, nombre]
+                for r_id in report_ids:
+                    row_data.append(reports_dict.get(r_id, "N/A"))
+                ws.append(row_data)
+                
+        for r_idx in range(4, ws.max_row + 1):
+            ws.row_dimensions[r_idx].height = 20
+            for c_idx in range(1, num_cols + 1):
+                cell = ws.cell(row=r_idx, column=c_idx)
+                cell.font = normal_font
+                cell.border = thin_border
+                if c_idx >= 3:
+                    cell.alignment = Alignment(horizontal="center")
+                    val = cell.value
+                    if val in DISPONIBLE_STATUSES:
+                        cell.fill = PatternFill(start_color="D1FAE5", end_color="D1FAE5", fill_type="solid")
+                        cell.font = Font(name="Calibri", size=9, color="065F46")
+                    elif val == "N/A":
+                        cell.fill = PatternFill(start_color="F3F4F6", end_color="F3F4F6", fill_type="solid")
+                        cell.font = Font(name="Calibri", size=9, color="6B7280")
+                    else:
+                        cell.fill = PatternFill(start_color="FFE4E6", end_color="FFE4E6", fill_type="solid")
+                        cell.font = Font(name="Calibri", size=9, color="991B1B")
+        filename = f"consolidado_personal_{mes}.xlsx"
+        
+    elif tipo == "historial_novedades":
+        ws.title = "Historial Novedades"
+        ws.merge_cells("A1:G1")
+        ws["A1"] = "BIMEJ12 — HISTORIAL COMPLETO DE NOVEDADES"
+        ws["A1"].font = title_font
+        ws["A1"].fill = title_fill
+        ws["A1"].alignment = Alignment(horizontal="center", vertical="center")
+        ws.row_dimensions[1].height = 40
+        
+        headers = ["CÉDULA", "APELLIDOS Y NOMBRES", "SUBNOVEDAD", "DESCRIPCIÓN", "DESDE", "HASTA", "FECHA REPORTE"]
+        ws.append([])
+        ws.append(headers)
+        ws.row_dimensions[3].height = 25
+        
+        for col_idx in range(1, 8):
+            cell = ws.cell(row=3, column=col_idx)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.alignment = Alignment(horizontal="center", vertical="center")
+            cell.border = thin_border
+            
+        cursor.execute("""
+            SELECT p.cedula, p.nombre, sn.nombre, rp.descripcion, rp.fecha_inicio, rp.fecha_final, r.fecha
+            FROM REGISTRO_PERSONAL rp
+            JOIN PERSONAL p ON rp.id_personal = p.id
+            JOIN SUB_NOVEDADES sn ON rp.id_sub_novedad = sn.id
+            JOIN REPORTES r ON rp.id_reporte = r.id
+            ORDER BY r.fecha DESC, p.nombre ASC;
+        """)
+        for row in cursor.fetchall():
+            ws.append(list(row))
+            
+        for r_idx in range(4, ws.max_row + 1):
+            ws.row_dimensions[r_idx].height = 20
+            for c_idx in range(1, 8):
+                cell = ws.cell(row=r_idx, column=c_idx)
+                cell.font = normal_font
+                cell.border = thin_border
+                if c_idx == 1:
+                    cell.alignment = Alignment(horizontal="left")
+                elif c_idx in (5, 6, 7):
+                    cell.alignment = Alignment(horizontal="center")
+        filename = "historial_completo_novedades.xlsx"
+        
     else:
         raise HTTPException(status_code=400, detail="Parámetros inválidos")
         
     # Auto-adjust column widths
-    for col in ws.columns:
-        max_len = 0
-        col_letter = get_column_letter(col[0].column)
-        # Avoid merging cells length error
-        for cell in col:
-            if cell.row == 1:
-                continue
-            if cell.value:
-                max_len = max(max_len, len(str(cell.value)))
-        ws.column_dimensions[col_letter].width = max(max_len + 3, 12)
+    if tipo != "consolidado_mensual":
+        for col in ws.columns:
+            max_len = 0
+            col_letter = get_column_letter(col[0].column)
+            for cell in col:
+                if cell.row == 1:
+                    continue
+                if cell.value:
+                    max_len = max(max_len, len(str(cell.value)))
+            ws.column_dimensions[col_letter].width = max(max_len + 3, 12)
+    else:
+        ws.column_dimensions['A'].width = 12
+        ws.column_dimensions['B'].width = 28
+        for col_idx in range(3, num_cols + 1):
+            col_letter = get_column_letter(col_idx)
+            ws.column_dimensions[col_letter].width = 8
         
     out_file = io.BytesIO()
     wb.save(out_file)
@@ -1109,8 +1480,8 @@ def exportar_pdf(
 ):
     pdf_buffer = io.BytesIO()
     
-    # We will use landscape for daily reports due to many columns, or portrait for personal
-    doc_layout = landscape(letter) if tipo in ("dia", "mes") else letter
+    # Select document layout based on export type
+    doc_layout = landscape(letter) if tipo in ("dia", "mes", "consolidado_mensual", "historial_novedades") else letter
     doc = SimpleDocTemplate(
         pdf_buffer,
         pagesize=doc_layout,
@@ -1201,7 +1572,6 @@ def exportar_pdf(
                     Paragraph(row[5] or "-", td_style)
                 ])
                 
-        # Widths for landscape letter (11 inches = 792 pt, minus 72 pt margins = 720 pt printable width)
         col_widths = [75, 180, 110, 195, 80, 80]
         
         t = Table(data, colWidths=col_widths, repeatRows=1)
@@ -1283,8 +1653,6 @@ def exportar_pdf(
         story.append(Paragraph(f"HISTORIAL DE PERSONAL INDIVIDUAL", title_style))
         story.append(Paragraph(f"Integrante: {nombre} | Cédula: {cedula} | Estado: {estado} " + (f"| Fecha Retiro: {fecha_retiro}" if fecha_retiro else ""), subtitle_style))
         
-        # Summary details table
-        # Let's query basic stats
         cursor.execute("SELECT COUNT(*) FROM REGISTRO_PERSONAL WHERE id_personal = ?;", (p_id,))
         total_dias = cursor.fetchone()[0]
         
@@ -1314,7 +1682,6 @@ def exportar_pdf(
         story.append(stats_table)
         story.append(Spacer(1, 15))
         
-        # Detailed timeline table
         headers = [
             Paragraph("FECHA", th_style),
             Paragraph("SUBNOVEDAD", th_style),
@@ -1343,7 +1710,6 @@ def exportar_pdf(
                 Paragraph(row[4] or "-", td_style)
             ])
             
-        # Portrait letter (8.5 x 11 inches = 612 x 792 pt, minus 72 pt margins = 540 pt printable width)
         col_widths = [75, 110, 195, 80, 80]
         
         t = Table(data, colWidths=col_widths, repeatRows=1)
@@ -1358,6 +1724,251 @@ def exportar_pdf(
         ]))
         story.append(t)
         filename = f"historial_personal_{cedula}.pdf"
+        
+    elif tipo == "personal_db":
+        doc_layout = letter
+        doc = SimpleDocTemplate(
+            pdf_buffer,
+            pagesize=doc_layout,
+            leftMargin=36,
+            rightMargin=36,
+            topMargin=36,
+            bottomMargin=36
+        )
+        
+        story.append(Paragraph("BIMEJ12 — BASE DE DATOS GENERAL DE PERSONAL", title_style))
+        story.append(Paragraph(f"Generado: {datetime.now().strftime('%Y-%m-%d %H:%M')}", subtitle_style))
+        
+        headers = [
+            Paragraph("CÉDULA", th_style),
+            Paragraph("APELLIDOS Y NOMBRES", th_style),
+            Paragraph("ESTADO", th_style),
+            Paragraph("FECHA RETIRO", th_style)
+        ]
+        data = [headers]
+        
+        cursor.execute("""
+            SELECT cedula, nombre, CASE WHEN fecha_retiro IS NULL THEN 'ACTIVO' ELSE 'RETIRADO' END as estado, fecha_retiro
+            FROM PERSONAL
+            ORDER BY nombre ASC;
+        """)
+        
+        active_style = ParagraphStyle('ActCell', parent=td_style, textColor=colors.HexColor('#10B981'), fontName='Helvetica-Bold')
+        ret_style = ParagraphStyle('RetCell', parent=td_style, textColor=colors.HexColor('#EF4444'), fontName='Helvetica-Bold')
+        
+        for row in cursor.fetchall():
+            est_text = row[2]
+            est_p = Paragraph(est_text, active_style) if est_text == "ACTIVO" else Paragraph(est_text, ret_style)
+            data.append([
+                Paragraph(str(row[0]), td_style),
+                Paragraph(row[1], td_style),
+                est_p,
+                Paragraph(row[3] or "-", td_style)
+            ])
+            
+        col_widths = [90, 230, 110, 110]
+        t = Table(data, colWidths=col_widths, repeatRows=1)
+        t.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1E293B')),
+            ('ALIGN', (0,0), (-1,-1), 'LEFT'),
+            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+            ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')),
+            ('TOPPADDING', (0,0), (-1,-1), 5),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 5),
+            ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#F8FAFC')])
+        ]))
+        story.append(t)
+        filename = "base_datos_personal.pdf"
+
+    elif tipo == "subnovedades":
+        doc_layout = letter
+        doc = SimpleDocTemplate(
+            pdf_buffer,
+            pagesize=doc_layout,
+            leftMargin=54,
+            rightMargin=54,
+            topMargin=54,
+            bottomMargin=54
+        )
+        
+        story.append(Paragraph("BIMEJ12 — CATÁLOGO DE SUBNOVEDADES", title_style))
+        story.append(Paragraph(f"Generado: {datetime.now().strftime('%Y-%m-%d %H:%M')}", subtitle_style))
+        
+        headers = [
+            Paragraph("ID", th_style),
+            Paragraph("NOMBRE DE LA SUBNOVEDAD", th_style)
+        ]
+        data = [headers]
+        
+        cursor.execute("SELECT id, nombre FROM SUB_NOVEDADES ORDER BY nombre ASC;")
+        for row in cursor.fetchall():
+            data.append([
+                Paragraph(str(row[0]), td_style),
+                Paragraph(row[1], td_style)
+            ])
+            
+        col_widths = [100, 404]
+        t = Table(data, colWidths=col_widths, repeatRows=1)
+        t.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1E293B')),
+            ('ALIGN', (0,0), (-1,-1), 'LEFT'),
+            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+            ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')),
+            ('TOPPADDING', (0,0), (-1,-1), 6),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 6),
+            ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#F8FAFC')])
+        ]))
+        story.append(t)
+        filename = "catalogo_subnovedades.pdf"
+        
+    elif tipo == "consolidado_mensual" and mes:
+        doc_layout = landscape(letter)
+        doc = SimpleDocTemplate(
+            pdf_buffer,
+            pagesize=doc_layout,
+            leftMargin=36,
+            rightMargin=36,
+            topMargin=36,
+            bottomMargin=36
+        )
+        
+        story.append(Paragraph(f"BIMEJ12 — CONSOLIDADO DIARIO DE PERSONAL — {mes.upper()}", title_style))
+        story.append(Paragraph(f"Generado: {datetime.now().strftime('%Y-%m-%d %H:%M')} | D = Disponible, N = Novedad, - = N/A", subtitle_style))
+        
+        dates = get_month_dates(mes)
+        if not dates:
+            raise HTTPException(status_code=400, detail="No hay reportes para el mes especificado.")
+            
+        placeholders = ",".join("%s" for _ in dates)
+        cursor.execute(f"SELECT id, fecha FROM REPORTES WHERE fecha IN ({placeholders}) ORDER BY fecha ASC;", dates)
+        reports_db = cursor.fetchall()
+        report_ids = [r[0] for r in reports_db]
+        report_dates = [r[1] for r in reports_db]
+        
+        headers = [
+            Paragraph("CÉDULA", th_style),
+            Paragraph("INTEGRANTE", th_style)
+        ] + [Paragraph(d.split('-')[2], th_style) for d in report_dates]
+        
+        data = [headers]
+        
+        disp_style = ParagraphStyle('DStyle', parent=td_style, textColor=colors.HexColor('#10B981'), fontName='Helvetica-Bold', alignment=1)
+        nov_style = ParagraphStyle('NStyle', parent=td_style, textColor=colors.HexColor('#EF4444'), fontName='Helvetica-Bold', alignment=1)
+        na_style = ParagraphStyle('NAStyle', parent=td_style, textColor=colors.HexColor('#6B7280'), alignment=1)
+        
+        if report_ids:
+            rep_placeholders = ",".join("%s" for _ in report_ids)
+            cursor.execute(f"""
+                SELECT p.cedula, p.nombre, rp.id_reporte, sn.nombre as subnovedad
+                FROM REGISTRO_PERSONAL rp
+                JOIN PERSONAL p ON rp.id_personal = p.id
+                JOIN SUB_NOVEDADES sn ON rp.id_sub_novedad = sn.id
+                WHERE rp.id_reporte IN ({rep_placeholders})
+                ORDER BY p.nombre ASC;
+            """, report_ids)
+            
+            person_map = {}
+            for row in cursor.fetchall():
+                key = (row[0], row[1])
+                if key not in person_map:
+                    person_map[key] = {}
+                person_map[key][row[2]] = row[3]
+                
+            for (cedula, nombre), reports_dict in sorted(person_map.items(), key=lambda x: x[0][1]):
+                row_data = [
+                    Paragraph(str(cedula), td_style),
+                    Paragraph(nombre, td_style)
+                ]
+                for r_id in report_ids:
+                    val = reports_dict.get(r_id, "N/A")
+                    if val in DISPONIBLE_STATUSES:
+                        row_data.append(Paragraph("D", disp_style))
+                    elif val == "N/A":
+                        row_data.append(Paragraph("-", na_style))
+                    else:
+                        row_data.append(Paragraph("N", nov_style))
+                data.append(row_data)
+                
+        num_days_col = len(report_dates)
+        day_col_width = 18 if num_days_col <= 31 else 15
+        name_width = 720 - 60 - (num_days_col * day_col_width)
+        col_widths = [60, name_width] + [day_col_width for _ in report_dates]
+        
+        t = Table(data, colWidths=col_widths, repeatRows=1)
+        t.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1E293B')),
+            ('ALIGN', (0,0), (1,-1), 'LEFT'),
+            ('ALIGN', (2,0), (-1,-1), 'CENTER'),
+            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+            ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')),
+            ('TOPPADDING', (0,0), (-1,-1), 3),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 3),
+            ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#F8FAFC')])
+        ]))
+        story.append(t)
+        filename = f"consolidado_personal_{mes}.pdf"
+        
+    elif tipo == "historial_novedades":
+        doc_layout = landscape(letter)
+        doc = SimpleDocTemplate(
+            pdf_buffer,
+            pagesize=doc_layout,
+            leftMargin=36,
+            rightMargin=36,
+            topMargin=36,
+            bottomMargin=36
+        )
+        
+        story.append(Paragraph("BIMEJ12 — HISTORIAL COMPLETO DE NOVEDADES", title_style))
+        story.append(Paragraph(f"Generado: {datetime.now().strftime('%Y-%m-%d %H:%M')}", subtitle_style))
+        
+        headers = [
+            Paragraph("CÉDULA", th_style),
+            Paragraph("APELLIDOS Y NOMBRES", th_style),
+            Paragraph("SUBNOVEDAD", th_style),
+            Paragraph("DESCRIPCIÓN", th_style),
+            Paragraph("DESDE", th_style),
+            Paragraph("HASTA", th_style),
+            Paragraph("REPORTE", th_style)
+        ]
+        
+        data = [headers]
+        
+        cursor.execute("""
+            SELECT p.cedula, p.nombre, sn.nombre, rp.descripcion, rp.fecha_inicio, rp.fecha_final, r.fecha
+            FROM REGISTRO_PERSONAL rp
+            JOIN PERSONAL p ON rp.id_personal = p.id
+            JOIN SUB_NOVEDADES sn ON rp.id_sub_novedad = sn.id
+            JOIN REPORTES r ON rp.id_reporte = r.id
+            ORDER BY r.fecha DESC, p.nombre ASC;
+        """)
+        
+        for row in cursor.fetchall():
+            data.append([
+                Paragraph(str(row[0]), td_style),
+                Paragraph(row[1], td_style),
+                Paragraph(row[2], td_style),
+                Paragraph(row[3] or "", td_style),
+                Paragraph(row[4] or "-", td_style),
+                Paragraph(row[5] or "-", td_style),
+                Paragraph(row[6], td_style)
+            ])
+            
+        col_widths = [70, 150, 100, 160, 80, 80, 80]
+        
+        t = Table(data, colWidths=col_widths, repeatRows=1)
+        t.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1E293B')),
+            ('ALIGN', (0,0), (-1,-1), 'LEFT'),
+            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+            ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')),
+            ('TOPPADDING', (0,0), (-1,-1), 4),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 4),
+            ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#F8FAFC')])
+        ]))
+        story.append(t)
+        filename = "historial_completo_novedades.pdf"
+        
     else:
         raise HTTPException(status_code=400, detail="Parámetros inválidos")
         

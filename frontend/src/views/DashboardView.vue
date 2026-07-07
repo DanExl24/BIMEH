@@ -138,14 +138,19 @@
               </div>
               <div 
                 v-for="c in cambios?.entraron_novedades" 
-                :key="c.cedula"
+                :key="c.cedula + '-' + c.fecha"
                 class="flex items-center justify-between p-3 rounded-xl bg-darkBg/40 border border-darkBorder/40 hover:border-darkBorder"
               >
                 <div>
                   <router-link :to="`/personal/${c.cedula}`" class="text-xs font-bold text-slate-200 hover:text-cyan-400 block uppercase">
                     {{ c.nombre }}
                   </router-link>
-                  <span class="text-[10px] text-slate-500 font-mono">C.C. {{ c.cedula }}</span>
+                  <div class="flex items-center gap-2 mt-0.5">
+                    <span class="text-[10px] text-slate-500 font-mono">C.C. {{ c.cedula }}</span>
+                    <span v-if="c.fecha" class="text-[9px] font-mono font-bold text-cyan-400 bg-cyan-500/10 px-1.5 py-0.5 rounded border border-cyan-500/10">
+                      {{ c.fecha }}
+                    </span>
+                  </div>
                 </div>
                 <div class="flex items-center gap-2 text-xs">
                   <span class="text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/10 font-medium">
@@ -166,14 +171,19 @@
               </div>
               <div 
                 v-for="c in cambios?.volvieron_disponibles" 
-                :key="c.cedula"
+                :key="c.cedula + '-' + c.fecha"
                 class="flex items-center justify-between p-3 rounded-xl bg-darkBg/40 border border-darkBorder/40 hover:border-darkBorder"
               >
                 <div>
                   <router-link :to="`/personal/${c.cedula}`" class="text-xs font-bold text-slate-200 hover:text-cyan-400 block uppercase">
                     {{ c.nombre }}
                   </router-link>
-                  <span class="text-[10px] text-slate-500 font-mono">C.C. {{ c.cedula }}</span>
+                  <div class="flex items-center gap-2 mt-0.5">
+                    <span class="text-[10px] text-slate-500 font-mono">C.C. {{ c.cedula }}</span>
+                    <span v-if="c.fecha" class="text-[9px] font-mono font-bold text-cyan-400 bg-cyan-500/10 px-1.5 py-0.5 rounded border border-cyan-500/10">
+                      {{ c.fecha }}
+                    </span>
+                  </div>
                 </div>
                 <div class="flex items-center gap-2 text-xs">
                   <span class="text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/10 font-medium">
@@ -194,14 +204,19 @@
               </div>
               <div 
                 v-for="c in cambios?.otros_cambios" 
-                :key="c.cedula"
+                :key="c.cedula + '-' + c.fecha"
                 class="flex items-center justify-between p-3 rounded-xl bg-darkBg/40 border border-darkBorder/40 hover:border-darkBorder"
               >
                 <div>
                   <router-link :to="`/personal/${c.cedula}`" class="text-xs font-bold text-slate-200 hover:text-cyan-400 block uppercase">
                     {{ c.nombre }}
                   </router-link>
-                  <span class="text-[10px] text-slate-500 font-mono">C.C. {{ c.cedula }}</span>
+                  <div class="flex items-center gap-2 mt-0.5">
+                    <span class="text-[10px] text-slate-500 font-mono">C.C. {{ c.cedula }}</span>
+                    <span v-if="c.fecha" class="text-[9px] font-mono font-bold text-cyan-400 bg-cyan-500/10 px-1.5 py-0.5 rounded border border-cyan-500/10">
+                      {{ c.fecha }}
+                    </span>
+                  </div>
                 </div>
                 <div class="flex items-center gap-2 text-xs">
                   <span class="text-slate-400 bg-slate-500/10 px-2 py-0.5 rounded border border-slate-500/10">
@@ -503,7 +518,8 @@ const initDistribucionChart = async () => {
           {
             name: 'Distribución',
             type: 'pie',
-            radius: ['40%', '70%'],
+            radius: ['35%', '60%'],
+            center: ['50%', '42%'],
             avoidLabelOverlap: false,
             itemStyle: {
               borderRadius: 6,
