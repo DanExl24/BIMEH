@@ -91,24 +91,10 @@
 import { ref, onMounted, watch, onBeforeUnmount } from 'vue'
 import { useAppStore } from '../stores/appStore'
 import * as echarts from 'echarts'
+import { fetchStatsRanking, fetchNovedadesFrecuentes } from '../services/api'
+import type { RankingsData } from '../types'
 
 const appStore = useAppStore()
-
-interface RankingItem {
-  subnovedad: string
-  dias_acumulados: number
-}
-
-interface PersonnelRankingItem {
-  cedula: number
-  nombre: string
-  dias_novedad: number
-}
-
-interface RankingsData {
-  global_rank: RankingItem[]
-  most_novelties_people: PersonnelRankingItem[]
-}
 
 const loading = ref(true)
 const rankings = ref<RankingsData | null>(null)
@@ -119,11 +105,7 @@ let monthlyChart: echarts.ECharts | null = null
 const loadStats = async () => {
   loading.value = true
   try {
-    const res = await fetch(`${appStore.apiBase}/api/stats/ranking`)
-    if (res.ok) {
-      rankings.value = await res.json()
-    }
-    
+    rankings.value = await fetchStatsRanking()
     loading.value = false
     
     setTimeout(() => {
@@ -145,57 +127,54 @@ const initMonthlyChart = async () => {
   monthlyChart = echarts.init(monthlyNovedadesDom.value)
   
   try {
-    const res = await fetch(`${appStore.apiBase}/api/dashboard/novedades-frecuentes?mes=${appStore.selectedMonth}`)
-    if (res.ok) {
-      const data = await res.json()
-      
-      const names = data.map((d: any) => d.novedad)
-      const values = data.map((d: any) => d.cantidad)
-      
-      monthlyChart.setOption({
-        backgroundColor: 'transparent',
-        tooltip: {
-          trigger: 'axis',
-          axisPointer: { type: 'shadow' },
-          backgroundColor: '#151d30',
-          borderColor: '#1f2b45',
-          textStyle: { color: '#f1f5f9' }
-        },
-        grid: { top: 30, right: 30, bottom: 40, left: 100 },
-        xAxis: {
-          type: 'category',
-          data: names,
-          axisLine: { lineStyle: { color: '#1f2b45' } },
-          axisLabel: { color: '#94a3b8', rotate: 15, fontSize: 10 },
-          splitLine: { show: false }
-        },
-        yAxis: {
-          type: 'value',
-          axisLine: { lineStyle: { color: '#1f2b45' } },
-          axisLabel: { color: '#94a3b8' },
-          splitLine: { lineStyle: { color: '#1f2b45' } }
-        },
-        series: [
-          {
-            type: 'bar',
-            data: values,
-            itemStyle: {
-              color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-                { offset: 0, color: '#06b6d4' },
-                { offset: 1, color: '#14b8a6' }
-              ]),
-              borderRadius: [4, 4, 0, 0]
-            },
-            label: {
-              show: true,
-              position: 'top',
-              color: '#f1f5f9',
-              fontSize: 10
-            }
+    const data = await fetchNovedadesFrecuentes(appStore.selectedMonth)
+    
+    const names = data.map((d: any) => d.novedad)
+    const values = data.map((d: any) => d.cantidad)
+    
+    monthlyChart.setOption({
+      backgroundColor: 'transparent',
+      tooltip: {
+        trigger: 'axis',
+        axisPointer: { type: 'shadow' },
+        backgroundColor: '#151d30',
+        borderColor: '#1f2b45',
+        textStyle: { color: '#f1f5f9' }
+      },
+      grid: { top: 30, right: 30, bottom: 40, left: 100 },
+      xAxis: {
+        type: 'category',
+        data: names,
+        axisLine: { lineStyle: { color: '#1f2b45' } },
+        axisLabel: { color: '#94a3b8', rotate: 15, fontSize: 10 },
+        splitLine: { show: false }
+      },
+      yAxis: {
+        type: 'value',
+        axisLine: { lineStyle: { color: '#1f2b45' } },
+        axisLabel: { color: '#94a3b8' },
+        splitLine: { lineStyle: { color: '#1f2b45' } }
+      },
+      series: [
+        {
+          type: 'bar',
+          data: values,
+          itemStyle: {
+            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+              { offset: 0, color: '#06b6d4' },
+              { offset: 1, color: '#14b8a6' }
+            ]),
+            borderRadius: [4, 4, 0, 0]
+          },
+          label: {
+            show: true,
+            position: 'top',
+            color: '#f1f5f9',
+            fontSize: 10
           }
-        ]
-      })
-    }
+        }
+      ]
+    })
   } catch (error) {
     console.error('Error fetching monthly charts data:', error)
   }

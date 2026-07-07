@@ -109,20 +109,12 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import { useAppStore } from '../stores/appStore'
-
-const appStore = useAppStore()
-
-interface Personal {
-  cedula: number
-  nombre: string
-  estado: string
-  fecha_retiro: string | null
-}
+import { buscarPersonal } from '../services/api'
+import type { PersonalSearchResult } from '../types'
 
 const searchQuery = ref('')
 const loading = ref(false)
-const results = ref<Personal[]>([])
+const results = ref<PersonalSearchResult[]>([])
 
 const sugerencias = [
   'LIZARAZO',
@@ -146,10 +138,7 @@ const handleSearch = () => {
   loading.value = true
   timeout = window.setTimeout(async () => {
     try {
-      const res = await fetch(`${appStore.apiBase}/api/personal/buscar?q=${searchQuery.value}`)
-      if (res.ok) {
-        results.value = await res.json()
-      }
+      results.value = await buscarPersonal(searchQuery.value)
       loading.value = false
     } catch (e) {
       console.error('Error fetching personnel:', e)

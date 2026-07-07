@@ -240,34 +240,14 @@
 import { ref, onMounted, watch, onBeforeUnmount } from 'vue'
 import { useAppStore } from '../stores/appStore'
 import * as echarts from 'echarts'
+import { fetchKPIs, fetchCambios, fetchEvolucion, fetchNovedadesFrecuentes, fetchDistribucion } from '../services/api'
+import type { KPIData, CambiosResponse } from '../types'
 
 const appStore = useAppStore()
 
-interface KPI {
-  fecha: string
-  total_personal: number
-  disponibles: number
-  novedades: number
-  disponibilidad: number
-  cambios_vs_ayer: number
-}
-
-interface Cambio {
-  cedula: number
-  nombre: string
-  novedad_anterior: string
-  novedad_nueva: string
-}
-
-interface CambiosData {
-  entraron_novedades: Cambio[]
-  volvieron_disponibles: Cambio[]
-  otros_cambios: Cambio[]
-}
-
 const loading = ref(true)
-const kpis = ref<KPI | null>(null)
-const cambios = ref<CambiosData | null>(null)
+const kpis = ref<KPIData | null>(null)
+const cambios = ref<CambiosResponse | null>(null)
 const activeChangeTab = ref<'entraron' | 'volvieron' | 'otros'>('entraron')
 
 // Chart DOM elements
@@ -284,21 +264,17 @@ let distribucionChart: echarts.ECharts | null = null
 const loadDashboardData = async () => {
   loading.value = true
   try {
-    const apiBase = appStore.apiBase
     const mes = appStore.selectedDashboardMonth
     const dia = appStore.selectedDashboardDay
     
-    // Fetch KPIs
-    const kpisResponse = await fetch(`${apiBase}/api/dashboard/kpis?mes=${mes}&dia=${dia}`)
-    if (kpisResponse.ok) {
-      kpis.value = await kpisResponse.json()
-    }
+    // Fetch KPIs & Cambios in parallel
+    const [kpisData, cambiosData] = await Promise.all([
+      fetchKPIs(mes, dia),
+      fetchCambios(mes, dia)
+    ])
     
-    // Fetch Cambios
-    const cambiosResponse = await fetch(`${apiBase}/api/dashboard/cambios?mes=${mes}&dia=${dia}`)
-    if (cambiosResponse.ok) {
-      cambios.value = await cambiosResponse.json()
-    }
+    kpis.value = kpisData
+    cambios.value = cambiosData
     
     loading.value = false
     
@@ -324,76 +300,72 @@ const initEvolutionChart = async () => {
   
   evolutionChart = echarts.init(evolutionChartDom.value)
   
-  // Fetch data
   try {
     const mes = appStore.selectedDashboardMonth
     const dia = appStore.selectedDashboardDay
-    const res = await fetch(`${appStore.apiBase}/api/dashboard/evolucion?mes=${mes}&dia=${dia}`)
-    if (res.ok) {
-      const data = await res.json()
-      
-      const dates = data.map((d: any) => d.fecha)
-      const disponibilidades = data.map((d: any) => d.disponibilidad)
-      const disponibles = data.map((d: any) => d.disponibles)
-      
-      evolutionChart.setOption({
-        backgroundColor: 'transparent',
-        tooltip: {
-          trigger: 'axis',
-          axisPointer: { type: 'line' },
-          backgroundColor: '#151d30',
-          borderColor: '#1f2b45',
-          textStyle: { color: '#f1f5f9' }
+    const data = await fetchEvolucion(mes, dia)
+    
+    const dates = data.map((d: any) => d.fecha)
+    const disponibilidades = data.map((d: any) => d.disponibilidad)
+    const disponibles = data.map((d: any) => d.disponibles)
+    
+    evolutionChart.setOption({
+      backgroundColor: 'transparent',
+      tooltip: {
+        trigger: 'axis',
+        axisPointer: { type: 'line' },
+        backgroundColor: '#151d30',
+        borderColor: '#1f2b45',
+        textStyle: { color: '#f1f5f9' }
+      },
+      grid: { top: 30, right: 20, bottom: 40, left: 50 },
+      xAxis: {
+        type: 'category',
+        data: dates,
+        axisLine: { lineStyle: { color: '#1f2b45' } },
+        axisLabel: { color: '#94a3b8', fontSize: 10, rotate: 30 },
+        splitLine: { show: false }
+      },
+      yAxis: [
+        {
+          type: 'value',
+          name: 'Disp. %',
+          min: 0,
+          max: 100,
+          axisLabel: { color: '#94a3b8', formatter: '{value}%' },
+          splitLine: { lineStyle: { color: '#1f2b45' } }
         },
-        grid: { top: 30, right: 20, bottom: 40, left: 50 },
-        xAxis: {
-          type: 'category',
-          data: dates,
-          axisLine: { lineStyle: { color: '#1f2b45' } },
-          axisLabel: { color: '#94a3b8', fontSize: 10, rotate: 30 },
+        {
+          type: 'value',
+          name: 'Disponibles',
+          axisLabel: { color: '#94a3b8' },
           splitLine: { show: false }
+        }
+      ],
+      series: [
+        {
+          name: 'Disponibilidad %',
+          type: 'line',
+          data: disponibilidades,
+          smooth: true,
+          lineStyle: { width: 3, color: '#06b6d4' },
+          itemStyle: { color: '#06b6d4' },
+          areaStyle: {
+            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+              { offset: 0, color: 'rgba(6, 182, 212, 0.25)' },
+              { offset: 1, color: 'rgba(6, 182, 212, 0.0)' }
+            ])
+          }
         },
-        yAxis: [
-          {
-            type: 'value',
-            name: 'Disp. %',
-            min: 0,
-            max: 100,
-            axisLabel: { color: '#94a3b8', formatter: '{value}%' },
-            splitLine: { lineStyle: { color: '#1f2b45' } }
-          },
-          {
-            type: 'value',
-            name: 'Disponibles',
-            axisLabel: { color: '#94a3b8' },
-            splitLine: { show: false }
-          }
-        ],
-        series: [
-          {
-            name: 'Disponibilidad %',
-            type: 'line',
-            data: disponibilidades,
-            smooth: true,
-            lineStyle: { width: 3, color: '#06b6d4' },
-            itemStyle: { color: '#06b6d4' },
-            areaStyle: {
-              color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-                { offset: 0, color: 'rgba(6, 182, 212, 0.25)' },
-                { offset: 1, color: 'rgba(6, 182, 212, 0.0)' }
-              ])
-            }
-          },
-          {
-            name: 'Pers. Disponible',
-            type: 'bar',
-            yAxisIndex: 1,
-            data: disponibles,
-            itemStyle: { color: 'rgba(16, 185, 129, 0.2)' }
-          }
-        ]
-      })
-    }
+        {
+          name: 'Pers. Disponible',
+          type: 'bar',
+          yAxisIndex: 1,
+          data: disponibles,
+          itemStyle: { color: 'rgba(16, 185, 129, 0.2)' }
+        }
+      ]
+    })
   } catch (error) {
     console.error('Error fetching evolution data:', error)
   }
@@ -411,56 +383,53 @@ const initNovedadesChart = async () => {
   try {
     const mes = appStore.selectedDashboardMonth
     const dia = appStore.selectedDashboardDay
-    const res = await fetch(`${appStore.apiBase}/api/dashboard/novedades-frecuentes?mes=${mes}&dia=${dia}`)
-    if (res.ok) {
-      const data = await res.json()
-      
-      const names = data.slice(0, 5).map((d: any) => d.novedad)
-      const values = data.slice(0, 5).map((d: any) => d.cantidad)
-      
-      novedadesChart.setOption({
-        backgroundColor: 'transparent',
-        tooltip: {
-          trigger: 'axis',
-          axisPointer: { type: 'shadow' },
-          backgroundColor: '#151d30',
-          borderColor: '#1f2b45',
-          textStyle: { color: '#f1f5f9' }
-        },
-        grid: { top: 20, right: 10, bottom: 30, left: 80 },
-        xAxis: {
-          type: 'value',
-          axisLine: { lineStyle: { color: '#1f2b45' } },
-          axisLabel: { color: '#94a3b8' },
-          splitLine: { lineStyle: { color: '#1f2b45' } }
-        },
-        yAxis: {
-          type: 'category',
-          data: names.reverse(),
-          axisLine: { lineStyle: { color: '#1f2b45' } },
-          axisLabel: { color: '#f1f5f9', fontSize: 10 }
-        },
-        series: [
-          {
-            type: 'bar',
-            data: values.reverse(),
-            itemStyle: {
-              color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [
-                { offset: 0, color: '#f59e0b' },
-                { offset: 1, color: '#ef4444' }
-              ]),
-              borderRadius: [0, 4, 4, 0]
-            },
-            label: {
-              show: true,
-              position: 'right',
-              color: '#f1f5f9',
-              fontSize: 10
-            }
+    const data = await fetchNovedadesFrecuentes(mes, dia)
+    
+    const names = data.slice(0, 5).map((d: any) => d.novedad)
+    const values = data.slice(0, 5).map((d: any) => d.cantidad)
+    
+    novedadesChart.setOption({
+      backgroundColor: 'transparent',
+      tooltip: {
+        trigger: 'axis',
+        axisPointer: { type: 'shadow' },
+        backgroundColor: '#151d30',
+        borderColor: '#1f2b45',
+        textStyle: { color: '#f1f5f9' }
+      },
+      grid: { top: 20, right: 10, bottom: 30, left: 80 },
+      xAxis: {
+        type: 'value',
+        axisLine: { lineStyle: { color: '#1f2b45' } },
+        axisLabel: { color: '#94a3b8' },
+        splitLine: { lineStyle: { color: '#1f2b45' } }
+      },
+      yAxis: {
+        type: 'category',
+        data: names.reverse(),
+        axisLine: { lineStyle: { color: '#1f2b45' } },
+        axisLabel: { color: '#f1f5f9', fontSize: 10 }
+      },
+      series: [
+        {
+          type: 'bar',
+          data: values.reverse(),
+          itemStyle: {
+            color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [
+              { offset: 0, color: '#f59e0b' },
+              { offset: 1, color: '#ef4444' }
+            ]),
+            borderRadius: [0, 4, 4, 0]
+          },
+          label: {
+            show: true,
+            position: 'right',
+            color: '#f1f5f9',
+            fontSize: 10
           }
-        ]
-      })
-    }
+        }
+      ]
+    })
   } catch (error) {
     console.error('Error fetching frequency data:', error)
   }
@@ -478,75 +447,72 @@ const initDistribucionChart = async () => {
   try {
     const mes = appStore.selectedDashboardMonth
     const dia = appStore.selectedDashboardDay
-    const res = await fetch(`${appStore.apiBase}/api/dashboard/distribucion?mes=${mes}&dia=${dia}`)
-    if (res.ok) {
-      const data = await res.json()
-      
-      // Format top 6 + other
-      const sorted = [...data].sort((a: any, b: any) => b.cantidad - a.cantidad)
-      const topItems = sorted.slice(0, 5)
-      const others = sorted.slice(5)
-      
-      const chartData = topItems.map((item: any) => ({
-        name: item.subnovedad,
-        value: item.cantidad
-      }))
-      
-      if (others.length > 0) {
-        const othersCount = others.reduce((sum: number, item: any) => sum + item.cantidad, 0)
-        chartData.push({
-          name: 'OTROS',
-          value: othersCount
-        })
-      }
-      
-      distribucionChart.setOption({
-        backgroundColor: 'transparent',
-        tooltip: {
-          trigger: 'item',
-          backgroundColor: '#151d30',
-          borderColor: '#1f2b45',
-          textStyle: { color: '#f1f5f9' },
-          formatter: '{b}: <b>{c}</b> ({d}%)'
-        },
-        legend: {
-          orient: 'horizontal',
-          bottom: 0,
-          textStyle: { color: '#94a3b8', fontSize: 9 }
-        },
-        series: [
-          {
-            name: 'Distribución',
-            type: 'pie',
-            radius: ['35%', '60%'],
-            center: ['50%', '42%'],
-            avoidLabelOverlap: false,
-            itemStyle: {
-              borderRadius: 6,
-              borderColor: '#151d30',
-              borderWidth: 2
-            },
-            label: {
-              show: false,
-              position: 'center'
-            },
-            emphasis: {
-              label: {
-                show: true,
-                fontSize: 14,
-                fontWeight: 'bold',
-                color: '#f1f5f9'
-              }
-            },
-            labelLine: {
-              show: false
-            },
-            data: chartData,
-            color: ['#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#6366f1', '#a855f7']
-          }
-        ]
+    const data = await fetchDistribucion(mes, dia)
+    
+    // Format top 6 + other
+    const sorted = [...data].sort((a: any, b: any) => b.cantidad - a.cantidad)
+    const topItems = sorted.slice(0, 5)
+    const others = sorted.slice(5)
+    
+    const chartData = topItems.map((item: any) => ({
+      name: item.subnovedad,
+      value: item.cantidad
+    }))
+    
+    if (others.length > 0) {
+      const othersCount = others.reduce((sum: number, item: any) => sum + item.cantidad, 0)
+      chartData.push({
+        name: 'OTROS',
+        value: othersCount
       })
     }
+    
+    distribucionChart.setOption({
+      backgroundColor: 'transparent',
+      tooltip: {
+        trigger: 'item',
+        backgroundColor: '#151d30',
+        borderColor: '#1f2b45',
+        textStyle: { color: '#f1f5f9' },
+        formatter: '{b}: <b>{c}</b> ({d}%)'
+      },
+      legend: {
+        orient: 'horizontal',
+        bottom: 0,
+        textStyle: { color: '#94a3b8', fontSize: 9 }
+      },
+      series: [
+        {
+          name: 'Distribución',
+          type: 'pie',
+          radius: ['35%', '60%'],
+          center: ['50%', '42%'],
+          avoidLabelOverlap: false,
+          itemStyle: {
+            borderRadius: 6,
+            borderColor: '#151d30',
+            borderWidth: 2
+          },
+          label: {
+            show: false,
+            position: 'center'
+          },
+          emphasis: {
+            label: {
+              show: true,
+              fontSize: 14,
+              fontWeight: 'bold',
+              color: '#f1f5f9'
+            }
+          },
+          labelLine: {
+            show: false
+          },
+          data: chartData,
+          color: ['#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#6366f1', '#a855f7']
+        }
+      ]
+    })
   } catch (error) {
     console.error('Error fetching distribution data:', error)
   }

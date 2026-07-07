@@ -183,7 +183,7 @@
                     {{ r.subnovedad }}
                   </span>
                 </td>
-                <td class="py-2.5 px-3 text-slate-300 max-w-[200px] truncate uppercase" :title="r.descripcion">
+                <td class="py-2.5 px-3 text-slate-300 max-w-[200px] truncate uppercase" :title="r.descripcion || undefined">
                   {{ r.descripcion }}
                 </td>
                 <td class="py-2.5 px-3 font-mono text-slate-500">{{ r.desde || '-' }}</td>
@@ -317,36 +317,10 @@
 <script setup lang="ts">
 import { ref, onMounted, watch, computed } from 'vue'
 import { useAppStore } from '../stores/appStore'
+import { fetchCalendario, fetchReporteDia, fetchStatsHeatmap } from '../services/api'
+import type { CalendarioItem, PersonalDia, HeatmapResponse } from '../types'
 
 const appStore = useAppStore()
-
-interface CalendarEntry {
-  fecha: string
-  disponibilidad: number
-  total_personal: number
-  disponibles: number
-  novedades: number
-}
-
-interface DailyRecord {
-  cedula: number
-  nombre: string
-  subnovedad: string
-  descripcion: string
-  desde: string | null
-  hasta: string | null
-}
-
-interface HeatmapRow {
-  cedula: number
-  nombre: string
-  estados: string[]
-}
-
-interface HeatmapData {
-  fechas: string[]
-  data: HeatmapRow[]
-}
 
 // Views controls
 const activeSubView = ref<'reporte' | 'heatmap'>('reporte')
@@ -362,9 +336,9 @@ const loadingDaily = ref(true)
 const loadingHeatmap = ref(true)
 
 // Data containers
-const calendarData = ref<CalendarEntry[]>([])
-const dailyReport = ref<DailyRecord[]>([])
-const heatmapData = ref<HeatmapData>({ fechas: [], data: [] })
+const calendarData = ref<CalendarioItem[]>([])
+const dailyReport = ref<PersonalDia[]>([])
+const heatmapData = ref<HeatmapResponse>({ fechas: [], data: [] })
 
 // Heatmap Pagination
 const heatmapPage = ref(1)
@@ -399,16 +373,13 @@ const getDayNum = (date_str: string) => {
 const loadCalendar = async () => {
   loadingCalendar.value = true
   try {
-    const res = await fetch(`${appStore.apiBase}/api/reportes/calendario?mes=${appStore.selectedMonth}`)
-    if (res.ok) {
-      calendarData.value = await res.json()
-      // If dates exist, select the first date of the calendar by default
-      if (calendarData.value.length > 0) {
-        // Only override activeDate if it's not present in this month's calendar
-        const datesList = calendarData.value.map(c => c.fecha)
-        if (!datesList.includes(activeDate.value)) {
-          activeDate.value = datesList[0]
-        }
+    calendarData.value = await fetchCalendario(appStore.selectedMonth)
+    // If dates exist, select the first date of the calendar by default
+    if (calendarData.value.length > 0) {
+      // Only override activeDate if it's not present in this month's calendar
+      const datesList = calendarData.value.map(c => c.fecha)
+      if (!datesList.includes(activeDate.value)) {
+        activeDate.value = datesList[0]
       }
     }
     loadingCalendar.value = false
@@ -422,10 +393,7 @@ const loadCalendar = async () => {
 const loadDailyReport = async () => {
   loadingDaily.value = true
   try {
-    const res = await fetch(`${appStore.apiBase}/api/reportes/dia?fecha=${activeDate.value}`)
-    if (res.ok) {
-      dailyReport.value = await res.json()
-    }
+    dailyReport.value = await fetchReporteDia(activeDate.value)
     loadingDaily.value = false
   } catch (e) {
     console.error('Error loading daily report:', e)
@@ -437,11 +405,8 @@ const loadDailyReport = async () => {
 const loadHeatmapData = async () => {
   loadingHeatmap.value = true
   try {
-    const res = await fetch(`${appStore.apiBase}/api/stats/heatmap?mes=${appStore.selectedMonth}`)
-    if (res.ok) {
-      heatmapData.value = await res.json()
-      heatmapPage.value = 1
-    }
+    heatmapData.value = await fetchStatsHeatmap(appStore.selectedMonth)
+    heatmapPage.value = 1
     loadingHeatmap.value = false
   } catch (e) {
     console.error('Error loading heatmap:', e)

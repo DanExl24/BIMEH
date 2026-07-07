@@ -90,309 +90,136 @@ Mes
 
     Reportes vacíos
 
-# Stats de la pagina web:
+# Estadísticas y Reportes del Sistema por Módulo
+
+El sistema cuenta con un motor analítico y visual distribuido en cuatro módulos principales y un completo sistema de exportaciones.
+
+---
+
+## 📊 1. Módulo: Dashboard General
+Diseñado para responder de manera instantánea a la pregunta: *¿Cómo está el estado de fuerza de la unidad hoy?*
+
+### Estadísticas y Métricas Clave (KPIs)
+* **Personal Registrado**: Número total de integrantes activos en la base de datos para la fecha seleccionada.
+* **Integrantes Disponibles**: Cantidad de personal listo para el servicio activo (asociados a las subnovedades `"CDO UNIDAD"` y `"AREA OPERACIONES"`).
+* **En Novedades**: Cantidad de integrantes no disponibles por motivos de salud, permisos, comisiones o licencias.
+* **Porcentaje de Disponibilidad**: Relación porcentual entre disponibles y el total de personal, destacada visualmente con un anillo de progreso dinámico.
+* **Novedades Médicas**: Total de novedades clasificadas como razones médicas (ej. incapacidades, citas médicas, hospitalizaciones).
+* **Novedades Administrativas**: Total de novedades por motivos administrativos (ej. comisiones de servicio, licencias, permisos).
 
-1. Dashboard general
+### Visualizaciones Gráficas
+* **Evolución de Disponibilidad (Línea)**: Gráfico de líneas temporales de ECharts que muestra la fluctuación de la disponibilidad diaria a lo largo del mes seleccionado, facilitando la detección de caídas críticas de personal.
+* **Distribución de Novedades (Dona)**: Gráfico circular que representa la proporción en porcentaje de cada subnovedad respecto al total diario.
+* **Resumen de Cambios respecto al día anterior (Novedades Diarias)**: Listado automático que detecta variaciones del estado de fuerza entre el día de ayer y hoy:
+  * Entradas a novedades (ej. ingresa a vacaciones).
+  * Retornos al servicio activo (ej. vuelve a disponible).
+  * Cambios de tipo de novedad.
+
+---
+
+## 📅 2. Módulo: Cronología (Bitácora Diario)
+Permite inspeccionar a detalle y navegar a lo largo del tiempo de forma histórica en el estado operacional de toda la unidad.
+
+### Funcionalidades
+* **Navegador Temporal**: Un calendario dinámico que muestra cuáles fechas cuentan con reportes cargados en la base de datos.
+* **Novedades de la Fecha**: Visualización tipo lista e interactiva de todos los integrantes que tuvieron una novedad registrada para esa fecha específica.
+* **Filtros Operacionales**: Caja de búsqueda inteligente por Nombre/Cédula y filtro rápido por tipo de Subnovedad.
+
+---
+
+## 📈 3. Módulo: Estadísticas Generales
+Entrega un panel consolidado de rankings históricos y distribuciones acumuladas para la toma de decisiones.
+
+### Estadísticas y Rankings
+* **Ranking de Subnovedades más Frecuentes**: Gráfico de barras horizontales interactivo que ordena de mayor a menor las novedades más recurrentes en el rango temporal seleccionado.
+* **Promedio de Duración de Novedades**: Muestra el promedio de días que el personal permanece inactivo por cada tipo de novedad.
+* **Comparativas Mensuales**: Tabla comparativa con la sumatoria de días-novedad y tasa de disponibilidad agregada mes a mes.
+
+---
+
+## 👤 4. Módulo: Personal y Expediente Individual
+Ficha técnica detallada que reúne toda la hoja de vida operacional e histórico de novedades de un integrante.
+
+### Métricas Individuales
+* **Tasa de Disponibilidad Histórica**: Porcentaje total del tiempo en que el integrante ha estado disponible para el servicio.
+* **Días Totales Registrados**: Historial de registros del miembro.
+* **Días Acumulados por Novedad**: Sumatoria exacta del tiempo en que el usuario ha estado de permiso, vacaciones o incapacidad.
+
+### Visualizaciones y Utilidades
+* **Gráfico de Torta RoseType (ECharts)**: Un gráfico circular tipo rosa de áreas que ilustra de manera prémium la distribución acumulada de sus novedades.
+* **Línea de Tiempo**: Flujo cronológico vertical scrollable de todas las novedades y estados registrados por fecha.
+* **Heatmap Mensual Individual**: Grid interactivo de 31 columnas que colorea cada día del mes (Verde = Disponible, Naranja = Novedad, Gris = Sin Registro) para identificar rápidamente patrones individuales.
+* **Heatmap Anual Individual**: Matriz unificada de 12 meses por 31 días que da una visión global de disponibilidad a lo largo del año.
+* **Reporte Tabular Histórico Paginado**: Tabla de datos integrada con buscador predictivo de descripciones y filtro rápido por subnovedad para auditar los registros detallados de inicio, fin y justificación de cada estado.
+
+---
+
+## 📥 5. Módulo de Descargas y Exportaciones
+El backend implementa un potente servicio de exportación modularizado en `exportar.py` para formatos **Excel, CSV y PDF**:
+
+1. **Reporte Diario Operacional (Módulo Cronología)**:
+   * Genera la lista oficial de novedades de la fecha seleccionada con columnas de identificación, novedad, descripción, fecha inicial y fecha final.
+2. **Heatmap de Disponibilidad Mensual (Módulo Personal / Dashboard)**:
+   * Genera una matriz de asistencia donde las filas representan el personal y las columnas representan los 31 días del mes. Marca visualmente los estados de disponibilidad y novedad.
+3. **Historial Individual Filtrado (Módulo Perfil)**:
+   * Exporta todo el historial de novedades de un integrante. Admite filtros opcionales de **Mes** y **Subnovedad**, permitiendo al usuario descargar, por ejemplo, únicamente las "Vacaciones" del integrante correspondientes al mes de "JULIO" en PDF, Excel o CSV.
+
+---
+
+## 🗄️ Esquema de Base de Datos (PostgreSQL)
+
+El sistema utiliza un esquema relacional normalizado:
+
+### 1. Tabla: `PERSONAL`
+Representa al personal de la unidad.
+* `id` (SERIAL PRIMARY KEY)
+* `cedula` (INTEGER UNIQUE)
+* `nombre` (VARCHAR)
+* `fecha_retiro` (DATE, NULL si está activo)
+
+### 2. Tabla: `SUB_NOVEDADES`
+Catálogo de novedades y estados operacionales.
+* `id` (SERIAL PRIMARY KEY)
+* `nombre` (VARCHAR UNIQUE)
+
+### 3. Tabla: `REPORTES`
+Bitácoras diarias cargadas al sistema.
+* `id` (SERIAL PRIMARY KEY)
+* `fecha` (DATE UNIQUE)
+* `archivo` (VARCHAR)
+
+### 4. Tabla: `REGISTRO_PERSONAL`
+La tabla pivote que consolida el estado de un integrante en un reporte específico.
+* `id` (SERIAL PRIMARY KEY)
+* `id_reporte` (INTEGER REFERENCES `REPORTES(id)`)
+* `id_personal` (INTEGER REFERENCES `PERSONAL(id)`)
+* `id_sub_novedad` (INTEGER REFERENCES `SUB_NOVEDADES(id)`)
+* `descripcion` (TEXT)
+* `fecha_inicio` (DATE)
+* `fecha_final` (DATE)
+
+---
+
+## 🛠️ Stack Tecnológico de Desarrollo
+
+El sistema está desarrollado con tecnologías modernas que garantizan escalabilidad, rendimiento y un diseño visual prémium:
+
+### Backend
+* **Python**: Lenguaje de programación principal.
+* **FastAPI**: Framework web de alto rendimiento para exponer la API REST de forma asíncrona y autocompilada.
+* **SQLAlchemy / Psycopg2**: ORM y driver nativo para operaciones con la base de datos.
+* **ReportLab**: Motor de renderizado vectorial de documentos PDF para la generación de reportes oficiales de alta calidad.
+* **OpenPyXL**: Manipulación y creación de hojas de cálculo de Excel (`.xlsx`).
+
+### Frontend
+* **Vue 3 (SFC - Single File Components)**: Framework reactivo utilizando la *Composition API* y `<script setup lang="ts">`.
+* **TypeScript**: Tipado estático y robusto en todo el frontend.
+* **Vite**: Herramienta de compilación rápida para desarrollo.
+* **Tailwind CSS v4.0**: Framework CSS de utilidades para un diseño responsivo de alto impacto visual (modo oscuro profundo, tarjetas de tipo neumórfico y bordes degradados).
+* **Pinia**: Gestor de estado global y reactivo.
+* **Vue Router**: Sistema de navegación dinámica y SPA.
+* **ECharts (Apache)**: Biblioteca para la visualización interactiva de gráficos estadísticos complejos en tiempo real.
+
+### Base de Datos
+* **PostgreSQL**: Motor de base de datos relacional para almacenamiento y consultas agregadas optimizadas.
 
-La primera pantalla debería responder en menos de 10 segundos: "¿Cómo está la unidad hoy?"
-
-Podrías tener tarjetas arriba:
-
-📅 Fecha seleccionada: 2026-01-18
-
-👥 Personal registrado
-842
-
-✅ Disponibles
-615
-
-🏥 En novedades
-227
-
-📈 Disponibilidad
-73.0%
-
-🔄 Cambios respecto a ayer
-18
-
-Es lo primero que miraría un comandante.
-
-2. Evolución diaria
-
-Una línea de tiempo.
-
-Disponibles
-850 ─────────────╮
-830 ───────────╮ │
-810 ───────╮ │ │
-790 ────╮ │ │ │
-770 ──╮ │ │ │ │
-1 5 10 15 20 25 30
-
-Así ves si la disponibilidad cayó.
-
-3. Novedades más frecuentes
-
-Un gráfico de barras.
-
-VACACIONES ███████████
-CITA MEDICA ███████
-PERMISO █████
-HOSPITALIZADO ███
-CAPACITACIÓN ██ 4. Personal por estado
-
-Otro grafico de barras
-
-Disponible 74%
-Vacaciones 12%
-Médicas 7%
-Permisos 5%
-Otros 2%
-
-Aunque personalmente prefiero barras. Los pasteles son bonitos, pero comparan mal cantidades.
-
-5. Calendario de actividad
-
-Algo tipo GitHub.
-
-L M M J V S D
-
-🟩🟩🟨🟥🟩🟩🟩
-🟩🟩🟩🟩🟩🟨🟥
-
-Color según porcentaje de disponibilidad.
-
-6. Buscador
-
-Escribes
-
-1015413550
-
-o
-
-Ramírez
-
-y aparece
-
-Nombre:
-RAMIREZ BOGOYA OMAR
-
-Estado hoy
-Disponible
-
-Última novedad
-CITA MEDICA
-
-Desde
-15/01
-
-Hasta
-17/01 7. Línea de tiempo individual
-
-Aquí creo que está el mayor valor.
-
-15 Enero
-Disponible
-
-16 Enero
-Disponible
-
-17 Enero
-Cita médica
-
-18 Enero
-Cita médica
-
-19 Enero
-Disponible
-
-20 Enero
-Vacaciones
-
-21 Enero
-Vacaciones
-
-Como un historial.
-
-8. Tiempo acumulado
-
-Por persona.
-
-Disponible
-318 días
-
-Vacaciones
-22 días
-
-Citas médicas
-5 días
-
-Permisos
-11 días 9. Ranking
-
-No para señalar gente, sino para detectar patrones.
-
-Ejemplo:
-
-Subnovedades más frecuentes
-
-Vacaciones
-231
-
-Cita médica
-114
-
-Permiso
-87
-
-Hospital
-15 10. Cambios entre días
-
-Esto me parece muy útil.
-
-Hoy cambiaron:
-
-- 8 personas entraron a vacaciones
-
-- 4 volvieron disponibles
-
-- 2 ingresaron hospitalizados
-
-Eso evita revisar 800 registros manualmente.
-
-11. Estadísticas por persona
-
-Cuando abras un perfil:
-
-Nombre
-
-──────────────
-
-Tiempo disponible
-91%
-
-Tiempo en novedades
-9%
-
-Total novedades
-14
-
-Última novedad
-Vacaciones
-
-Promedio duración novedades
-4.3 días 12. Heatmap
-
-Una tabla enorme.
-
-            Enero
-
-Persona 1 2 3 4 5 6
-
-Juan 🟩🟩🟩🟨🟨🟩
-
-Pedro 🟩🟥🟥🟥🟩🟩
-
-Carlos 🟩🟩🟩🟩🟩🟩
-
-Cada cuadro un día.
-
-Verías patrones enseguida.
-
-Organizacion por modulos:
-
-# Modulos
-
-📊 Dashboard
-KPIs
-Disponibilidad
-Novedades
-Evolución
-Cambios diarios
-👤 Personal
-
-Buscador.
-
-Perfil.
-
-Historial.
-
-📈 Estadísticas
-
-Todos los gráficos.
-
-Comparaciones.
-
-Rankings.
-
-Distribuciones.
-
-📅 Cronología
-
-Seleccionas una fecha.
-
-Ves exactamente cómo estaba toda la unidad ese día.
-
-- Exportacion PDF,EXCEL y CSV
-- Reporte por personal
-- Reporte por mes
-- Reporte por dia
-  La exportacion PDF debe incluir graficas interactivas
-
-- SQLITE:
-
-## PERSONAL
-
-id
-cedula UNIQUE
-nombre
-fecha_retiro
-
-## SUB_NOVEDADES
-
-id
-nombre
-
-## REPORTES
-
-id
-fecha
-archivo
-
-## REGISTRO_PERSONAL
-
-id
-id_reporte
-id_personal
-id_sub_novedad
-descripcion
-fecha_inicio
-fecha_final
-
-- Un personal puede tener muchas sub_novedades
-- Una novedad puede estar en muchos registros
-- un reporte puede estar en muchos registros
-- Un personal solo puede tener una sub_novedad por dia
-- Un personal puede tener muchas registros por mes
-
-# Personal
-
-La cédula es única.
-Un registro pertenece a un único integrante del personal.
-
-# Subnovedades
-
-Una subnovedad puede asociarse a múltiples personas.
-Cada registro solo puede tener una subnovedad.
-
-# Reportes
-
-Un reporte corresponde a una única fecha.
-Una fecha solo puede tener un reporte oficial.
-
-# Detalles
-
-Un registro pertenece a una sola persona.
-Un registro pertenece a un solo reporte.
-Un registro tiene una única subnovedad.
-Un mismo integrante no puede tener dos registros diferentes para la misma fecha de reporte.

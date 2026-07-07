@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
+import { fetchFechas } from '../services/api'
 
 export const useAppStore = defineStore('app', () => {
   const apiBase = 'http://127.0.0.1:8000'
@@ -16,11 +17,8 @@ export const useAppStore = defineStore('app', () => {
   
   const fetchAvailableDates = async () => {
     try {
-      const response = await fetch(`${apiBase}/api/fechas`)
-      if (response.ok) {
-        const data = await response.json()
-        availableDates.value = data
-      }
+      const data = await fetchFechas()
+      availableDates.value = data
     } catch (error) {
       console.error('Error fetching available dates:', error)
     }
