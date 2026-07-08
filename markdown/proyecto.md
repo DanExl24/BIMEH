@@ -97,72 +97,83 @@ El sistema cuenta con un motor analítico y visual distribuido en cuatro módulo
 ---
 
 ## 📊 1. Módulo: Dashboard General
-Diseñado para responder de manera instantánea a la pregunta: *¿Cómo está el estado de fuerza de la unidad hoy?*
+
+Diseñado para responder de manera instantánea a la pregunta: _¿Cómo está el estado de fuerza de la unidad hoy?_
 
 ### Estadísticas y Métricas Clave (KPIs)
-* **Personal Registrado**: Número total de integrantes activos en la base de datos para la fecha seleccionada.
-* **Integrantes Disponibles**: Cantidad de personal listo para el servicio activo (asociados a las subnovedades `"CDO UNIDAD"` y `"AREA OPERACIONES"`).
-* **En Novedades**: Cantidad de integrantes no disponibles por motivos de salud, permisos, comisiones o licencias.
-* **Porcentaje de Disponibilidad**: Relación porcentual entre disponibles y el total de personal, destacada visualmente con un anillo de progreso dinámico.
-* **Novedades Médicas**: Total de novedades clasificadas como razones médicas (ej. incapacidades, citas médicas, hospitalizaciones).
-* **Novedades Administrativas**: Total de novedades por motivos administrativos (ej. comisiones de servicio, licencias, permisos).
+
+- **Personal Registrado**: Número total de integrantes activos en la base de datos para la fecha seleccionada.
+- **Integrantes Disponibles**: Cantidad de personal listo para el servicio activo (asociados a las subnovedades `"CDO UNIDAD"` y `"AREA OPERACIONES"`).
+- **En Novedades**: Cantidad de integrantes no disponibles por motivos de salud, permisos, comisiones o licencias.
+- **Porcentaje de Disponibilidad**: Relación porcentual entre disponibles y el total de personal, destacada visualmente con un anillo de progreso dinámico.
+- **Novedades Médicas**: Total de novedades clasificadas como razones médicas (ej. incapacidades, citas médicas, hospitalizaciones).
+- **Novedades Administrativas**: Total de novedades por motivos administrativos (ej. comisiones de servicio, licencias, permisos).
 
 ### Visualizaciones Gráficas
-* **Evolución de Disponibilidad (Línea)**: Gráfico de líneas temporales de ECharts que muestra la fluctuación de la disponibilidad diaria a lo largo del mes seleccionado, facilitando la detección de caídas críticas de personal.
-* **Distribución de Novedades (Dona)**: Gráfico circular que representa la proporción en porcentaje de cada subnovedad respecto al total diario.
-* **Resumen de Cambios respecto al día anterior (Novedades Diarias)**: Listado automático que detecta variaciones del estado de fuerza entre el día de ayer y hoy:
-  * Entradas a novedades (ej. ingresa a vacaciones).
-  * Retornos al servicio activo (ej. vuelve a disponible).
-  * Cambios de tipo de novedad.
+
+- **Evolución de Disponibilidad (Línea)**: Gráfico de líneas temporales de ECharts que muestra la fluctuación de la disponibilidad diaria a lo largo del mes seleccionado, facilitando la detección de caídas críticas de personal.
+- **Distribución de Novedades (Dona)**: Gráfico circular que representa la proporción en porcentaje de cada subnovedad respecto al total diario.
+- **Resumen de Cambios respecto al día anterior (Novedades Diarias)**: Listado automático que detecta variaciones del estado de fuerza entre el día de ayer y hoy:
+  - Entradas a novedades (ej. ingresa a vacaciones).
+  - Retornos al servicio activo (ej. vuelve a disponible).
+  - Cambios de tipo de novedad.
 
 ---
 
 ## 📅 2. Módulo: Cronología (Bitácora Diario)
+
 Permite inspeccionar a detalle y navegar a lo largo del tiempo de forma histórica en el estado operacional de toda la unidad.
 
 ### Funcionalidades
-* **Navegador Temporal**: Un calendario dinámico que muestra cuáles fechas cuentan con reportes cargados en la base de datos.
-* **Novedades de la Fecha**: Visualización tipo lista e interactiva de todos los integrantes que tuvieron una novedad registrada para esa fecha específica.
-* **Filtros Operacionales**: Caja de búsqueda inteligente por Nombre/Cédula y filtro rápido por tipo de Subnovedad.
+
+- **Navegador Temporal**: Un calendario dinámico que muestra cuáles fechas cuentan con reportes cargados en la base de datos.
+- **Novedades de la Fecha**: Visualización tipo lista e interactiva de todos los integrantes que tuvieron una novedad registrada para esa fecha específica.
+- **Filtros Operacionales**: Caja de búsqueda inteligente por Nombre/Cédula y filtro rápido por tipo de Subnovedad.
 
 ---
 
 ## 📈 3. Módulo: Estadísticas Generales
+
 Entrega un panel consolidado de rankings históricos y distribuciones acumuladas para la toma de decisiones.
 
 ### Estadísticas y Rankings
-* **Ranking de Subnovedades más Frecuentes**: Gráfico de barras horizontales interactivo que ordena de mayor a menor las novedades más recurrentes en el rango temporal seleccionado.
-* **Promedio de Duración de Novedades**: Muestra el promedio de días que el personal permanece inactivo por cada tipo de novedad.
-* **Comparativas Mensuales**: Tabla comparativa con la sumatoria de días-novedad y tasa de disponibilidad agregada mes a mes.
+
+- **Ranking de Subnovedades más Frecuentes**: Gráfico de barras horizontales interactivo que ordena de mayor a menor las novedades más recurrentes en el rango temporal seleccionado.
+- **Promedio de Duración de Novedades**: Muestra el promedio de días que el personal permanece inactivo por cada tipo de novedad.
+- **Comparativas Mensuales**: Tabla comparativa con la sumatoria de días-novedad y tasa de disponibilidad agregada mes a mes.
 
 ---
 
 ## 👤 4. Módulo: Personal y Expediente Individual
+
 Ficha técnica detallada que reúne toda la hoja de vida operacional e histórico de novedades de un integrante.
 
 ### Métricas Individuales
-* **Tasa de Disponibilidad Histórica**: Porcentaje total del tiempo en que el integrante ha estado disponible para el servicio.
-* **Días Totales Registrados**: Historial de registros del miembro.
-* **Días Acumulados por Novedad**: Sumatoria exacta del tiempo en que el usuario ha estado de permiso, vacaciones o incapacidad.
+
+- **Tasa de Disponibilidad Histórica**: Porcentaje total del tiempo en que el integrante ha estado disponible para el servicio.
+- **Días Totales Registrados**: Historial de registros del miembro.
+- **Días Acumulados por Novedad**: Sumatoria exacta del tiempo en que el usuario ha estado de permiso, vacaciones o incapacidad.
 
 ### Visualizaciones y Utilidades
-* **Gráfico de Torta RoseType (ECharts)**: Un gráfico circular tipo rosa de áreas que ilustra de manera prémium la distribución acumulada de sus novedades.
-* **Línea de Tiempo**: Flujo cronológico vertical scrollable de todas las novedades y estados registrados por fecha.
-* **Heatmap Mensual Individual**: Grid interactivo de 31 columnas que colorea cada día del mes (Verde = Disponible, Naranja = Novedad, Gris = Sin Registro) para identificar rápidamente patrones individuales.
-* **Heatmap Anual Individual**: Matriz unificada de 12 meses por 31 días que da una visión global de disponibilidad a lo largo del año.
-* **Reporte Tabular Histórico Paginado**: Tabla de datos integrada con buscador predictivo de descripciones y filtro rápido por subnovedad para auditar los registros detallados de inicio, fin y justificación de cada estado.
+
+- **Gráfico de Torta RoseType (ECharts)**: Un gráfico circular tipo rosa de áreas que ilustra de manera prémium la distribución acumulada de sus novedades.
+- **Línea de Tiempo**: Flujo cronológico vertical scrollable de todas las novedades y estados registrados por fecha.
+- **Heatmap Mensual Individual**: Grid interactivo de 31 columnas que colorea cada día del mes (Verde = Disponible, Naranja = Novedad, Gris = Sin Registro) para identificar rápidamente patrones individuales.
+- **Heatmap Anual Individual**: Matriz unificada de 12 meses por 31 días que da una visión global de disponibilidad a lo largo del año.
+- **Reporte Tabular Histórico Paginado**: Tabla de datos integrada con buscador predictivo de descripciones y filtro rápido por subnovedad para auditar los registros detallados de inicio, fin y justificación de cada estado.
 
 ---
 
 ## 📥 5. Módulo de Descargas y Exportaciones
+
 El backend implementa un potente servicio de exportación modularizado en `exportar.py` para formatos **Excel, CSV y PDF**:
 
 1. **Reporte Diario Operacional (Módulo Cronología)**:
-   * Genera la lista oficial de novedades de la fecha seleccionada con columnas de identificación, novedad, descripción, fecha inicial y fecha final.
+   - Genera la lista oficial de novedades de la fecha seleccionada con columnas de identificación, novedad, descripción, fecha inicial y fecha final.
 2. **Heatmap de Disponibilidad Mensual (Módulo Personal / Dashboard)**:
-   * Genera una matriz de asistencia donde las filas representan el personal y las columnas representan los 31 días del mes. Marca visualmente los estados de disponibilidad y novedad.
+   - Genera una matriz de asistencia donde las filas representan el personal y las columnas representan los 31 días del mes. Marca visualmente los estados de disponibilidad y novedad.
 3. **Historial Individual Filtrado (Módulo Perfil)**:
-   * Exporta todo el historial de novedades de un integrante. Admite filtros opcionales de **Mes** y **Subnovedad**, permitiendo al usuario descargar, por ejemplo, únicamente las "Vacaciones" del integrante correspondientes al mes de "JULIO" en PDF, Excel o CSV.
+   - Exporta todo el historial de novedades de un integrante. Admite filtros opcionales de **Mes** y **Subnovedad**, permitiendo al usuario descargar, por ejemplo, únicamente las "Vacaciones" del integrante correspondientes al mes de "JULIO" en PDF, Excel o CSV.
 
 ---
 
@@ -171,32 +182,40 @@ El backend implementa un potente servicio de exportación modularizado en `expor
 El sistema utiliza un esquema relacional normalizado:
 
 ### 1. Tabla: `PERSONAL`
+
 Representa al personal de la unidad.
-* `id` (SERIAL PRIMARY KEY)
-* `cedula` (INTEGER UNIQUE)
-* `nombre` (VARCHAR)
-* `fecha_retiro` (DATE, NULL si está activo)
+
+- `id` (SERIAL PRIMARY KEY)
+- `cedula` (INTEGER UNIQUE)
+- `nombre` (VARCHAR)
+- `fecha_retiro` (DATE, NULL si está activo)
 
 ### 2. Tabla: `SUB_NOVEDADES`
+
 Catálogo de novedades y estados operacionales.
-* `id` (SERIAL PRIMARY KEY)
-* `nombre` (VARCHAR UNIQUE)
+
+- `id` (SERIAL PRIMARY KEY)
+- `nombre` (VARCHAR UNIQUE)
 
 ### 3. Tabla: `REPORTES`
+
 Bitácoras diarias cargadas al sistema.
-* `id` (SERIAL PRIMARY KEY)
-* `fecha` (DATE UNIQUE)
-* `archivo` (VARCHAR)
+
+- `id` (SERIAL PRIMARY KEY)
+- `fecha` (DATE UNIQUE)
+- `archivo` (VARCHAR)
 
 ### 4. Tabla: `REGISTRO_PERSONAL`
+
 La tabla pivote que consolida el estado de un integrante en un reporte específico.
-* `id` (SERIAL PRIMARY KEY)
-* `id_reporte` (INTEGER REFERENCES `REPORTES(id)`)
-* `id_personal` (INTEGER REFERENCES `PERSONAL(id)`)
-* `id_sub_novedad` (INTEGER REFERENCES `SUB_NOVEDADES(id)`)
-* `descripcion` (TEXT)
-* `fecha_inicio` (DATE)
-* `fecha_final` (DATE)
+
+- `id` (SERIAL PRIMARY KEY)
+- `id_reporte` (INTEGER REFERENCES `REPORTES(id)`)
+- `id_personal` (INTEGER REFERENCES `PERSONAL(id)`)
+- `id_sub_novedad` (INTEGER REFERENCES `SUB_NOVEDADES(id)`)
+- `descripcion` (TEXT)
+- `fecha_inicio` (DATE)
+- `fecha_final` (DATE)
 
 ---
 
@@ -205,21 +224,47 @@ La tabla pivote que consolida el estado de un integrante en un reporte específi
 El sistema está desarrollado con tecnologías modernas que garantizan escalabilidad, rendimiento y un diseño visual prémium:
 
 ### Backend
-* **Python**: Lenguaje de programación principal.
-* **FastAPI**: Framework web de alto rendimiento para exponer la API REST de forma asíncrona y autocompilada.
-* **SQLAlchemy / Psycopg2**: ORM y driver nativo para operaciones con la base de datos.
-* **ReportLab**: Motor de renderizado vectorial de documentos PDF para la generación de reportes oficiales de alta calidad.
-* **OpenPyXL**: Manipulación y creación de hojas de cálculo de Excel (`.xlsx`).
+
+- **Python**: Lenguaje de programación principal.
+- **FastAPI**: Framework web de alto rendimiento para exponer la API REST de forma asíncrona y autocompilada.
+- **SQLAlchemy / Psycopg2**: ORM y driver nativo para operaciones con la base de datos.
+- **ReportLab**: Motor de renderizado vectorial de documentos PDF para la generación de reportes oficiales de alta calidad.
+- **OpenPyXL**: Manipulación y creación de hojas de cálculo de Excel (`.xlsx`).
 
 ### Frontend
-* **Vue 3 (SFC - Single File Components)**: Framework reactivo utilizando la *Composition API* y `<script setup lang="ts">`.
-* **TypeScript**: Tipado estático y robusto en todo el frontend.
-* **Vite**: Herramienta de compilación rápida para desarrollo.
-* **Tailwind CSS v4.0**: Framework CSS de utilidades para un diseño responsivo de alto impacto visual (modo oscuro profundo, tarjetas de tipo neumórfico y bordes degradados).
-* **Pinia**: Gestor de estado global y reactivo.
-* **Vue Router**: Sistema de navegación dinámica y SPA.
-* **ECharts (Apache)**: Biblioteca para la visualización interactiva de gráficos estadísticos complejos en tiempo real.
+
+- **Vue 3 (SFC - Single File Components)**: Framework reactivo utilizando la _Composition API_ y `<script setup lang="ts">`.
+- **TypeScript**: Tipado estático y robusto en todo el frontend.
+- **Vite**: Herramienta de compilación rápida para desarrollo.
+- **Tailwind CSS v4.0**: Framework CSS de utilidades para un diseño responsivo de alto impacto visual (modo oscuro profundo, tarjetas de tipo neumórfico y bordes degradados).
+- **Pinia**: Gestor de estado global y reactivo.
+- **Vue Router**: Sistema de navegación dinámica y SPA.
+- **ECharts (Apache)**: Biblioteca para la visualización interactiva de gráficos estadísticos complejos en tiempo real.
 
 ### Base de Datos
-* **PostgreSQL**: Motor de base de datos relacional para almacenamiento y consultas agregadas optimizadas.
 
+- **PostgreSQL**: Motor de base de datos relacional para almacenamiento y consultas agregadas optimizadas.
+
+# Nueva implementacion
+
+Aunque el sistema carga toda la informacion respectiva a cada dia del mes, se puede ocasionar alguna perdida de un dia en concreto. para mitigar esta inconsistencia, se propone un nuevo modulo: carga/sincronizacion de reportes:
+Este modulo permitira:
+
+- Cargar reportes por un mes en concreto
+- Cargar reportes por un dia en concreto
+  El sistema debera validar si ya existe un reporte para la fecha seleccionada, de ser asi, debera mostrar un mensaje de alerta.
+  Asi mismo el backend debera validar que los reportes no se repitan.  
+  Deberá validar que los archivos se encuentren en formato correcto y tengan las respectivas columnas a cargar.
+  De igual forma, el sistema debera permitir:
+  Formato EXCEL, y formato JSON.
+
+Validacion:
+el sistema validara si existen las columnas correspondientes dentro del archivo EXCEL/JSON.
+De no ser asi, debera enviar un mensaje de alerta con la advertencia de columnas faltantes.
+
+Si el archivo cada pasa la validacion, el sistema debera sincronizar el reporte a la base de datos y se debera actualizar la informacion en todos los modulos del sistema.
+
+Requerimientos adicionales:
+el formato JSON deberá ser validado por el backend en cuanto a la estructura del JSON y la cantidad de información. Para ello, se debe respetar el formato que ya se encuentra en el backend.
+
+El sistema tambien dejara una plantilla para la carga de datos en formato EXCEL o JSON, asi el usuario podra saber que columnas y registros requiere el sistema.

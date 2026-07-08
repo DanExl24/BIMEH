@@ -18,8 +18,8 @@ export async function fetchKPIs(mes?: string, dia?: string, fecha?: string): Pro
     url += `fecha=${fecha}`
   } else {
     const params: string[] = []
-    if (mes) params.push(`mes=${mes}`)
-    if (dia) params.push(`dia=${dia}`)
+    if (typeof mes === 'string') params.push(`mes=${mes}`)
+    if (typeof dia === 'string') params.push(`dia=${dia}`)
     url += params.join('&')
   }
   const res = await fetch(url)
@@ -33,8 +33,8 @@ export async function fetchCambios(mes?: string, dia?: string, fecha?: string): 
     url += `fecha=${fecha}`
   } else {
     const params: string[] = []
-    if (mes) params.push(`mes=${mes}`)
-    if (dia) params.push(`dia=${dia}`)
+    if (typeof mes === 'string') params.push(`mes=${mes}`)
+    if (typeof dia === 'string') params.push(`dia=${dia}`)
     url += params.join('&')
   }
   const res = await fetch(url)
@@ -44,8 +44,8 @@ export async function fetchCambios(mes?: string, dia?: string, fecha?: string): 
 
 export async function fetchEvolucion(mes?: string, dia?: string): Promise<Types.EvolucionItem[]> {
   const params: string[] = []
-  if (mes) params.push(`mes=${mes}`)
-  if (dia) params.push(`dia=${dia}`)
+  if (typeof mes === 'string') params.push(`mes=${mes}`)
+  if (typeof dia === 'string') params.push(`dia=${dia}`)
   const url = `${getApiBase()}/api/dashboard/evolucion?${params.join('&')}`
   const res = await fetch(url)
   if (!res.ok) throw new Error('Error al obtener evolución')
@@ -58,8 +58,8 @@ export async function fetchNovedadesFrecuentes(mes?: string, dia?: string, fecha
     url += `fecha=${fecha}`
   } else {
     const params: string[] = []
-    if (mes) params.push(`mes=${mes}`)
-    if (dia) params.push(`dia=${dia}`)
+    if (typeof mes === 'string') params.push(`mes=${mes}`)
+    if (typeof dia === 'string') params.push(`dia=${dia}`)
     url += params.join('&')
   }
   const res = await fetch(url)
@@ -73,8 +73,8 @@ export async function fetchDistribucion(mes?: string, dia?: string, fecha?: stri
     url += `fecha=${fecha}`
   } else {
     const params: string[] = []
-    if (mes) params.push(`mes=${mes}`)
-    if (dia) params.push(`dia=${dia}`)
+    if (typeof mes === 'string') params.push(`mes=${mes}`)
+    if (typeof dia === 'string') params.push(`dia=${dia}`)
     url += params.join('&')
   }
   const res = await fetch(url)
