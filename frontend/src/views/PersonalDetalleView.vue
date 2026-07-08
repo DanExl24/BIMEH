@@ -1,5 +1,6 @@
 <template>
-  <div class="space-y-6">
+  <div>
+    <div class="space-y-6">
     <!-- Back Button -->
     <div>
       <router-link 
@@ -518,6 +519,7 @@
       </div>
     </div>
   </div>
+</div>
 </template>
 
 <script setup lang="ts">
