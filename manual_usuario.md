@@ -144,6 +144,22 @@ Permite buscar un integrante y auditar su hoja de ruta operacional completa.
 
 ---
 
+### 🔄 Módulo 6: Sincronizar Reportes (Carga de Datos)
+
+Permite subir nuevos reportes operacionales a la base de datos de manera interactiva para solventar vacíos de información o días que aparezcan sin registro (N/A).
+
+- **Cómo usarlo**:
+  1. Diríjase a la sección **Sincronizar Reportes** en el menú de navegación.
+  2. Seleccione el **Modo de Carga**:
+     - **Por Día Operativo**: Permite subir la asistencia de una fecha en concreto seleccionando el calendario (acepta formatos Excel `.xlsx` y JSON `.json`).
+     - **Por Mes Completo**: Permite subir un archivo consolidado con múltiples días de un mes seleccionando el mes en la lista desplegable (requiere formato JSON `.json`).
+  3. **Descarga de Plantillas**: Si no conoce la estructura o columnas necesarias, haga clic en los botones superiores **PLANTILLA EXCEL** o **PLANTILLA JSON** para descargar el archivo base.
+  4. Seleccione o arrastre su archivo en la zona punteada **Drag & Drop**.
+  5. Si desea sobreescribir reportes de fechas que ya se encuentran guardadas en la base de datos (por ejemplo, si desea corregir un reporte diario ya subido), marque la opción **"Sobreescribir reporte si ya existe"**.
+  6. Presione **Sincronizar Reporte**. El sistema validará la presencia de las columnas obligatorias (`CEDULA`, `APELLIDOS Y NOMBRES`, `SUBNOVEDAD`) y actualizará automáticamente todos los módulos de estadísticas y dashboards.
+
+---
+
 ## 7. Mensajes y Errores Frecuentes
 
 | Mensaje en Pantalla                                         | Significado                                                 | Acción Sugerida                                                                               |

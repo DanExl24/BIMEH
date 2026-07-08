@@ -85,7 +85,8 @@ app/
     ├── personal.py    # Rutas para perfiles, buscador e historiales individuales.
     ├── stats.py       # Cálculos agregados e índices acumulados históricos.
     ├── alertas.py     # Alertas operacionales diarias.
-    └── exportar.py    # Lógica de renderizado y exportación de archivos (Excel, CSV, PDF).
+    ├── exportar.py    # Lógica de renderizado y exportación de archivos (Excel, CSV, PDF).
+    └── sincronizar.py # Carga, validación de columnas y sobreescritura de reportes Excel/JSON.
 ```
 
 ### Frontend
@@ -113,7 +114,8 @@ frontend/
         ├── EstadisticasView.vue
         ├── ReportesView.vue
         ├── PersonalView.vue
-        └── PersonalDetalleView.vue
+        ├── PersonalDetalleView.vue
+        └── SincronizarView.vue
 ```
 
 ---
@@ -298,3 +300,5 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000 > backend.log 2>&1 &
 | **GET** | `/api/exportar/excel` | Descarga de reportes en Excel. | `tipo`, `fecha`, `mes`, `cedula`, `subnovedad` |
 | **GET** | `/api/exportar/pdf` | Descarga de reportes en PDF vectoriales. | `tipo`, `fecha`, `mes`, `cedula`, `subnovedad` |
 | **GET** | `/api/exportar/csv` | Descarga de reportes en CSV. | `tipo`, `fecha`, `mes`, `cedula`, `subnovedad` |
+| **GET** | `/api/sincronizar/plantilla/{format}` | Descarga de plantilla Excel o JSON para carga. | `format` (excel / json) |
+| **POST** | `/api/sincronizar/cargar` | Carga de reportes Excel/JSON y sincronización. | `tipo`, `fecha`, `mes`, `overwrite`, `file` |

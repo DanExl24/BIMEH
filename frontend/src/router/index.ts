@@ -5,6 +5,7 @@ import PersonalDetalleView from '../views/PersonalDetalleView.vue'
 import EstadisticasView from '../views/EstadisticasView.vue'
 import CronologiaView from '../views/CronologiaView.vue'
 import ReportesView from '../views/ReportesView.vue'
+import SincronizarView from '../views/SincronizarView.vue'
 
 const routes: Array<RouteRecordRaw> = [
   {
@@ -36,6 +37,11 @@ const routes: Array<RouteRecordRaw> = [
     path: '/reportes',
     name: 'reportes',
     component: ReportesView
+  },
+  {
+    path: '/sincronizar',
+    name: 'sincronizar',
+    component: SincronizarView
   },
   {
     path: '/:pathMatch(.*)*',

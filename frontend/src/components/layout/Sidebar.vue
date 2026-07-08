@@ -50,7 +50,8 @@ import {
   Users, 
   BarChart3, 
   Calendar,
-  Download
+  Download,
+  Upload
 } from '@lucide/vue'
 
 const menuItems = [
@@ -58,6 +59,7 @@ const menuItems = [
   { name: 'Buscador Personal', path: '/personal', icon: Users },
   { name: 'Estadísticas Históricas', path: '/estadisticas', icon: BarChart3 },
   { name: 'Cronología y Heatmap', path: '/cronologia', icon: Calendar },
-  { name: 'Exportar Reportes', path: '/reportes', icon: Download }
+  { name: 'Exportar Reportes', path: '/reportes', icon: Download },
+  { name: 'Sincronizar Reportes', path: '/sincronizar', icon: Upload }
 ]
 </script>
