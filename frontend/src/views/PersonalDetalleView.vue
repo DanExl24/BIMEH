@@ -235,7 +235,7 @@
                 v-model="selectedMonthlyHeatmapMonth"
                 class="bg-darkBg border border-darkBorder rounded-lg px-2.5 py-1 text-xs text-slate-300 outline-none focus:border-cyan-500/50"
               >
-                <option v-for="m in appStore.months" :key="m" :value="m">{{ m }}</option>
+                <option v-for="m in activeMonths" :key="m" :value="m">{{ m }}</option>
               </select>
             </div>
 
@@ -276,7 +276,7 @@
             </div>
             
             <!-- Rows for months -->
-            <div v-for="m in appStore.months" :key="m" class="flex items-center gap-1.5 font-mono">
+            <div v-for="m in activeMonths" :key="m" class="flex items-center gap-1.5 font-mono">
               <!-- Month Name Label -->
               <div class="w-24 text-[10px] font-bold text-slate-400 uppercase tracking-wider text-right pr-3">{{ m }}</div>
               <!-- Days cells -->
@@ -479,7 +479,7 @@
             class="w-full bg-darkBg border border-darkBorder rounded-xl px-3 py-2 text-xs text-slate-200 outline-none focus:border-cyan-500/50"
           >
             <option v-if="modalReportType === 'personal'" value="">Todos los Meses</option>
-            <option v-for="m in appStore.months" :key="m" :value="m">{{ m }}</option>
+            <option v-for="m in activeMonths" :key="m" :value="m">{{ m }}</option>
           </select>
         </div>
 
@@ -546,6 +546,21 @@ const filtroSubnovedad = ref('')
 // Heatmap individual variables
 const activeHeatmapTab = ref<'mensual' | 'anual' | 'diario'>('mensual')
 const selectedMonthlyHeatmapMonth = ref('JULIO')
+
+const activeMonths = computed(() => {
+  if (!profile.value || !profile.value.fecha_retiro) {
+    return appStore.months
+  }
+  try {
+    const parts = profile.value.fecha_retiro.split('-')
+    const retirementMonthNum = parseInt(parts[1], 10)
+    const monthList = ['ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO', 'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE']
+    return monthList.slice(0, retirementMonthNum)
+  } catch (e) {
+    console.error("Error computing active months:", e)
+    return appStore.months
+  }
+})
 const tableSearchQuery = ref('')
 const tableSubnovedadFilter = ref('')
 const tablePage = ref(1)
@@ -778,9 +793,24 @@ const downloadUrl = computed(() => {
   return url
 })
 
+watch(activeMonths, (newMonths) => {
+  if (newMonths && newMonths.length > 0) {
+    if (!newMonths.includes(selectedMonthlyHeatmapMonth.value)) {
+      selectedMonthlyHeatmapMonth.value = newMonths[newMonths.length - 1]
+    }
+    if (modalMonth.value && !newMonths.includes(modalMonth.value)) {
+      modalMonth.value = newMonths[newMonths.length - 1]
+    }
+  }
+}, { immediate: true })
+
 watch(modalReportType, (newType) => {
   if (newType === 'consolidado_mensual' && !modalMonth.value) {
-    modalMonth.value = 'JULIO'
+    if (activeMonths.value && activeMonths.value.length > 0) {
+      modalMonth.value = activeMonths.value[activeMonths.value.length - 1]
+    } else {
+      modalMonth.value = 'JULIO'
+    }
   }
 })
 </script>
