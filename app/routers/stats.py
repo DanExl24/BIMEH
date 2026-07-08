@@ -55,7 +55,7 @@ def get_stats_heatmap(mes: str = Query(...), db = Depends(get_db)):
     
     # Find all personnel that have at least one record in these reports
     cursor.execute(f"""
-        SELECT DISTINCT p.id, p.cedula, p.nombre
+        SELECT DISTINCT p.id, p.cedula, p.nombre, p.fecha_retiro
         FROM REGISTRO_PERSONAL rp
         JOIN PERSONAL p ON rp.id_personal = p.id
         WHERE rp.id_reporte IN ({','.join('?' for _ in report_ids)})
@@ -82,12 +82,19 @@ def get_stats_heatmap(mes: str = Query(...), db = Depends(get_db)):
             
     heatmap_data = []
     for p in personnel:
-        pid, cedula, nombre = p[0], p[1], p[2]
+        pid, cedula, nombre, f_retiro = p[0], p[1], p[2], p[3]
         estados = []
         for d in dates:
-            est = record_map.get((pid, d))
-            if est is None:
-                est = "N/A"
+            is_retired = False
+            if f_retiro and d >= f_retiro:
+                is_retired = True
+                
+            if is_retired:
+                est = "RETIRADO"
+            else:
+                est = record_map.get((pid, d))
+                if est is None:
+                    est = "N/A"
             estados.append(est)
             
         heatmap_data.append({

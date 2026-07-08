@@ -197,7 +197,7 @@
             <h3 class="text-sm font-bold text-slate-200 uppercase tracking-wide flex items-center gap-2">
               <span class="w-2.5 h-4 bg-cyan-500 rounded-sm"></span> Mi Historial Operacional y Mapa de Calor
             </h3>
-            <p class="text-xs text-slate-500 mt-1 font-sans">Hoja de ruta y visualización de disponibilidad diaria de este integrante.</p>
+            <p class="text-xs text-slate-500 mt-1 font-sans">Hoja de ruta y disponibilidad diaria (D = Disponible, N = Novedad, R = Retirado, - = Sin registro).</p>
           </div>
 
           <!-- Tabs -->
@@ -678,8 +678,17 @@ const MONTH_MAP: Record<string, string> = {
   'MAYO': '05', 'JUNIO': '06', 'JULIO': '07', 'AGOSTO': '08', 
   'SEPTIEMBRE': '09', 'OCTUBRE': '10', 'NOVIEMBRE': '11', 'DICIEMBRE': '12'
 }
+const isRetiredForDate = (monthName: string, dayNum: number) => {
+  if (!profile.value || !profile.value.fecha_retiro) return false
+  const mm = MONTH_MAP[monthName]
+  if (!mm) return false
+  const dd = String(dayNum).padStart(2, '0')
+  const targetDate = `2026-${mm}-${dd}`
+  return targetDate >= profile.value.fecha_retiro
+}
 
 const getStatusForDate = (monthName: string, dayNum: number) => {
+  if (isRetiredForDate(monthName, dayNum)) return 'RETIRADO'
   const mm = MONTH_MAP[monthName]
   if (!mm) return 'N/A'
   const dd = String(dayNum).padStart(2, '0')
@@ -690,6 +699,7 @@ const getStatusForDate = (monthName: string, dayNum: number) => {
 
 const getIndividualHeatmapCellClass = (monthName: string, dayNum: number) => {
   const est = getStatusForDate(monthName, dayNum)
+  if (est === 'RETIRADO') return 'bg-red-500/80 shadow shadow-red-500/10 text-red-100'
   if (est === 'N/A') return 'bg-darkBg border border-darkBorder/40 text-slate-600'
   return isAvailable(est) 
     ? 'bg-emerald-500/80 shadow shadow-emerald-500/10 text-emerald-100' 
@@ -698,6 +708,7 @@ const getIndividualHeatmapCellClass = (monthName: string, dayNum: number) => {
 
 const getIndividualHeatmapCellLetter = (monthName: string, dayNum: number) => {
   const est = getStatusForDate(monthName, dayNum)
+  if (est === 'RETIRADO') return 'R'
   if (est === 'N/A') return '-'
   return isAvailable(est) ? 'D' : 'N'
 }

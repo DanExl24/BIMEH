@@ -227,7 +227,10 @@
             <span class="w-2.5 h-2.5 bg-amber-500 rounded"></span> Novedad
           </div>
           <div class="flex items-center gap-1">
-            <span class="w-2.5 h-2.5 bg-darkBg border border-darkBorder rounded"></span> N/A (Retirado/Sin registro)
+            <span class="w-2.5 h-2.5 bg-red-500 rounded flex items-center justify-center font-bold text-[8px] text-red-100">R</span> Retirado
+          </div>
+          <div class="flex items-center gap-1">
+            <span class="w-2.5 h-2.5 bg-darkBg border border-darkBorder rounded"></span> N/A (Sin registro)
           </div>
         </div>
       </div>
@@ -266,7 +269,6 @@
                   </router-link>
                   <span class="text-[8px] text-slate-500 block font-mono">CC {{ p.cedula }}</span>
                 </td>
-                <!-- Attendance boxes -->
                 <td 
                   v-for="(est, i) in p.estados" 
                   :key="i"
@@ -274,9 +276,11 @@
                   :title="`${p.nombre} - ${heatmapData.fechas[i]}: ${est}`"
                 >
                   <div 
-                    class="w-5.5 h-5.5 mx-auto rounded transition-colors"
+                    class="w-5.5 h-5.5 mx-auto rounded transition-colors flex items-center justify-center font-bold text-[9px]"
                     :class="getHeatmapCellClass(est)"
-                  ></div>
+                  >
+                    <span v-if="est === 'RETIRADO'" class="text-red-100 font-bold">R</span>
+                  </div>
                 </td>
               </tr>
             </tbody>
@@ -357,6 +361,7 @@ const getDayColorClass = (pct: number) => {
 }
 
 const getHeatmapCellClass = (est: string) => {
+  if (est === 'RETIRADO') return 'bg-red-500/80 shadow shadow-red-500/10'
   if (est === 'N/A') return 'bg-darkBg border border-darkBorder/40'
   return isAvailable(est) ? 'bg-emerald-500/80 shadow shadow-emerald-500/10' : 'bg-amber-500/80 shadow shadow-amber-500/10'
 }
