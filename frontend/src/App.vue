@@ -14,12 +14,15 @@ onMounted(() => {
 <template>
   <div class="min-h-screen bg-darkBg text-slate-100 flex">
     <!-- Navigation Sidebar -->
-    <Sidebar />
+    <Sidebar v-if="$route.name !== 'login'" />
 
     <!-- Main Content Area -->
-    <main class="flex-1 ml-64 p-8 min-h-screen flex flex-col">
+    <main 
+      class="flex-1 min-h-screen flex flex-col"
+      :class="$route.name !== 'login' ? 'ml-64 p-8' : ''"
+    >
       <!-- Top header layout -->
-      <header class="flex items-center justify-between mb-8 border-b border-darkBorder/40 pb-4">
+      <header v-if="$route.name !== 'login'" class="flex items-center justify-between mb-8 border-b border-darkBorder/40 pb-4">
         <div>
           <h2 class="text-xs text-slate-400 font-semibold uppercase tracking-widest">Unidad Militar BIMEJ 12</h2>
           <h1 class="text-xl font-bold tracking-tight text-slate-100">

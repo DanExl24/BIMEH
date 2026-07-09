@@ -354,8 +354,10 @@ const submitReport = async () => {
   }
   
   try {
+    const token = localStorage.getItem('bimej12_auth_token')
     const res = await fetch(`${appStore.apiBase}/api/sincronizar/cargar`, {
       method: 'POST',
+      headers: token ? { 'Authorization': `Bearer ${token}` } : {},
       body: formData
     })
     

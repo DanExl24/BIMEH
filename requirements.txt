@@ -31,3 +31,5 @@ tzlocal==5.4.4
 uritemplate==4.2.0
 urllib3==2.7.0
 psycopg2-binary==2.9.9
+bcrypt==4.1.2
+PyJWT==2.8.0
