@@ -70,22 +70,14 @@
           
           <div class="space-y-1.5">
             <label class="text-[10px] uppercase font-bold text-slate-500">Modo de Carga:</label>
-            <div class="grid grid-cols-3 gap-2 bg-darkBg p-1 rounded-xl border border-darkBorder/40 max-w-md">
-              <button 
-                type="button"
-                @click="mode = 'dia'"
-                class="py-1.5 text-xs font-bold rounded-lg transition-all"
-                :class="mode === 'dia' ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/20' : 'text-slate-400 hover:text-slate-200'"
-              >
-                Un Día
-              </button>
+            <div class="grid grid-cols-2 gap-2 bg-darkBg p-1 rounded-xl border border-darkBorder/40 max-w-sm">
               <button 
                 type="button"
                 @click="mode = 'dias'"
                 class="py-1.5 text-xs font-bold rounded-lg transition-all"
                 :class="mode === 'dias' ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/20' : 'text-slate-400 hover:text-slate-200'"
               >
-                Varios Días
+                Por Días
               </button>
               <button 
                 type="button"
@@ -100,18 +92,8 @@
 
           <!-- Dynamic inputs based on mode -->
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <!-- Day selection (DatePicker) -->
-            <div v-if="mode === 'dia'" class="space-y-1.5">
-              <label class="text-[10px] uppercase font-bold text-slate-500">Fecha del Reporte:</label>
-              <input 
-                type="date" 
-                v-model="fecha"
-                class="w-full bg-darkBg border border-darkBorder rounded-xl px-3 py-2 text-xs text-slate-200 outline-none focus:border-cyan-500/50"
-              />
-            </div>
-
             <!-- Multi-day calendar picker -->
-            <div v-else-if="mode === 'dias'" class="space-y-1.5 md:col-span-2">
+            <div v-if="mode === 'dias'" class="space-y-1.5 md:col-span-2">
               <label class="text-[10px] uppercase font-bold text-slate-500">Mes de Referencia:</label>
               <select 
                 v-model="multiDayMonth"
@@ -485,8 +467,7 @@ const appStore = useAppStore()
 
 // State variables
 const source = ref<'local' | 'drive'>('local')
-const mode = ref<'dia' | 'dias' | 'mes'>('dia')
-const fecha = ref('2026-05-07')
+const mode = ref<'dias' | 'mes'>('dias')
 const mes = ref('MAYO')
 const overwrite = ref(false)
 
@@ -518,10 +499,9 @@ const formattedFileSize = computed(() => {
 
 const isSubmitDisabled = computed(() => {
   if (source.value === 'local') {
-    return !selectedFile.value || (mode.value === 'dia' && !fecha.value) || (mode.value === 'mes' && !mes.value) || (mode.value === 'dias' && selectedDates.value.length === 0) || loadingSubmit.value
+    return !selectedFile.value || (mode.value === 'mes' && !mes.value) || (mode.value === 'dias' && selectedDates.value.length === 0) || loadingSubmit.value
   } else {
     return (
-      (mode.value === 'dia' && !fecha.value) ||
       (mode.value === 'mes' && !mes.value) ||
       (mode.value === 'dias' && selectedDates.value.length === 0)
     ) || appStore.isSyncingDrive
@@ -590,7 +570,6 @@ const handleMainAction = () => {
   } else {
     appStore.startDriveSync({
       tipo: mode.value,
-      fecha: mode.value === 'dia' ? fecha.value : null,
       fechas: mode.value === 'dias' ? [...selectedDates.value].sort() : null,
       mes: mode.value === 'mes' ? mes.value : null,
       overwrite: overwrite.value
@@ -676,8 +655,8 @@ const submitReport = async () => {
   formData.append('tipo', mode.value)
   formData.append('overwrite', overwrite.value ? 'true' : 'false')
   
-  if (mode.value === 'dia') {
-    formData.append('fecha', fecha.value)
+  if (mode.value === 'dias') {
+    formData.append('fechas', JSON.stringify([...selectedDates.value].sort()))
   } else {
     formData.append('mes', mes.value)
   }
