@@ -472,6 +472,7 @@ const handleMainAction = () => {
       overwrite: overwrite.value
     })
   }
+}
 const handleCsvTestAction = () => {
   appStore.startDriveSyncCsvTest({
     tipo: mode.value,
