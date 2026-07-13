@@ -258,11 +258,11 @@
           </p>
           <button 
             type="button"
-            @click="syncFromDrive"
-            :disabled="loadingDriveSync"
+            @click="appStore.startDriveSync()"
+            :disabled="appStore.isSyncingDrive"
             class="w-full py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 disabled:opacity-40 disabled:pointer-events-none rounded-xl text-xs font-bold text-slate-100 flex items-center justify-center gap-2 transition-all shadow-md active:scale-95 cursor-pointer select-none"
           >
-            <div v-if="loadingDriveSync" class="w-4 h-4 border-2 border-slate-100/25 border-t-slate-100 rounded-full animate-spin"></div>
+            <div v-if="appStore.isSyncingDrive" class="w-4 h-4 border-2 border-slate-100/25 border-t-slate-100 rounded-full animate-spin"></div>
             <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
             </svg>
@@ -305,7 +305,6 @@ const loadingSubmit = ref(false)
 const statusState = ref<'success' | 'error' | 'conflict' | null>(null)
 const statusMessage = ref('')
 const conflicts = ref<string[]>([])
-const loadingDriveSync = ref(false)
 
 // Computeds
 const fileExtension = computed(() => {
@@ -412,39 +411,6 @@ const submitReport = async () => {
     statusMessage.value = 'Error al conectar con el servidor. Verifique que la API esté encendida.'
   } finally {
     loadingSubmit.value = false
-  }
-}
-
-const syncFromDrive = async () => {
-  loadingDriveSync.value = true
-  statusState.value = null
-  statusMessage.value = ''
-  
-  try {
-    const token = localStorage.getItem('bimej12_auth_token')
-    const res = await fetch(`${appStore.apiBase}/api/sincronizar/drive`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-      }
-    })
-    
-    const data = await res.json()
-    
-    if (res.ok && data.status === 'success') {
-      statusState.value = 'success'
-      statusMessage.value = data.message
-    } else {
-      statusState.value = 'error'
-      statusMessage.value = data.detail || 'Ocurrió un error al sincronizar con Google Drive.'
-    }
-  } catch (error: any) {
-    console.error('Error syncing from drive:', error)
-    statusState.value = 'error'
-    statusMessage.value = 'Error al conectar con el servidor. Verifique que la API esté encendida.'
-  } finally {
-    loadingDriveSync.value = false
   }
 }
 </script>
