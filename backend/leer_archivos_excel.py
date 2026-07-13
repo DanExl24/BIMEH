@@ -2,7 +2,7 @@ from openpyxl import load_workbook
 import json
 from googleapiclient.http import MediaIoBaseDownload
 import io
-from config import drive
+from config.config import drive
 import openpyxl
 import re
 from dateparser import parse

@@ -1,4 +1,4 @@
-from auth import obtener_servicio_drive
+from .auth import obtener_servicio_drive
 
 MONTHS = [
     "ENERO",
