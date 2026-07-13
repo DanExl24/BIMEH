@@ -383,9 +383,13 @@ def obtener_hojas(db=None, target_month=None, target_date=None, target_dates=Non
                 missing_dates = [d for d in all_month_dates if d not in dates_in_db and d not in datos_archivo]
         
         # Registrar archivos que omitimos porque ya se encuentran sincronizados
+        # En modo multi-día, solo informar sobre archivos de las fechas seleccionadas por el usuario
         for archivo in archivos:
             fecha_parsed = parse_date_from_filename(archivo['name'])
             if fecha_parsed and fecha_parsed not in missing_dates:
+                # Si estamos en modo multi-día, solo loguear si la fecha es una de las seleccionadas
+                if target_dates and fecha_parsed not in target_dates:
+                    continue
                 sync_log.append({
                     "file": archivo['name'],
                     "status": "skipped",

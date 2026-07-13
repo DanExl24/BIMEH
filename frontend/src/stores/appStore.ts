@@ -98,15 +98,6 @@ export const useAppStore = defineStore('app', () => {
         clearInterval(syncTimer.value)
         syncTimer.value = null
       }
-
-      // Si no hubo errores, limpiar notificación después de 8 segundos.
-      // Si hay errores, la dejamos para que el usuario pueda ver el log en la UI.
-      setTimeout(() => {
-        if (!isSyncingDrive.value && syncErrors.value.length === 0 && syncStatus.value !== 'error') {
-          syncStatus.value = 'idle'
-          syncMessage.value = ''
-        }
-      }, 8000)
     }
   }
 
