@@ -6,13 +6,18 @@ const getApiBase = () => {
   return store.apiBase
 }
 
-const fetchWithAuth = (url: string, options: RequestInit = {}): Promise<Response> => {
+const fetchWithAuth = async (url: string, options: RequestInit = {}): Promise<Response> => {
   const token = localStorage.getItem('bimej12_auth_token')
   const headers = {
     ...(options.headers || {}),
     ...(token ? { 'Authorization': `Bearer ${token}` } : {})
   }
-  return fetch(url, { ...options, headers })
+  const res = await fetch(url, { ...options, headers })
+  if (res.status === 401) {
+    localStorage.removeItem('bimej12_auth_token')
+    window.location.hash = '/login'
+  }
+  return res
 }
 
 export async function fetchFechas(): Promise<string[]> {

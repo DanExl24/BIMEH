@@ -528,6 +528,15 @@ const submitReport = async () => {
       body: formData
     })
     
+    if (res.status === 401) {
+      localStorage.removeItem('bimej12_auth_token')
+      window.location.hash = '/login'
+      statusState.value = 'error'
+      statusMessage.value = 'Sesión expirada. Redirigiendo...'
+      loadingSubmit.value = false
+      return
+    }
+
     const data = await res.json()
     
     if (res.status === 400 && data.detail) {

@@ -61,6 +61,14 @@ export const useAppStore = defineStore('app', () => {
         })
       })
 
+      if (res.status === 401) {
+        localStorage.removeItem('bimej12_auth_token')
+        window.location.hash = '/login'
+        syncStatus.value = 'error'
+        syncMessage.value = 'Sesión expirada. Redirigiendo...'
+        return
+      }
+
       const data = await res.json()
 
       if (res.ok && data.status === 'success') {
