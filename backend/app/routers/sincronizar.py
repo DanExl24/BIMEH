@@ -455,7 +455,7 @@ def sincronizar_desde_drive(
 
         # 2. Ejecutar la lógica de leer_archivos_excel para descargar y actualizar las hojas mensuales
         from leer_archivos_excel import obtener_hojas
-        errors = obtener_hojas()
+        errors = obtener_hojas(db)
 
         # 3. Sincronizar todos los JSONs locales nuevos a la base de datos (PostgreSQL Neon)
         sync_local_jsons_to_db(db)
