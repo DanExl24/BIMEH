@@ -250,16 +250,38 @@
                 </p>
               </div>
 
-              <!-- Corrupted/Failed Files Log -->
-              <div v-if="appStore.syncErrors.length > 0" class="space-y-2 pt-1">
+              <!-- Beautiful Sync Log -->
+              <div v-if="appStore.syncLogs.length > 0" class="space-y-3 pt-2">
                 <div class="flex items-center justify-between">
-                  <span class="text-[10px] uppercase font-bold text-red-400 font-sans">Archivos Omitidos/Corruptos:</span>
-                  <span class="text-[10px] font-bold text-slate-500 font-sans">{{ appStore.syncErrors.length }} archivo(s)</span>
+                  <span class="text-[10px] uppercase font-bold text-slate-400 font-sans tracking-wide">Registro de la Sincronización:</span>
+                  <!-- Download Log Button -->
+                  <button 
+                    type="button" 
+                    @click="downloadSyncLog" 
+                    class="px-2.5 py-1 text-[9px] font-bold text-cyan-400 hover:text-cyan-300 bg-cyan-500/10 hover:bg-cyan-500/15 border border-cyan-500/20 rounded-lg flex items-center gap-1 transition-all cursor-pointer"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    Descargar Log (.txt)
+                  </button>
                 </div>
-                <div class="max-h-48 overflow-y-auto bg-red-950/20 border border-red-500/20 rounded-xl p-3 font-mono text-[10px] space-y-2.5">
-                  <div v-for="(err, idx) in appStore.syncErrors" :key="idx" class="border-b border-red-500/10 pb-2 last:border-0 last:pb-0">
-                    <div class="font-bold text-red-300 truncate">{{ err.file }}</div>
-                    <div class="text-slate-400 mt-0.5 leading-relaxed">{{ err.error }}</div>
+                
+                <div class="max-h-64 overflow-y-auto border border-darkBorder/40 rounded-xl divide-y divide-darkBorder/25 bg-slate-950/20 font-sans text-xs">
+                  <div v-for="(log, idx) in appStore.syncLogs" :key="idx" class="p-3 flex items-start gap-2.5">
+                    <!-- Icon based on status -->
+                    <span class="mt-0.5">
+                      <span v-if="log.status === 'success'" class="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>
+                      <span v-else-if="log.status === 'skipped'" class="w-2 h-2 rounded-full bg-slate-400 inline-block"></span>
+                      <span v-else class="w-2 h-2 rounded-full bg-rose-500 inline-block"></span>
+                    </span>
+                    
+                    <div class="flex-1 min-w-0 space-y-0.5">
+                      <div class="font-bold text-slate-200 truncate text-[11px] font-mono">{{ log.file }}</div>
+                      <div class="text-[10px]" :class="log.status === 'success' ? 'text-emerald-400/90' : log.status === 'skipped' ? 'text-slate-400/90' : 'text-rose-400/90'">
+                        {{ log.detail }}
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -460,6 +482,32 @@ const handleMainAction = () => {
       overwrite: overwrite.value
     })
   }
+}
+
+const downloadSyncLog = () => {
+  if (appStore.syncLogs.length === 0) return
+  
+  // Generar texto plano del log
+  let text = `REPORTE DE SINCRONIZACIÓN DE GOOGLE DRIVE - BIMEH\n`;
+  text += `Fecha de ejecución: ${new Date().toLocaleString()}\n`;
+  text += `=========================================================\n\n`;
+  
+  appStore.syncLogs.forEach((log) => {
+    const statusUpper = log.status.toUpperCase();
+    text += `[${statusUpper}] ${log.file}\n`;
+    text += `Detalle: ${log.detail}\n`;
+    text += `---------------------------------------------------------\n`;
+  });
+  
+  // Crear Blob y disparar la descarga
+  const blob = new Blob([text], { type: 'text/plain;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.setAttribute('download', `log_sincronizacion_${new Date().toISOString().slice(0, 10)}.txt`)
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
 }
 
 // Methods

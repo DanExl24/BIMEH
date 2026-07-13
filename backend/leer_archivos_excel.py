@@ -54,12 +54,15 @@ def excel_to_csv_in_memory(file_item):
     lee la hoja 'DEMOSTRATIVO' usando openpyxl (en modo optimizado de solo lectura)
     y convierte el contenido a un string con formato CSV estándar.
     
-    ¿Por qué hacemos esto?
-    - Openpyxl crea objetos complejos por cada celda de Excel en memoria (Cell Objects), lo cual consume mucha CPU y RAM.
-    - Al convertir a CSV en memoria de inmediato, descartamos el objeto Workbook de openpyxl
-      y nos quedamos con una cadena de texto simple de CSV.
+    Mide e imprime en consola detalladamente:
+    - ¿Cuánto demora en descargar?
+    - ¿Cuánto demora en abrir el Excel con openpyxl?
+    - ¿Cuánto demora en convertir y escribir el CSV?
     """
+    import time
+    
     # 1. Petición de descarga de binarios de Drive
+    t_down_start = time.time()
     request = drive.files().get_media(fileId=file_item['id'])
     excel_stream = io.BytesIO()
     downloader = MediaIoBaseDownload(excel_stream, request)
@@ -67,14 +70,20 @@ def excel_to_csv_in_memory(file_item):
     while not done:
         _, done = downloader.next_chunk()
     excel_stream.seek(0)
+    t_down_end = time.time()
+    print(f"  [Timer Detail] Descarga de Google Drive: {t_down_end - t_down_start:.2f} segundos.")
     
     # 2. Cargar Excel en modo rápido (read_only=True y data_only=True)
+    t_open_start = time.time()
     wb = openpyxl.load_workbook(excel_stream, read_only=True, data_only=True)
     if "DEMOSTRATIVO" not in wb.sheetnames:
         raise ValueError("No se encontró la hoja 'DEMOSTRATIVO' en el libro de Excel.")
     sheet = wb["DEMOSTRATIVO"]
+    t_open_end = time.time()
+    print(f"  [Timer Detail] Apertura de Excel (openpyxl): {t_open_end - t_open_start:.2f} segundos.")
     
     # 3. Escribir a una cadena de texto CSV en memoria RAM
+    t_write_start = time.time()
     csv_stream = io.StringIO()
     writer = csv.writer(csv_stream)
     for row in sheet.iter_rows(values_only=True):
@@ -83,6 +92,9 @@ def excel_to_csv_in_memory(file_item):
             writer.writerow(row)
             
     csv_stream.seek(0)
+    t_write_end = time.time()
+    print(f"  [Timer Detail] Conversión y Escritura a CSV: {t_write_end - t_write_start:.4f} segundos.")
+    
     return csv_stream.getvalue()
 
 def extraer_datos_csv(csv_content):
@@ -279,6 +291,7 @@ def obtener_hojas(db=None, target_month=None, target_date=None, force_overwrite=
         listado_meses = json.load(l)
 
     errors = []
+    sync_log = [] # Registro amigable para el usuario final sin detalles técnicos
     
     # Obtener fechas cargadas en Neon
     dates_in_db = consultar_fechas_db()
@@ -336,6 +349,16 @@ def obtener_hojas(db=None, target_month=None, target_date=None, force_overwrite=
             else:
                 missing_dates = [d for d in all_month_dates if d not in dates_in_db and d not in datos_archivo]
         
+        # Registrar archivos que omitimos porque ya se encuentran sincronizados
+        for archivo in archivos:
+            fecha_parsed = parse_date_from_filename(archivo['name'])
+            if fecha_parsed and fecha_parsed not in missing_dates:
+                sync_log.append({
+                    "file": archivo['name'],
+                    "status": "skipped",
+                    "detail": "Omitido: este día ya se encuentra cargado y al día."
+                })
+        
         if not missing_dates:
             print(f"El mes/día de {mes} está completamente cargado. Omitiendo.")
             continue
@@ -366,8 +389,18 @@ def obtener_hojas(db=None, target_month=None, target_date=None, force_overwrite=
                 success = descargar_y_procesar_fecha(archivo, f_date, datos_archivo)
                 if success:
                     nuevos_datos_cargados = True
+                    sync_log.append({
+                        "file": archivo['name'],
+                        "status": "success",
+                        "detail": f"Sincronizado con éxito como reporte del día {f_date}."
+                    })
             except Exception as e:
                 errors.append({"file": archivo['name'], "error": f"Error descargando/procesando: {str(e)}"})
+                sync_log.append({
+                    "file": archivo['name'],
+                    "status": "error",
+                    "detail": "El archivo está corrupto o tiene un formato incorrecto y no se pudo leer."
+                })
                 
         # Búsqueda fallback
         still_missing = [d for d in missing_dates if d not in datos_archivo]
@@ -375,11 +408,23 @@ def obtener_hojas(db=None, target_month=None, target_date=None, force_overwrite=
             print(f"Hay {len(still_missing)} fechas faltantes y {len(unparsed_files)} archivos sin fecha legible en el nombre. Evaluando fallbacks...")
             for archivo in unparsed_files:
                 try:
+                    prev_len = len(datos_archivo)
                     success = descargar_y_procesar_fallback(archivo, still_missing, datos_archivo)
                     if success:
                         nuevos_datos_cargados = True
+                        fecha_detectada = list(datos_archivo.keys())[-1] if len(datos_archivo) > prev_len else "desconocida"
+                        sync_log.append({
+                            "file": archivo['name'],
+                            "status": "success",
+                            "detail": f"Sincronizado con éxito (identificado como reporte de {fecha_detectada})."
+                        })
                 except Exception as e:
                     errors.append({"file": archivo['name'], "error": f"Error en fallback: {str(e)}"})
+                    sync_log.append({
+                        "file": archivo['name'],
+                        "status": "error",
+                        "detail": "El archivo está corrupto o no contiene una fecha de reporte reconocible."
+                    })
 
         # Guardar en local JSON si hay cambios
         if nuevos_datos_cargados or not archivoF.exists():
@@ -395,7 +440,7 @@ def obtener_hojas(db=None, target_month=None, target_date=None, force_overwrite=
             
     t_global_end = time.time()
     print(f"[Timer Global] Sincronización de Drive completada. Tiempo total acumulado: {t_global_end - t_global_start:.2f} segundos.")
-    return errors
+    return errors, sync_log
 
 if __name__ == "__main__":
     res = obtener_hojas()

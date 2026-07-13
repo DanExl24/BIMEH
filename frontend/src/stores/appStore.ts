@@ -21,6 +21,7 @@ export const useAppStore = defineStore('app', () => {
   const syncStatus = ref<'idle' | 'running' | 'success' | 'error'>('idle')
   const syncMessage = ref('')
   const syncErrors = ref<any[]>([])
+  const syncLogs = ref<any[]>([])
 
   const fetchAvailableDates = async () => {
     try {
@@ -39,6 +40,7 @@ export const useAppStore = defineStore('app', () => {
     syncStatus.value = 'running'
     syncMessage.value = 'Sincronizando con Google Drive...'
     syncErrors.value = []
+    syncLogs.value = []
 
     // Iniciar temporizador de segundos transcurridos
     syncTimer.value = setInterval(() => {
@@ -74,6 +76,7 @@ export const useAppStore = defineStore('app', () => {
       if (res.ok && data.status === 'success') {
         syncStatus.value = 'success'
         syncErrors.value = data.errors || []
+        syncLogs.value = data.logs || []
         if (syncErrors.value.length > 0) {
           syncMessage.value = `Sincronizado. ${syncErrors.value.length} archivos omitidos por errores de formato/lectura.`
         } else {
@@ -119,6 +122,7 @@ export const useAppStore = defineStore('app', () => {
     syncStatus,
     syncMessage,
     syncErrors,
+    syncLogs,
     fetchAvailableDates,
     startDriveSync
   }

@@ -544,7 +544,7 @@ def sincronizar_desde_drive(
         # 3. Ejecutar la lógica de leer_archivos_excel para descargar y actualizar las hojas mensuales
         # Pasamos db=None ya que obtener_hojas abre su propia conexion temporal rapida y la cierra de inmediato
         from leer_archivos_excel import obtener_hojas
-        errors = obtener_hojas(
+        errors, sync_log = obtener_hojas(
             db=None,
             target_month=target_month,
             target_date=target_date,
@@ -580,7 +580,8 @@ def sincronizar_desde_drive(
         return {
             "status": "success",
             "message": "Sincronización con Google Drive completada exitosamente. Se actualizaron los datos en la nube.",
-            "errors": errors
+            "errors": errors,
+            "logs": sync_log
         }
     except Exception as e:
         import traceback
