@@ -353,6 +353,15 @@ def sync_local_jsons_to_db(db, target_month=None, target_date=None, force_overwr
     cursor.execute("SELECT fecha FROM REPORTES;")
     existing_dates = {row[0] for row in cursor.fetchall()}
     
+    # Pre-cargar tablas maestras en cache local de memoria para evitar consultas N+1 a Neon
+    print("Pre-cargando tablas maestras de Neon en memoria para optimización...")
+    cursor.execute("SELECT cedula, id FROM PERSONAL;")
+    personal_cache = {int(row[0]): int(row[1]) for row in cursor.fetchall()}
+    
+    cursor.execute("SELECT nombre, id FROM SUB_NOVEDADES;")
+    subnovedades_cache = {str(row[0]).strip().upper(): int(row[1]) for row in cursor.fetchall()}
+    print(f"Caché cargado: {len(personal_cache)} empleados y {len(subnovedades_cache)} tipos de novedad.")
+    
     import os
     from pathlib import Path
     
@@ -397,12 +406,14 @@ def sync_local_jsons_to_db(db, target_month=None, target_date=None, force_overwr
             if date_str in existing_dates:
                 continue
                 
-            print(f"Importando reporte de fecha {date_str} a la base de datos de Neon...")
+            print(f"Importando reporte de fecha {date_str} a la base de datos de Neon (modo optimizado)...")
             
             # Insertar reporte
             cursor.execute("INSERT INTO REPORTES (fecha, archivo) VALUES (?, ?);", (date_str, filename))
             cursor.execute("SELECT id FROM REPORTES WHERE fecha = ?;", (date_str,))
             report_id = cursor.fetchone()[0]
+            
+            records_to_insert = []
             
             for rec_id, record in records.items():
                 cedula = record.get("CEDULA")
@@ -424,25 +435,23 @@ def sync_local_jsons_to_db(db, target_month=None, target_date=None, force_overwr
                 nombre = str(nombre).strip().upper()
                 subnovedad = str(subnovedad).strip().upper() if subnovedad else "SIN NOVEDAD"
                 
-                # Obtener o crear Personal
-                cursor.execute("SELECT id FROM PERSONAL WHERE cedula = ?;", (cedula_int,))
-                p_row = cursor.fetchone()
-                if p_row:
-                    personal_id = p_row[0]
+                # Obtener o crear Personal (Caché local primero)
+                if cedula_int in personal_cache:
+                    personal_id = personal_cache[cedula_int]
                 else:
                     cursor.execute("INSERT INTO PERSONAL (cedula, nombre) VALUES (?, ?);", (cedula_int, nombre))
                     cursor.execute("SELECT id FROM PERSONAL WHERE cedula = ?;", (cedula_int,))
                     personal_id = cursor.fetchone()[0]
+                    personal_cache[cedula_int] = personal_id
                     
-                # Obtener o crear Subnovedad
-                cursor.execute("SELECT id FROM SUB_NOVEDADES WHERE nombre = ?;", (subnovedad,))
-                sn_row = cursor.fetchone()
-                if sn_row:
-                    subnovedad_id = sn_row[0]
+                # Obtener o crear Subnovedad (Caché local primero)
+                if subnovedad in subnovedades_cache:
+                    subnovedad_id = subnovedades_cache[subnovedad]
                 else:
                     cursor.execute("INSERT INTO SUB_NOVEDADES (nombre) VALUES (?);", (subnovedad,))
                     cursor.execute("SELECT id FROM SUB_NOVEDADES WHERE nombre = ?;", (subnovedad,))
                     subnovedad_id = cursor.fetchone()[0]
+                    subnovedades_cache[subnovedad] = subnovedad_id
                     
                 # Limpiar fechas
                 fecha_inicio = None
@@ -458,12 +467,29 @@ def sync_local_jsons_to_db(db, target_month=None, target_date=None, force_overwr
                     except Exception:
                         pass
                         
-                # Insertar registro
-                cursor.execute("""
+                # Acumular registro para inserción por lote
+                records_to_insert.append((
+                    report_id,
+                    personal_id,
+                    subnovedad_id,
+                    descripcion,
+                    fecha_inicio,
+                    fecha_final
+                ))
+            
+            # Inserción en lote en PostgreSQL para evitar roundtrips de red N+1
+            if records_to_insert:
+                import psycopg2.extras
+                psycopg2.extras.execute_values(
+                    cursor._cursor,
+                    """
                     INSERT INTO REGISTRO_PERSONAL 
                     (id_reporte, id_personal, id_sub_novedad, descripcion, fecha_inicio, fecha_final)
-                    VALUES (?, ?, ?, ?, ?, ?);
-                """, (report_id, personal_id, subnovedad_id, descripcion, fecha_inicio, fecha_final))
+                    VALUES %s;
+                    """,
+                    records_to_insert
+                )
+                print(f"  -> {len(records_to_insert)} registros de personal cargados en lote con éxito.")
                 
         db.commit()
 

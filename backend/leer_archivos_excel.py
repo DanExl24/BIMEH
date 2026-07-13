@@ -70,17 +70,7 @@ def parse_date_from_filename(name):
             
     return None
 
-def obtener_hojas(db=None, target_month=None, target_date=None, force_overwrite=False):
-    import time
-    t_global_start = time.time()
-    
-    # Cargar el listado de archivos agrupados por mes
-    with open("listado_meses.json", encoding="utf-8") as l:
-        listado_meses = json.load(l)
-
-    errors = []
-    
-    # Obtener fechas en base de datos abriendo una conexión temporal rápida para evitar idle timeouts
+def consultar_fechas_db():
     dates_in_db = set()
     try:
         import psycopg2
@@ -100,6 +90,89 @@ def obtener_hojas(db=None, target_month=None, target_date=None, force_overwrite=
     except Exception as e:
         print(f"Error consultando fechas en base de datos: {e}")
         dates_in_db = set()
+    return dates_in_db
+
+def descargar_y_procesar_fecha(archivo, f_date, datos_archivo):
+    import time
+    print(f"Descargando archivo específico para {f_date}: {archivo['name']}")
+    t_down_start = time.time()
+    try:
+        wb = hoja_de_trabajo(archivo)
+        t_down_end = time.time()
+        print(f"  [Timer] Descarga y lectura de Excel completada en {t_down_end - t_down_start:.2f} segundos.")
+        
+        t_parse_start = time.time()
+        encabezados, fila_encabezado = leer_encabezados(wb)
+        datos_archivo[f_date] = extraer_datos(
+            encabezados,
+            fila_encabezado,
+            wb
+        )
+        t_parse_end = time.time()
+        print(f"  [Timer] Datos parseados y estructurados en {t_parse_end - t_parse_start:.2f} segundos.")
+        print(f"  -> Día {f_date} cargado exitosamente.")
+        return True
+    except Exception as e:
+        print(f"Error procesando {archivo['name']}: {e}")
+        raise e
+
+def descargar_y_procesar_fallback(archivo, still_missing, datos_archivo):
+    import time
+    t_fallback_start = time.time()
+    try:
+        wb = hoja_de_trabajo(archivo)
+    except Exception as e:
+        print(f"Error descargando archivo fallback {archivo['name']}: {e}")
+        raise e
+        
+    # Extraer la fecha del contenido
+    fecha_archivo = ""
+    for fila in wb.iter_rows():
+        for celda in fila:
+            if (celda.value is not None
+                and "venecia - caqueta" in str(celda.value).lower()
+            ):
+                texto = str(celda.value)
+                m = re.search(r"\d.*", texto)
+                if m:
+                    fecha_archivo = re.sub(r'(\d{1,2}),\s+de', r'\1 de', m.group())
+                    break
+        if fecha_archivo:
+            break
+            
+    if not fecha_archivo:
+        return False
+        
+    try:
+        fecha = parse(fecha_archivo).date().isoformat()
+    except Exception:
+        return False
+        
+    if fecha in still_missing:
+        try:
+            encabezados, fila_encabezado = leer_encabezados(wb)
+            datos_archivo[fecha] = extraer_datos(encabezados, fila_encabezado, wb)
+            t_fallback_end = time.time()
+            print(f"  -> Día {fecha} cargado exitosamente (fallback) en {t_fallback_end - t_fallback_start:.2f} segundos.")
+            still_missing.remove(fecha)
+            return True
+        except Exception as e:
+            print(f"Error al extraer estructura en fallback para {archivo['name']}: {e}")
+            raise e
+    return False
+
+def obtener_hojas(db=None, target_month=None, target_date=None, force_overwrite=False):
+    import time
+    t_global_start = time.time()
+    
+    # Cargar el listado de archivos agrupados por mes
+    with open("listado_meses.json", encoding="utf-8") as l:
+        listado_meses = json.load(l)
+
+    errors = []
+    
+    # Obtener fechas en base de datos abriendo una conexión temporal rápida
+    dates_in_db = consultar_fechas_db()
 
     # Determinar qué meses procesar
     months_to_process = []
@@ -181,26 +254,11 @@ def obtener_hojas(db=None, target_month=None, target_date=None, force_overwrite=
         # Procesar los archivos identificados por nombre
         nuevos_datos_cargados = False
         for f_date, archivo in files_to_download:
-            print(f"Descargando archivo específico para {f_date}: {archivo['name']}")
-            t_down_start = time.time()
             try:
-                wb = hoja_de_trabajo(archivo)
-                t_down_end = time.time()
-                print(f"  [Timer] Descarga y lectura de Excel completada en {t_down_end - t_down_start:.2f} segundos.")
-                
-                t_parse_start = time.time()
-                encabezados, fila_encabezado = leer_encabezados(wb)
-                datos_archivo[f_date] = extraer_datos(
-                    encabezados,
-                    fila_encabezado,
-                    wb
-                )
-                t_parse_end = time.time()
-                print(f"  [Timer] Datos parseados y estructurados en {t_parse_end - t_parse_start:.2f} segundos.")
-                print(f"  -> Día {f_date} cargado exitosamente.")
-                nuevos_datos_cargados = True
+                success = descargar_y_procesar_fecha(archivo, f_date, datos_archivo)
+                if success:
+                    nuevos_datos_cargados = True
             except Exception as e:
-                print(f"Error procesando {archivo['name']}: {e}")
                 errors.append({"file": archivo['name'], "error": f"Error descargando/procesando: {str(e)}"})
                 
         # Si aún faltan fechas y tenemos archivos sin parsear por nombre, evaluamos como fallback
@@ -208,47 +266,12 @@ def obtener_hojas(db=None, target_month=None, target_date=None, force_overwrite=
         if still_missing and unparsed_files:
             print(f"Hay {len(still_missing)} fechas faltantes y {len(unparsed_files)} archivos sin fecha legible en el nombre. Evaluando fallbacks...")
             for archivo in unparsed_files:
-                t_fallback_start = time.time()
                 try:
-                    wb = hoja_de_trabajo(archivo)
-                except Exception as e:
-                    print(f"Error descargando archivo fallback {archivo['name']}: {e}")
-                    errors.append({"file": archivo['name'], "error": f"Error de lectura: {str(e)}"})
-                    continue
-                    
-                # Extraer la fecha del contenido
-                fecha_archivo = ""
-                for fila in wb.iter_rows():
-                    for celda in fila:
-                        if (celda.value is not None
-                            and "venecia - caqueta" in str(celda.value).lower()
-                        ):
-                            texto = str(celda.value)
-                            m = re.search(r"\d.*", texto)
-                            if m:
-                                fecha_archivo = re.sub(r'(\d{1,2}),\s+de', r'\1 de', m.group())
-                                break
-                    if fecha_archivo:
-                        break
-                        
-                if not fecha_archivo:
-                    continue
-                    
-                try:
-                    fecha = parse(fecha_archivo).date().isoformat()
-                except Exception:
-                    continue
-                    
-                if fecha in still_missing:
-                    try:
-                        encabezados, fila_encabezado = leer_encabezados(wb)
-                        datos_archivo[fecha] = extraer_datos(encabezados, fila_encabezado, wb)
-                        t_fallback_end = time.time()
-                        print(f"  -> Día {fecha} cargado exitosamente (fallback) en {t_fallback_end - t_fallback_start:.2f} segundos.")
+                    success = descargar_y_procesar_fallback(archivo, still_missing, datos_archivo)
+                    if success:
                         nuevos_datos_cargados = True
-                        still_missing.remove(fecha)
-                    except Exception as e:
-                        errors.append({"file": archivo['name'], "error": f"Error al extraer estructura: {str(e)}"})
+                except Exception as e:
+                    errors.append({"file": archivo['name'], "error": f"Error en fallback: {str(e)}"})
 
         # Guardar si hubo cambios
         if nuevos_datos_cargados or not archivoF.exists():
