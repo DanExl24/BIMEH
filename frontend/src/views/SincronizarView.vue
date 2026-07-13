@@ -97,29 +97,29 @@
               <label class="text-[10px] uppercase font-bold text-slate-500">Mes de Referencia:</label>
               <select 
                 v-model="multiDayMonth"
-                class="w-full bg-darkBg border border-darkBorder rounded-xl px-3 py-2 text-xs text-slate-200 outline-none focus:border-cyan-500/50 max-w-xs mb-3"
+                class="w-full bg-darkBg border border-darkBorder rounded-xl px-3 py-2 text-xs text-slate-200 outline-none focus:border-cyan-500/50 max-w-xs mb-2"
               >
                 <option v-for="m in appStore.months" :key="m" :value="m">{{ m }}</option>
               </select>
-              <div class="bg-darkBg border border-darkBorder/40 rounded-xl p-3">
-                <div class="flex items-center justify-between mb-2">
-                  <span class="text-[10px] uppercase font-bold text-slate-500">Seleccionar días (click para marcar/desmarcar):</span>
+              <div class="bg-darkBg border border-darkBorder/40 rounded-xl p-2.5 max-w-xs">
+                <div class="flex items-center justify-between mb-1.5">
+                  <span class="text-[9px] uppercase font-bold text-slate-500">Seleccionar días:</span>
                   <div class="flex gap-2">
                     <button 
                       type="button" 
                       @click="selectAllDays" 
-                      class="text-[10px] text-cyan-400 hover:text-cyan-300 font-bold transition-colors"
+                      class="text-[9px] text-cyan-400 hover:text-cyan-300 font-bold transition-colors"
                     >Todos</button>
                     <button 
                       type="button" 
                       @click="clearAllDays" 
-                      class="text-[10px] text-slate-400 hover:text-slate-300 font-bold transition-colors"
+                      class="text-[9px] text-slate-400 hover:text-slate-300 font-bold transition-colors"
                     >Ninguno</button>
                   </div>
                 </div>
-                <div class="grid grid-cols-7 gap-1">
+                <div class="grid grid-cols-7 gap-0.5">
                   <!-- Encabezados de día de la semana -->
-                  <div v-for="d in ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom']" :key="d" class="text-center text-[9px] font-bold text-slate-500 py-1">{{ d }}</div>
+                  <div v-for="d in ['Lu','Ma','Mi','Ju','Vi','Sa','Do']" :key="d" class="text-center text-[8px] font-bold text-slate-500 py-0.5">{{ d }}</div>
                   <!-- Espacios vacíos para alinear el primer día -->
                   <div v-for="n in calendarPadding" :key="'pad-'+n"></div>
                   <!-- Días del mes -->
@@ -128,15 +128,15 @@
                     :key="day.date"
                     type="button"
                     @click="toggleDay(day.date)"
-                    class="aspect-square flex items-center justify-center rounded-lg text-xs font-bold transition-all border"
+                    class="w-full py-1 flex items-center justify-center rounded text-[10px] font-bold transition-all border"
                     :class="selectedDates.includes(day.date)
-                      ? 'bg-cyan-500/30 text-cyan-300 border-cyan-500/40 shadow-sm shadow-cyan-500/10'
+                      ? 'bg-cyan-500/30 text-cyan-300 border-cyan-500/40'
                       : 'text-slate-400 border-transparent hover:bg-slate-700/50 hover:text-slate-200'"
                   >
                     {{ day.num }}
                   </button>
                 </div>
-                <div v-if="selectedDates.length > 0" class="mt-2 pt-2 border-t border-darkBorder/30">
+                <div v-if="selectedDates.length > 0" class="mt-1.5 pt-1.5 border-t border-darkBorder/30">
                   <span class="text-[10px] text-cyan-400 font-bold">{{ selectedDates.length }} día{{ selectedDates.length > 1 ? 's' : '' }} seleccionado{{ selectedDates.length > 1 ? 's' : '' }}</span>
                 </div>
               </div>
