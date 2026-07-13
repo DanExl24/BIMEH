@@ -201,7 +201,19 @@
         </div>
 
         <!-- Submit Button -->
-        <div class="pt-4 border-t border-darkBorder/40 flex justify-end">
+        <div class="pt-4 border-t border-darkBorder/40 flex justify-end gap-3">
+          <!-- CSV Test Button (Only shown if source is 'drive') -->
+          <button 
+            v-if="source === 'drive'"
+            type="button"
+            @click="handleCsvTestAction"
+            :disabled="isSubmitDisabled"
+            class="px-4 py-2.5 bg-purple-600/20 hover:bg-purple-600/30 text-purple-400 border border-purple-500/30 disabled:opacity-40 disabled:pointer-events-none rounded-xl text-xs font-bold flex items-center gap-2 transition-all active:scale-95 cursor-pointer select-none"
+          >
+            <div v-if="appStore.isSyncingDrive" class="w-4 h-4 border-2 border-purple-400/25 border-t-purple-400 rounded-full animate-spin"></div>
+            <span>Prueba Temporal CSV</span>
+          </button>
+
           <button 
             type="button"
             @click="handleMainAction"
@@ -460,6 +472,13 @@ const handleMainAction = () => {
       overwrite: overwrite.value
     })
   }
+const handleCsvTestAction = () => {
+  appStore.startDriveSyncCsvTest({
+    tipo: mode.value,
+    fecha: mode.value === 'dia' ? fecha.value : null,
+    mes: mode.value === 'mes' ? mes.value : null,
+    overwrite: overwrite.value
+  })
 }
 
 // Methods
