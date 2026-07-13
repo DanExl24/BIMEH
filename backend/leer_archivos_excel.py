@@ -230,6 +230,7 @@ def descargar_y_procesar_fallback(archivo, still_missing, datos_archivo):
     """
     Procesa archivos que no tienen fecha en su nombre. Descarga, convierte a CSV en memoria,
     inspecciona su contenido buscando la fecha y procesa si coincide con alguna fecha faltante.
+    Retorna la fecha encontrada (str) o None si no se encuentra o es inválida.
     """
     import time
     t_fallback_start = time.time()
@@ -258,12 +259,12 @@ def descargar_y_procesar_fallback(archivo, still_missing, datos_archivo):
             break
             
     if not fecha_archivo:
-        return False
+        return None
         
     try:
         fecha = parse(fecha_archivo).date().isoformat()
     except Exception:
-        return False
+        return None
         
     if fecha in still_missing:
         try:
@@ -271,11 +272,11 @@ def descargar_y_procesar_fallback(archivo, still_missing, datos_archivo):
             t_fallback_end = time.time()
             print(f"  -> Día {fecha} cargado exitosamente (fallback) en {t_fallback_end - t_fallback_start:.2f} segundos.")
             still_missing.remove(fecha)
-            return True
+            return fecha
         except Exception as e:
             print(f"Error al extraer estructura en fallback para {archivo['name']}: {e}")
             raise e
-    return False
+    return fecha
 
 def obtener_hojas(db=None, target_month=None, target_date=None, force_overwrite=False):
     """
@@ -332,6 +333,17 @@ def obtener_hojas(db=None, target_month=None, target_date=None, force_overwrite=
             except Exception as e:
                 datos_archivo = {}
 
+        # Cargar metadatos del mes (caché de nombres de archivos -> fechas procesadas)
+        metadataF = Path(f"listadoMeses/{mes}.metadata")
+        metadata = {"processed_files": {}}
+        if not force_overwrite and metadataF.exists():
+            try:
+                with open(metadataF, "r", encoding="utf-8") as mf:
+                    metadata = json.load(mf)
+            except Exception:
+                pass
+        processed_files = metadata.setdefault("processed_files", {})
+
         # Fechas esperadas del mes
         month_num = MESES_MAP[mes]
         num_days = calendar.monthrange(2026, month_num)[1]
@@ -361,6 +373,12 @@ def obtener_hojas(db=None, target_month=None, target_date=None, force_overwrite=
         
         if not missing_dates:
             print(f"El mes/día de {mes} está completamente cargado. Omitiendo.")
+            # Guardamos los metadatos por si acaso hubo cambios
+            try:
+                with open(metadataF, "w", encoding="utf-8") as mf:
+                    json.dump(metadata, mf, indent=4, ensure_ascii=False)
+            except Exception:
+                pass
             continue
             
         print(f"Fechas faltantes/requeridas para {mes}: {missing_dates}")
@@ -373,8 +391,16 @@ def obtener_hojas(db=None, target_month=None, target_date=None, force_overwrite=
             fecha_parsed = parse_date_from_filename(archivo['name'])
             if fecha_parsed:
                 drive_files_by_date[fecha_parsed] = archivo
+                processed_files[archivo['name']] = fecha_parsed
             else:
-                unparsed_files.append(archivo)
+                # Es un archivo sin fecha en el nombre (fallback). ¿Ya lo evaluamos antes?
+                cached_date = processed_files.get(archivo['name'])
+                if cached_date:
+                    if cached_date != "unknown":
+                        drive_files_by_date[cached_date] = archivo
+                    # Si es "unknown" no se hace nada, evitando volver a descargarlo
+                else:
+                    unparsed_files.append(archivo)
                 
         # Emparejar descargas necesarias
         files_to_download = []
@@ -408,22 +434,36 @@ def obtener_hojas(db=None, target_month=None, target_date=None, force_overwrite=
             print(f"Hay {len(still_missing)} fechas faltantes y {len(unparsed_files)} archivos sin fecha legible en el nombre. Evaluando fallbacks...")
             for archivo in unparsed_files:
                 try:
-                    prev_len = len(datos_archivo)
-                    success = descargar_y_procesar_fallback(archivo, still_missing, datos_archivo)
-                    if success:
-                        nuevos_datos_cargados = True
-                        fecha_detectada = list(datos_archivo.keys())[-1] if len(datos_archivo) > prev_len else "desconocida"
+                    fecha_detectada = descargar_y_procesar_fallback(archivo, still_missing, datos_archivo)
+                    if fecha_detectada:
+                        processed_files[archivo['name']] = fecha_detectada
+                        if fecha_detectada in datos_archivo:
+                            nuevos_datos_cargados = True
+                            sync_log.append({
+                                "file": archivo['name'],
+                                "status": "success",
+                                "detail": f"Sincronizado con éxito (identificado como reporte de {fecha_detectada})."
+                            })
+                        else:
+                            sync_log.append({
+                                "file": archivo['name'],
+                                "status": "skipped",
+                                "detail": f"Omitido: identificado como reporte de {fecha_detectada} (ya al día)."
+                            })
+                    else:
+                        processed_files[archivo['name']] = "unknown"
                         sync_log.append({
                             "file": archivo['name'],
-                            "status": "success",
-                            "detail": f"Sincronizado con éxito (identificado como reporte de {fecha_detectada})."
+                            "status": "skipped",
+                            "detail": "Omitido: el archivo no corresponde a ninguna fecha faltante."
                         })
                 except Exception as e:
                     errors.append({"file": archivo['name'], "error": f"Error en fallback: {str(e)}"})
+                    processed_files[archivo['name']] = "unknown"
                     sync_log.append({
                         "file": archivo['name'],
                         "status": "error",
-                        "detail": "El archivo está corrupto o no contiene una fecha de reporte reconocible."
+                        "detail": "El archivo está corrupto o falló al leer la fecha de reporte."
                     })
 
         # Guardar en local JSON si hay cambios
@@ -434,6 +474,13 @@ def obtener_hojas(db=None, target_month=None, target_date=None, force_overwrite=
                 json.dump(datos_archivo, d, indent=4, ensure_ascii=False, default=str)
         else:
             print(f"No se encontraron nuevos reportes para el mes {mes}.")
+            
+        # Guardar caché de metadatos procesados de este mes
+        try:
+            with open(metadataF, "w", encoding="utf-8") as mf:
+                json.dump(metadata, mf, indent=4, ensure_ascii=False)
+        except Exception as e:
+            print(f"Error guardando metadatos para {mes}: {e}")
             
         t_month_end = time.time()
         print(f"[Timer] Sincronización del mes {mes} terminada. Tiempo total: {t_month_end - t_month_start:.2f} segundos.")
