@@ -343,12 +343,13 @@ async def cargar_reporte(
 from pydantic import BaseModel
 
 class DriveSyncRequest(BaseModel):
-    tipo: str  # "dia", "mes" o "todo"
+    tipo: str  # "dia", "dias", "mes" o "todo"
     fecha: Optional[str] = None
+    fechas: Optional[list] = None  # Lista de fechas ISO para modo multi-día
     mes: Optional[str] = None
     overwrite: bool = False
 
-def sync_local_jsons_to_db(db, target_month=None, target_date=None, force_overwrite=False):
+def sync_local_jsons_to_db(db, target_month=None, target_date=None, target_dates=None, force_overwrite=False):
     cursor = db.cursor()
     cursor.execute("SELECT fecha FROM REPORTES;")
     existing_dates = {row[0] for row in cursor.fetchall()}
@@ -374,6 +375,23 @@ def sync_local_jsons_to_db(db, target_month=None, target_date=None, force_overwr
     # Si filtramos por un mes en específico, solo procesamos ese archivo JSON
     if target_month:
         json_files = [f"{target_month}.json"]
+    elif target_dates:
+        # Modo multi-día: determinar los meses involucrados
+        reverse_map_db = {
+            1: "ENERO", 2: "FEBRERO", 3: "MARZO", 4: "ABRIL",
+            5: "MAYO", 6: "JUNIO", 7: "JULIO", 8: "AGOSTO",
+            9: "SEPTIEMBRE", 10: "OCTUBRE", 11: "NOVIEMBRE", 12: "DICIEMBRE"
+        }
+        meses_set = set()
+        for td in target_dates:
+            try:
+                m_num = int(td.split("-")[1])
+                mes_name = reverse_map_db.get(m_num)
+                if mes_name:
+                    meses_set.add(f"{mes_name}.json")
+            except Exception:
+                pass
+        json_files = list(meses_set)
     
     for filename in json_files:
         filepath = months_dir / filename
@@ -387,7 +405,10 @@ def sync_local_jsons_to_db(db, target_month=None, target_date=None, force_overwr
                 continue
                 
         for date_str, records in data.items():
-            # Si filtramos por fecha específica, ignorar las demás
+            # Si filtramos por fechas específicas (multi-día), ignorar las demás
+            if target_dates and date_str not in target_dates:
+                continue
+            # Si filtramos por fecha específica (día único), ignorar las demás
             if target_date and date_str != target_date:
                 continue
                 
@@ -507,6 +528,7 @@ def sincronizar_desde_drive(
         # 1. Obtener filtros de la consulta
         target_month = req.mes
         target_date = req.fecha
+        target_dates = req.fechas  # Lista de fechas para modo multi-día
         
         # Si es tipo día, extraemos el mes para optimizar
         if req.tipo == "dia" and target_date:
@@ -520,13 +542,41 @@ def sincronizar_desde_drive(
                 target_month = reverse_map.get(m_num)
             except Exception:
                 pass
+        elif req.tipo == "dias" and target_dates:
+            # Modo multi-día: determinamos los meses únicos involucrados
+            # y limpiamos target_date/target_month ya que usamos target_dates
+            target_date = None
+            target_month = None
         elif req.tipo == "todo":
             target_month = None
             target_date = None
+            target_dates = None
 
-        # 2. Ejecutar la lógica de leer_carpetas para actualizar listado_meses.json (filtrando por mes para mayor velocidad)
+        # 2. Ejecutar la lógica de leer_carpetas para actualizar listado_meses.json
+        # Para modo multi-día, determinamos los meses necesarios y listamos cada uno
         from leer_carpetas import listar_dias_mes
-        meses_nuevos = listar_dias_mes(target_month=target_month)
+        if req.tipo == "dias" and target_dates:
+            # Listar carpetas para cada mes involucrado en las fechas seleccionadas
+            reverse_map_local = {
+                1: "ENERO", 2: "FEBRERO", 3: "MARZO", 4: "ABRIL",
+                5: "MAYO", 6: "JUNIO", 7: "JULIO", 8: "AGOSTO",
+                9: "SEPTIEMBRE", 10: "OCTUBRE", 11: "NOVIEMBRE", 12: "DICIEMBRE"
+            }
+            meses_needed = set()
+            for td in target_dates:
+                try:
+                    m_num = int(td.split("-")[1])
+                    mes_name = reverse_map_local.get(m_num)
+                    if mes_name:
+                        meses_needed.add(mes_name)
+                except Exception:
+                    pass
+            meses_nuevos = {}
+            for mes_name in meses_needed:
+                parcial = listar_dias_mes(target_month=mes_name)
+                meses_nuevos.update(parcial)
+        else:
+            meses_nuevos = listar_dias_mes(target_month=target_month)
         
         # Leer listado_meses.json existente para no borrar información de otros meses
         existing_meses = {}
@@ -548,6 +598,7 @@ def sincronizar_desde_drive(
             db=None,
             target_month=target_month,
             target_date=target_date,
+            target_dates=target_dates,
             force_overwrite=req.overwrite
         )
 
@@ -571,6 +622,7 @@ def sincronizar_desde_drive(
                 db=db_write,
                 target_month=target_month,
                 target_date=target_date,
+                target_dates=target_dates,
                 force_overwrite=req.overwrite
             )
         finally:

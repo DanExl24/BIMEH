@@ -32,7 +32,7 @@ export const useAppStore = defineStore('app', () => {
     }
   }
 
-  const startDriveSync = async (params: { tipo: string; fecha?: string | null; mes?: string | null; overwrite: boolean }) => {
+  const startDriveSync = async (params: { tipo: string; fecha?: string | null; fechas?: string[] | null; mes?: string | null; overwrite: boolean }) => {
     if (isSyncingDrive.value) return
 
     isSyncingDrive.value = true
@@ -58,6 +58,7 @@ export const useAppStore = defineStore('app', () => {
         body: JSON.stringify({
           tipo: params.tipo,
           fecha: params.fecha || null,
+          fechas: params.fechas || null,
           mes: params.mes || null,
           overwrite: params.overwrite
         })

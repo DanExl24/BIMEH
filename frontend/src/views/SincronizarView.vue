@@ -68,17 +68,24 @@
             </div>
           </div>
           
-          <!-- Mode switch -->
           <div class="space-y-1.5">
             <label class="text-[10px] uppercase font-bold text-slate-500">Modo de Carga:</label>
-            <div class="grid grid-cols-2 gap-2 bg-darkBg p-1 rounded-xl border border-darkBorder/40 max-w-sm">
+            <div class="grid grid-cols-3 gap-2 bg-darkBg p-1 rounded-xl border border-darkBorder/40 max-w-md">
               <button 
                 type="button"
                 @click="mode = 'dia'"
                 class="py-1.5 text-xs font-bold rounded-lg transition-all"
                 :class="mode === 'dia' ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/20' : 'text-slate-400 hover:text-slate-200'"
               >
-                Por Día Operativo
+                Un Día
+              </button>
+              <button 
+                type="button"
+                @click="mode = 'dias'"
+                class="py-1.5 text-xs font-bold rounded-lg transition-all"
+                :class="mode === 'dias' ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/20' : 'text-slate-400 hover:text-slate-200'"
+              >
+                Varios Días
               </button>
               <button 
                 type="button"
@@ -86,7 +93,7 @@
                 class="py-1.5 text-xs font-bold rounded-lg transition-all"
                 :class="mode === 'mes' ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/20' : 'text-slate-400 hover:text-slate-200'"
               >
-                Por Mes Completo
+                Mes Completo
               </button>
             </div>
           </div>
@@ -101,6 +108,56 @@
                 v-model="fecha"
                 class="w-full bg-darkBg border border-darkBorder rounded-xl px-3 py-2 text-xs text-slate-200 outline-none focus:border-cyan-500/50"
               />
+            </div>
+
+            <!-- Multi-day calendar picker -->
+            <div v-else-if="mode === 'dias'" class="space-y-1.5 md:col-span-2">
+              <label class="text-[10px] uppercase font-bold text-slate-500">Mes de Referencia:</label>
+              <select 
+                v-model="multiDayMonth"
+                class="w-full bg-darkBg border border-darkBorder rounded-xl px-3 py-2 text-xs text-slate-200 outline-none focus:border-cyan-500/50 max-w-xs mb-3"
+              >
+                <option v-for="m in appStore.months" :key="m" :value="m">{{ m }}</option>
+              </select>
+              <div class="bg-darkBg border border-darkBorder/40 rounded-xl p-3">
+                <div class="flex items-center justify-between mb-2">
+                  <span class="text-[10px] uppercase font-bold text-slate-500">Seleccionar días (click para marcar/desmarcar):</span>
+                  <div class="flex gap-2">
+                    <button 
+                      type="button" 
+                      @click="selectAllDays" 
+                      class="text-[10px] text-cyan-400 hover:text-cyan-300 font-bold transition-colors"
+                    >Todos</button>
+                    <button 
+                      type="button" 
+                      @click="clearAllDays" 
+                      class="text-[10px] text-slate-400 hover:text-slate-300 font-bold transition-colors"
+                    >Ninguno</button>
+                  </div>
+                </div>
+                <div class="grid grid-cols-7 gap-1">
+                  <!-- Encabezados de día de la semana -->
+                  <div v-for="d in ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom']" :key="d" class="text-center text-[9px] font-bold text-slate-500 py-1">{{ d }}</div>
+                  <!-- Espacios vacíos para alinear el primer día -->
+                  <div v-for="n in calendarPadding" :key="'pad-'+n"></div>
+                  <!-- Días del mes -->
+                  <button
+                    v-for="day in calendarDays"
+                    :key="day.date"
+                    type="button"
+                    @click="toggleDay(day.date)"
+                    class="aspect-square flex items-center justify-center rounded-lg text-xs font-bold transition-all border"
+                    :class="selectedDates.includes(day.date)
+                      ? 'bg-cyan-500/30 text-cyan-300 border-cyan-500/40 shadow-sm shadow-cyan-500/10'
+                      : 'text-slate-400 border-transparent hover:bg-slate-700/50 hover:text-slate-200'"
+                  >
+                    {{ day.num }}
+                  </button>
+                </div>
+                <div v-if="selectedDates.length > 0" class="mt-2 pt-2 border-t border-darkBorder/30">
+                  <span class="text-[10px] text-cyan-400 font-bold">{{ selectedDates.length }} día{{ selectedDates.length > 1 ? 's' : '' }} seleccionado{{ selectedDates.length > 1 ? 's' : '' }}</span>
+                </div>
+              </div>
             </div>
 
             <!-- Month selection (Dropdown) -->
@@ -428,10 +485,14 @@ const appStore = useAppStore()
 
 // State variables
 const source = ref<'local' | 'drive'>('local')
-const mode = ref<'dia' | 'mes'>('dia')
+const mode = ref<'dia' | 'dias' | 'mes'>('dia')
 const fecha = ref('2026-05-07')
 const mes = ref('MAYO')
 const overwrite = ref(false)
+
+// Multi-day mode state
+const selectedDates = ref<string[]>([])
+const multiDayMonth = ref('JULIO')
 
 const selectedFile = ref<File | null>(null)
 const dragActive = ref(false)
@@ -457,11 +518,63 @@ const formattedFileSize = computed(() => {
 
 const isSubmitDisabled = computed(() => {
   if (source.value === 'local') {
-    return !selectedFile.value || (mode.value === 'dia' && !fecha.value) || (mode.value === 'mes' && !mes.value) || loadingSubmit.value
+    return !selectedFile.value || (mode.value === 'dia' && !fecha.value) || (mode.value === 'mes' && !mes.value) || (mode.value === 'dias' && selectedDates.value.length === 0) || loadingSubmit.value
   } else {
-    return ((mode.value === 'dia' && !fecha.value) || (mode.value === 'mes' && !mes.value)) || appStore.isSyncingDrive
+    return (
+      (mode.value === 'dia' && !fecha.value) ||
+      (mode.value === 'mes' && !mes.value) ||
+      (mode.value === 'dias' && selectedDates.value.length === 0)
+    ) || appStore.isSyncingDrive
   }
 })
+
+// Mapa de meses a su número (1-indexed)
+const MESES_MAP: Record<string, number> = {
+  'ENERO': 1, 'FEBRERO': 2, 'MARZO': 3, 'ABRIL': 4,
+  'MAYO': 5, 'JUNIO': 6, 'JULIO': 7, 'AGOSTO': 8,
+  'SEPTIEMBRE': 9, 'OCTUBRE': 10, 'NOVIEMBRE': 11, 'DICIEMBRE': 12
+}
+
+// Computed: días del calendario para el mes seleccionado en modo multi-día
+const calendarDays = computed(() => {
+  const monthNum = MESES_MAP[multiDayMonth.value]
+  if (!monthNum) return []
+  const year = 2026
+  const daysInMonth = new Date(year, monthNum, 0).getDate()
+  const days = []
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = `${year}-${String(monthNum).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+    days.push({ num: d, date: dateStr })
+  }
+  return days
+})
+
+// Computed: espacios vacíos al inicio del calendario para alinear con el día de la semana
+const calendarPadding = computed(() => {
+  const monthNum = MESES_MAP[multiDayMonth.value]
+  if (!monthNum) return 0
+  const firstDay = new Date(2026, monthNum - 1, 1).getDay()
+  // getDay: 0=Dom, 1=Lun... necesitamos que Lun=0
+  return firstDay === 0 ? 6 : firstDay - 1
+})
+
+// Funciones de selección multi-día
+const toggleDay = (dateStr: string) => {
+  const idx = selectedDates.value.indexOf(dateStr)
+  if (idx >= 0) {
+    selectedDates.value.splice(idx, 1)
+  } else {
+    selectedDates.value.push(dateStr)
+  }
+}
+
+const selectAllDays = () => {
+  selectedDates.value = calendarDays.value.map(d => d.date)
+}
+
+const clearAllDays = () => {
+  selectedDates.value = []
+}
 
 const mainButtonText = computed(() => {
   if (source.value === 'local') {
@@ -478,6 +591,7 @@ const handleMainAction = () => {
     appStore.startDriveSync({
       tipo: mode.value,
       fecha: mode.value === 'dia' ? fecha.value : null,
+      fechas: mode.value === 'dias' ? [...selectedDates.value].sort() : null,
       mes: mode.value === 'mes' ? mes.value : null,
       overwrite: overwrite.value
     })

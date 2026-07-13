@@ -278,7 +278,7 @@ def descargar_y_procesar_fallback(archivo, still_missing, datos_archivo):
             raise e
     return fecha
 
-def obtener_hojas(db=None, target_month=None, target_date=None, force_overwrite=False):
+def obtener_hojas(db=None, target_month=None, target_date=None, target_dates=None, force_overwrite=False):
     """
     Función orquestadora principal que gestiona el flujo de descargas de reportes desde Google Drive.
     Filtra los meses/días solicitados, verifica fechas ausentes en la base de datos de Neon y
@@ -297,18 +297,32 @@ def obtener_hojas(db=None, target_month=None, target_date=None, force_overwrite=
     # Obtener fechas cargadas en Neon
     dates_in_db = consultar_fechas_db()
 
+    # Mapa inverso de número de mes a nombre
+    reverse_map = {
+        1: "ENERO", 2: "FEBRERO", 3: "MARZO", 4: "ABRIL",
+        5: "MAYO", 6: "JUNIO", 7: "JULIO", 8: "AGOSTO",
+        9: "SEPTIEMBRE", 10: "OCTUBRE", 11: "NOVIEMBRE", 12: "DICIEMBRE"
+    }
+
     # Identificar meses a procesar según filtros
     months_to_process = []
-    if target_month:
+    if target_dates:
+        # Modo multi-día: agrupar las fechas seleccionadas por mes
+        meses_set = set()
+        for td in target_dates:
+            try:
+                m_num = int(td.split("-")[1])
+                mes_name = reverse_map.get(m_num)
+                if mes_name:
+                    meses_set.add(mes_name)
+            except Exception:
+                pass
+        months_to_process = list(meses_set)
+    elif target_month:
         months_to_process = [target_month]
     elif target_date:
         try:
             m_num = int(target_date.split("-")[1])
-            reverse_map = {
-                1: "ENERO", 2: "FEBRERO", 3: "MARZO", 4: "ABRIL",
-                5: "MAYO", 6: "JUNIO", 7: "JULIO", 8: "AGOSTO",
-                9: "SEPTIEMBRE", 10: "OCTUBRE", 11: "NOVIEMBRE", 12: "DICIEMBRE"
-            }
             months_to_process = [reverse_map.get(m_num)]
         except Exception:
             months_to_process = list(listado_meses.keys())
@@ -350,7 +364,14 @@ def obtener_hojas(db=None, target_month=None, target_date=None, force_overwrite=
         all_month_dates = [datetime.date(2026, month_num, d).isoformat() for d in range(1, num_days + 1)]
         
         # Filtrar fechas faltantes
-        if target_date:
+        if target_dates:
+            # Modo multi-día: solo las fechas seleccionadas que pertenecen a este mes
+            dates_this_month = [d for d in target_dates if d in all_month_dates]
+            if force_overwrite:
+                missing_dates = dates_this_month
+            else:
+                missing_dates = [d for d in dates_this_month if d not in dates_in_db and d not in datos_archivo]
+        elif target_date:
             if force_overwrite:
                 missing_dates = [target_date]
             else:
