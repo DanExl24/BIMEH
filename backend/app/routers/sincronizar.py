@@ -340,13 +340,111 @@ async def cargar_reporte(
         "message": f"Sincronización completada. Se cargaron reportes para {len(records_to_sync)} fechas operativas."
     }
 
+def sync_local_jsons_to_db(db):
+    cursor = db.cursor()
+    cursor.execute("SELECT fecha FROM REPORTES;")
+    existing_dates = {row[0] for row in cursor.fetchall()}
+    
+    import os
+    from pathlib import Path
+    
+    months_dir = Path("listadoMeses")
+    if not months_dir.exists():
+        return
+        
+    json_files = [f for f in os.listdir(months_dir) if f.endswith(".json")]
+    
+    for filename in json_files:
+        filepath = months_dir / filename
+        with open(filepath, "r", encoding="utf-8") as f:
+            try:
+                data = json.load(f)
+            except Exception:
+                continue
+                
+        for date_str, records in data.items():
+            if date_str in existing_dates:
+                continue
+                
+            print(f"Importando reporte de fecha {date_str} a la base de datos de Neon...")
+            
+            # Insertar reporte
+            cursor.execute("INSERT INTO REPORTES (fecha, archivo) VALUES (?, ?);", (date_str, filename))
+            cursor.execute("SELECT id FROM REPORTES WHERE fecha = ?;", (date_str,))
+            report_id = cursor.fetchone()[0]
+            
+            for rec_id, record in records.items():
+                cedula = record.get("CEDULA")
+                nombre = record.get("APELLIDOS Y NOMBRES")
+                subnovedad = record.get("SUBNOVEDAD")
+                descripcion = record.get("DESCRIPCION", "")
+                desde_val = record.get("DESDE", "")
+                hasta_val = record.get("HASTA", "")
+                
+                if cedula is None or nombre is None:
+                    continue
+                try:
+                    cedula_int = int(float(str(cedula).strip()))
+                except ValueError:
+                    continue
+                if cedula_int <= 0:
+                    continue
+                    
+                nombre = str(nombre).strip().upper()
+                subnovedad = str(subnovedad).strip().upper() if subnovedad else "SIN NOVEDAD"
+                
+                # Obtener o crear Personal
+                cursor.execute("SELECT id FROM PERSONAL WHERE cedula = ?;", (cedula_int,))
+                p_row = cursor.fetchone()
+                if p_row:
+                    personal_id = p_row[0]
+                else:
+                    cursor.execute("INSERT INTO PERSONAL (cedula, nombre) VALUES (?, ?);", (cedula_int, nombre))
+                    cursor.execute("SELECT id FROM PERSONAL WHERE cedula = ?;", (cedula_int,))
+                    personal_id = cursor.fetchone()[0]
+                    
+                # Obtener o crear Subnovedad
+                cursor.execute("SELECT id FROM SUB_NOVEDADES WHERE nombre = ?;", (subnovedad,))
+                sn_row = cursor.fetchone()
+                if sn_row:
+                    subnovedad_id = sn_row[0]
+                else:
+                    cursor.execute("INSERT INTO SUB_NOVEDADES (nombre) VALUES (?);", (subnovedad,))
+                    cursor.execute("SELECT id FROM SUB_NOVEDADES WHERE nombre = ?;", (subnovedad,))
+                    subnovedad_id = cursor.fetchone()[0]
+                    
+                # Limpiar fechas
+                fecha_inicio = None
+                if desde_val:
+                    try:
+                        fecha_inicio = str(desde_val).split()[0]
+                    except Exception:
+                        pass
+                fecha_final = None
+                if hasta_val:
+                    try:
+                        fecha_final = str(hasta_val).split()[0]
+                    except Exception:
+                        pass
+                        
+                # Insertar registro
+                cursor.execute("""
+                    INSERT INTO REGISTRO_PERSONAL 
+                    (id_reporte, id_personal, id_sub_novedad, descripcion, fecha_inicio, fecha_final)
+                    VALUES (?, ?, ?, ?, ?, ?);
+                """, (report_id, personal_id, subnovedad_id, descripcion, fecha_inicio, fecha_final))
+                
+        db.commit()
+
 @router.post("/sincronizar/drive")
 def sincronizar_desde_drive(
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user),
+    db = Depends(get_db)
 ):
     """
     Ejecuta el script leer_carpetas.py y leer_archivos_excel.py 
-    para descargar y procesar nuevos archivos desde Google Drive.
+    para descargar y procesar nuevos archivos desde Google Drive,
+    e inserta los nuevos datos en la base de datos de Neon.
     """
     try:
         # 1. Ejecutar la lógica de leer_carpetas para actualizar listado_meses.json
@@ -357,11 +455,15 @@ def sincronizar_desde_drive(
 
         # 2. Ejecutar la lógica de leer_archivos_excel para descargar y actualizar las hojas mensuales
         from leer_archivos_excel import obtener_hojas
-        obtener_hojas()
+        errors = obtener_hojas()
+
+        # 3. Sincronizar todos los JSONs locales nuevos a la base de datos (PostgreSQL Neon)
+        sync_local_jsons_to_db(db)
 
         return {
             "status": "success",
-            "message": "Sincronización con Google Drive completada exitosamente. Se actualizaron los reportes locales."
+            "message": "Sincronización con Google Drive completada exitosamente. Se actualizaron los datos en la nube.",
+            "errors": errors
         }
     except Exception as e:
         import traceback

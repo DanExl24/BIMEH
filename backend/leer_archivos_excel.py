@@ -36,30 +36,31 @@ def obtener_hojas():
     with open("listado_meses.json", encoding="utf-8") as l:
         listado_meses = json.load(l)
 
+    errors = []
+
     # Recorrer cada mes (ENERO, FEBRERO, ...)
     for mes, archivos in listado_meses.items():
         archivoF = Path(f"listadoMeses/{mes}.json")
-        if  archivoF.exists():
-            print(f"el mes {mes} ya esta cargado")
-            continue
-            # Guardar un único JSON para este mes
-        # Aquí se almacenarán todos los reportes de ese mes
-        # {
-        #     "2026-01-01": {...},
-        #     "2026-01-02": {...},
-        #     ...
-        # }
+        
         datos_archivo = {}
+        if archivoF.exists():
+            try:
+                with open(archivoF, "r", encoding="utf-8") as f:
+                    datos_archivo = json.load(f)
+                print(f"El mes {mes} ya tiene {len(datos_archivo)} días cargados localmente.")
+            except Exception as e:
+                print(f"Error cargando archivo existente de {mes}: {e}")
+                datos_archivo = {}
 
         # Recorrer todos los Excel del mes
+        nuevos_datos_cargados = False
         for archivo in archivos:
-
             # Intentar abrir el Excel descargado desde Google Drive
             try:
                 wb = hoja_de_trabajo(archivo)
             except Exception as e:
-                print(f"Error con {archivo['name']}")
-                print(e)
+                print(f"Error descargando o abriendo {archivo['name']}: {e}")
+                errors.append({"file": archivo['name'], "error": f"Error de descarga/lectura: {str(e)}"})
                 continue
 
             fecha_archivo = ""
@@ -84,8 +85,24 @@ def obtener_hojas():
                 if fecha_archivo:
                     break
 
-            # Convertir la fecha al formato YYYY-MM-DD
-            fecha = parse(fecha_archivo).date().isoformat()
+            if not fecha_archivo:
+                print(f"No se pudo extraer la fecha de {archivo['name']}")
+                errors.append({"file": archivo['name'], "error": "No se pudo extraer la fecha del reporte"})
+                continue
+
+            try:
+                # Convertir la fecha al formato YYYY-MM-DD
+                fecha = parse(fecha_archivo).date().isoformat()
+            except Exception as e:
+                print(f"Error parseando fecha {fecha_archivo} en {archivo['name']}: {e}")
+                errors.append({"file": archivo['name'], "error": f"Fecha inválida o no parseable ({fecha_archivo}): {str(e)}"})
+                continue
+
+            # SI YA EXISTE LA FECHA EN EL JSON LOCAL, NO LA SOBREESCRIBIMOS (OMITIMOS)
+            if fecha in datos_archivo:
+                print(f"  Día {fecha} ya existe localmente. Omitiendo descarga de datos.")
+                continue
+
             try:
                 # Obtener las columnas que interesan
                 encabezados, fila_encabezado = leer_encabezados(wb)
@@ -96,16 +113,23 @@ def obtener_hojas():
                     fila_encabezado,
                     wb
                 )
+                print(f"  -> Nuevo día cargado exitosamente: {fecha}")
+                nuevos_datos_cargados = True
             except Exception as e:
-                print(f"Error con encabezados de {archivo['name']}")
-                print(e)
+                print(f"Error procesando datos de {archivo['name']}: {e}")
+                errors.append({"file": archivo['name'], "error": f"Error de estructura o lectura de datos: {str(e)}"})
                 continue                
-        # Ordenar los archivos por fecha
-        datos_archivo = dict(sorted(datos_archivo.items()))
 
-        print(f"Mes {mes} terminado")
-        with open(f"listadoMeses/{mes}.json","w",encoding="utf-8") as d:
-            json.dump(datos_archivo,d,indent=4,ensure_ascii=False,default=str)
+        # Si cargamos nuevos días, volvemos a escribir y ordenar el JSON del mes
+        if nuevos_datos_cargados or not archivoF.exists():
+            datos_archivo = dict(sorted(datos_archivo.items()))
+            print(f"Guardando actualizaciones para el mes {mes}...")
+            with open(f"listadoMeses/{mes}.json", "w", encoding="utf-8") as d:
+                json.dump(datos_archivo, d, indent=4, ensure_ascii=False, default=str)
+        else:
+            print(f"No se encontraron nuevos reportes para el mes {mes}.")
+            
+    return errors
 
             
 def leer_encabezados(hoja):

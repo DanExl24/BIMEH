@@ -181,67 +181,140 @@
         <div class="glass-panel p-6 rounded-2xl space-y-4">
           <h4 class="text-xs font-bold text-slate-300 uppercase tracking-wider font-mono">Resultado de la Operación</h4>
           
-          <!-- Default placeholder -->
-          <div v-if="!statusState" class="text-center py-12 text-slate-500 space-y-2">
-            <div class="w-10 h-10 rounded-full bg-darkBg/40 border border-darkBorder flex items-center justify-center mx-auto text-slate-500">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
+          <!-- Google Drive Sync Status in Results Card -->
+          <div v-if="appStore.syncStatus !== 'idle'" class="space-y-3">
+            <!-- Running -->
+            <div v-if="appStore.syncStatus === 'running'" class="bg-cyan-500/10 border border-cyan-500/25 p-4 rounded-xl space-y-2 text-cyan-400 font-sans">
+              <div class="flex items-center gap-2 font-bold text-xs uppercase tracking-wide">
+                <div class="w-4 h-4 border-2 border-cyan-400/25 border-t-cyan-400 rounded-full animate-spin"></div>
+                Sincronizando con Google Drive...
+              </div>
+              <p class="text-xs leading-relaxed text-cyan-300/90 font-medium">
+                Descargando y actualizando reportes desde la nube. Por favor espere.
+              </p>
+              <div class="text-[10px] font-mono text-cyan-400 bg-cyan-500/15 px-2 py-1 rounded-md inline-block font-bold mt-2">
+                Tiempo transcurrido: {{ Math.floor(appStore.syncSecondsElapsed / 60) }}m {{ appStore.syncSecondsElapsed % 60 }}s
+              </div>
             </div>
-            <p class="text-xs">Configure las opciones, arrastre su reporte e inicie la sincronización.</p>
-          </div>
 
-          <!-- Success Alert -->
-          <div v-else-if="statusState === 'success'" class="bg-emerald-500/10 border border-emerald-500/25 p-4 rounded-xl space-y-2 text-emerald-400 font-sans">
-            <div class="flex items-center gap-2 font-bold text-xs uppercase tracking-wide">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              Sincronización Exitosa
-            </div>
-            <p class="text-xs leading-relaxed text-emerald-300/90 font-medium">
-              {{ statusMessage }}
-            </p>
-          </div>
+            <!-- Success -->
+            <div v-else-if="appStore.syncStatus === 'success'" class="space-y-3">
+              <div class="bg-emerald-500/10 border border-emerald-500/25 p-4 rounded-xl space-y-2 text-emerald-400 font-sans">
+                <div class="flex items-center gap-2 font-bold text-xs uppercase tracking-wide">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Sincronización de Drive Completada
+                </div>
+                <p class="text-xs leading-relaxed text-emerald-300/90 font-medium">
+                  {{ appStore.syncMessage }}
+                </p>
+              </div>
 
-          <!-- Danger/Validation Alert -->
-          <div v-else-if="statusState === 'error'" class="bg-red-500/10 border border-red-500/25 p-4 rounded-xl space-y-2 text-red-400 font-sans">
-            <div class="flex items-center gap-2 font-bold text-xs uppercase tracking-wide">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
-              Error de Validación
+              <!-- Corrupted/Failed Files Log -->
+              <div v-if="appStore.syncErrors.length > 0" class="space-y-2 pt-1">
+                <div class="flex items-center justify-between">
+                  <span class="text-[10px] uppercase font-bold text-red-400 font-sans">Archivos Omitidos/Corruptos:</span>
+                  <span class="text-[10px] font-bold text-slate-500 font-sans">{{ appStore.syncErrors.length }} archivo(s)</span>
+                </div>
+                <div class="max-h-48 overflow-y-auto bg-red-950/20 border border-red-500/20 rounded-xl p-3 font-mono text-[10px] space-y-2.5">
+                  <div v-for="(err, idx) in appStore.syncErrors" :key="idx" class="border-b border-red-500/10 pb-2 last:border-0 last:pb-0">
+                    <div class="font-bold text-red-300 truncate">{{ err.file }}</div>
+                    <div class="text-slate-400 mt-0.5 leading-relaxed">{{ err.error }}</div>
+                  </div>
+                </div>
+              </div>
             </div>
-            <p class="text-xs leading-relaxed text-red-300/90 font-medium">
-              {{ statusMessage }}
-            </p>
-          </div>
 
-          <!-- Conflict Alert -->
-          <div v-else-if="statusState === 'conflict'" class="bg-amber-500/10 border border-amber-500/25 p-4 rounded-xl space-y-3 text-amber-500 font-sans">
-            <div class="flex items-center gap-2 font-bold text-xs uppercase tracking-wide">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
-              Conflicto de Duplicados
+            <!-- Error -->
+            <div v-else-if="appStore.syncStatus === 'error'" class="bg-red-500/10 border border-red-500/25 p-4 rounded-xl space-y-2 text-red-400 font-sans">
+              <div class="flex items-center gap-2 font-bold text-xs uppercase tracking-wide">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                Error en Sincronización de Drive
+              </div>
+              <p class="text-xs leading-relaxed text-red-300/90 font-medium">
+                {{ appStore.syncMessage }}
+              </p>
             </div>
-            <p class="text-xs leading-relaxed text-amber-200/90 font-medium">
-              {{ statusMessage }}
-            </p>
             
-            <!-- Conflict list -->
-            <div class="max-h-24 overflow-y-auto bg-darkBg/60 border border-darkBorder/40 rounded-lg p-2 font-mono text-[10px] text-amber-300">
-              <div v-for="c in conflicts" :key="c">{{ c }}</div>
+            <!-- Clear button to return to placeholder -->
+            <div class="flex justify-end pt-1">
+              <button 
+                type="button"
+                @click="appStore.syncStatus = 'idle'; appStore.syncErrors = []"
+                class="px-3 py-1 bg-slate-800 hover:bg-slate-700 rounded-lg text-[10px] font-bold text-slate-400 transition-all cursor-pointer"
+              >
+                Limpiar Historial
+              </button>
+            </div>
+          </div>
+
+          <!-- Local Upload Status -->
+          <div v-else>
+            <!-- Default placeholder -->
+            <div v-if="!statusState" class="text-center py-12 text-slate-500 space-y-2">
+              <div class="w-10 h-10 rounded-full bg-darkBg/40 border border-darkBorder flex items-center justify-center mx-auto text-slate-500">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <p class="text-xs">Configure las opciones, arrastre su reporte e inicie la sincronización.</p>
             </div>
 
-            <!-- Overwrite decision button -->
-            <button 
-              type="button"
-              @click="confirmOverwrite"
-              class="w-full py-2 bg-amber-600 hover:bg-amber-500 rounded-lg text-slate-100 font-bold text-xs transition-all shadow active:scale-95 cursor-pointer"
-            >
-              Sobreescribir y Cargar
-            </button>
+            <!-- Success Alert -->
+            <div v-else-if="statusState === 'success'" class="bg-emerald-500/10 border border-emerald-500/25 p-4 rounded-xl space-y-2 text-emerald-400 font-sans">
+              <div class="flex items-center gap-2 font-bold text-xs uppercase tracking-wide">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Sincronización Exitosa
+              </div>
+              <p class="text-xs leading-relaxed text-emerald-300/90 font-medium">
+                {{ statusMessage }}
+              </p>
+            </div>
+
+            <!-- Danger/Validation Alert -->
+            <div v-else-if="statusState === 'error'" class="bg-red-500/10 border border-red-500/25 p-4 rounded-xl space-y-2 text-red-400 font-sans">
+              <div class="flex items-center gap-2 font-bold text-xs uppercase tracking-wide">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                Error de Validación
+              </div>
+              <p class="text-xs leading-relaxed text-red-300/90 font-medium">
+                {{ statusMessage }}
+              </p>
+            </div>
+
+            <!-- Conflict Alert -->
+            <div v-else-if="statusState === 'conflict'" class="bg-amber-500/10 border border-amber-500/25 p-4 rounded-xl space-y-3 text-amber-500 font-sans">
+              <div class="flex items-center gap-2 font-bold text-xs uppercase tracking-wide">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                Conflicto de Duplicados
+              </div>
+              <p class="text-xs leading-relaxed text-amber-200/90 font-medium">
+                {{ statusMessage }}
+              </p>
+              
+              <!-- Conflict list -->
+              <div class="max-h-24 overflow-y-auto bg-darkBg/60 border border-darkBorder/40 rounded-lg p-2 font-mono text-[10px] text-amber-300">
+                <div v-for="c in conflicts" :key="c">{{ c }}</div>
+              </div>
+
+              <!-- Overwrite decision button -->
+              <button 
+                type="button"
+                @click="confirmOverwrite"
+                class="w-full py-2 bg-amber-600 hover:bg-amber-500 rounded-lg text-slate-100 font-bold text-xs transition-all shadow active:scale-95 cursor-pointer"
+              >
+                Sobreescribir y Cargar
+              </button>
+            </div>
           </div>
         </div>
 

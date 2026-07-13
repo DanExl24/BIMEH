@@ -20,6 +20,7 @@ export const useAppStore = defineStore('app', () => {
   const syncTimer = ref<any>(null)
   const syncStatus = ref<'idle' | 'running' | 'success' | 'error'>('idle')
   const syncMessage = ref('')
+  const syncErrors = ref<any[]>([])
 
   const fetchAvailableDates = async () => {
     try {
@@ -37,6 +38,7 @@ export const useAppStore = defineStore('app', () => {
     syncSecondsElapsed.value = 0
     syncStatus.value = 'running'
     syncMessage.value = 'Sincronizando con Google Drive...'
+    syncErrors.value = []
 
     // Iniciar temporizador de segundos transcurridos
     syncTimer.value = setInterval(() => {
@@ -57,7 +59,12 @@ export const useAppStore = defineStore('app', () => {
 
       if (res.ok && data.status === 'success') {
         syncStatus.value = 'success'
-        syncMessage.value = data.message || 'Sincronización completada con éxito.'
+        syncErrors.value = data.errors || []
+        if (syncErrors.value.length > 0) {
+          syncMessage.value = `Sincronizado. ${syncErrors.value.length} archivos omitidos por errores de formato/lectura.`
+        } else {
+          syncMessage.value = data.message || 'Sincronización completada con éxito.'
+        }
         await fetchAvailableDates()
       } else {
         syncStatus.value = 'error'
@@ -74,13 +81,14 @@ export const useAppStore = defineStore('app', () => {
         syncTimer.value = null
       }
 
-      // Limpiar notificación automáticamente después de 5 segundos
+      // Si no hubo errores, limpiar notificación después de 8 segundos.
+      // Si hay errores, la dejamos para que el usuario pueda ver el log en la UI.
       setTimeout(() => {
-        if (!isSyncingDrive.value) {
+        if (!isSyncingDrive.value && syncErrors.value.length === 0 && syncStatus.value !== 'error') {
           syncStatus.value = 'idle'
           syncMessage.value = ''
         }
-      }, 5000)
+      }, 8000)
     }
   }
   
@@ -96,6 +104,7 @@ export const useAppStore = defineStore('app', () => {
     syncSecondsElapsed,
     syncStatus,
     syncMessage,
+    syncErrors,
     fetchAvailableDates,
     startDriveSync
   }
