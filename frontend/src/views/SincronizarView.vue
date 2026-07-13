@@ -175,7 +175,7 @@
               @dragover.prevent="dragActive = true"
               @dragleave.prevent="dragActive = false"
               @drop.prevent="handleDrop"
-              @click="$refs.fileInput.click()"
+              @click="triggerFileInput"
               class="border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all flex flex-col items-center justify-center space-y-3"
               :class="dragActive ? 'border-cyan-400 bg-cyan-500/5 shadow-md shadow-cyan-500/5' : 'border-darkBorder hover:border-slate-600 bg-darkBg/30'"
             >
@@ -233,7 +233,7 @@
               <p class="text-xs text-slate-200 font-bold">Búsqueda automática en Google Drive</p>
               <p class="text-[10px] text-slate-500 max-w-sm mx-auto leading-relaxed">
                 El sistema consultará Google Drive y descargará de forma automática el reporte correspondiente
-                a <strong>{{ mode === 'dia' ? 'la fecha ' + fecha : 'el mes de ' + mes }}</strong>.
+                a <strong>{{ mode === 'dias' ? 'los días seleccionados' : 'el mes de ' + mes }}</strong>.
               </p>
             </div>
           </div>
@@ -477,6 +477,11 @@ const multiDayMonth = ref('JULIO')
 
 const selectedFile = ref<File | null>(null)
 const dragActive = ref(false)
+const fileInput = ref<HTMLInputElement | null>(null)
+
+const triggerFileInput = () => {
+  fileInput.value?.click()
+}
 
 const loadingSubmit = ref(false)
 const statusState = ref<'success' | 'error' | 'conflict' | null>(null)
