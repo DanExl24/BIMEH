@@ -35,7 +35,8 @@ def listar_dias_mes():
                 break
     return meses
 
-with open("listado_meses.json","w") as ls:
-    json.dump(listar_dias_mes(),ls,indent=4)
+if __name__ == "__main__":
+    with open("listado_meses.json","w") as ls:
+        json.dump(listar_dias_mes(),ls,indent=4)
 
 

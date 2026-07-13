@@ -163,4 +163,5 @@ def extraer_datos(encabezados, fila_encabezado, hoja):
     return datos
     
 
-res = obtener_hojas()
+if __name__ == "__main__":
+    res = obtener_hojas()

@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Form
 from fastapi.responses import StreamingResponse
-from app.dependencies import DISPONIBLE_STATUSES
+from app.dependencies import DISPONIBLE_STATUSES, get_current_user
 from app.database import get_db, get_month_dates
 
 router = APIRouter(prefix="/api", tags=["Sincronizar"])
@@ -339,3 +339,34 @@ async def cargar_reporte(
         "status": "success",
         "message": f"Sincronización completada. Se cargaron reportes para {len(records_to_sync)} fechas operativas."
     }
+
+@router.post("/sincronizar/drive")
+def sincronizar_desde_drive(
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Ejecuta el script leer_carpetas.py y leer_archivos_excel.py 
+    para descargar y procesar nuevos archivos desde Google Drive.
+    """
+    try:
+        # 1. Ejecutar la lógica de leer_carpetas para actualizar listado_meses.json
+        from leer_carpetas import listar_dias_mes
+        meses = listar_dias_mes()
+        with open("listado_meses.json", "w", encoding="utf-8") as ls:
+            json.dump(meses, ls, indent=4, ensure_ascii=False)
+
+        # 2. Ejecutar la lógica de leer_archivos_excel para descargar y actualizar las hojas mensuales
+        from leer_archivos_excel import obtener_hojas
+        obtener_hojas()
+
+        return {
+            "status": "success",
+            "message": "Sincronización con Google Drive completada exitosamente. Se actualizaron los reportes locales."
+        }
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Error al sincronizar con Google Drive: {str(e)}"
+        )
