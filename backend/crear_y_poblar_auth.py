@@ -5,11 +5,11 @@ from datetime import datetime
 def main():
     try:
         conn = psycopg2.connect(
-            dbname="bimeh",
-            user="postgres",
-            password="postgres",
-            host="localhost",
-            port=5432
+            dbname="neondb",
+            user="neondb_owner",
+            password="npg_pPVueS4skO8j",
+            host="ep-snowy-glade-aty6j16z-pooler.c-9.us-east-1.aws.neon.tech",
+            sslmode="require"
         )
         cursor = conn.cursor()
         print("Conexión exitosa a PostgreSQL.")

@@ -63,11 +63,11 @@ DATABASE_NAME = "bimeh"
 
 def get_db():
     raw_conn = psycopg2.connect(
-        dbname="bimeh",
-        user="postgres",
-        password="postgres",
-        host="localhost",
-        port=5432
+        dbname="neondb",
+        user="neondb_owner",
+        password="npg_pPVueS4skO8j",
+        host="ep-snowy-glade-aty6j16z-pooler.c-9.us-east-1.aws.neon.tech",
+        sslmode="require"
     )
     conn = ConnectionWrapper(raw_conn)
     try:
@@ -84,11 +84,11 @@ def get_month_dates(month_name: str) -> List[str]:
     month_num = month_order.get(month_name.upper(), 1)
     
     raw_conn = psycopg2.connect(
-        dbname="bimeh",
-        user="postgres",
-        password="postgres",
-        host="localhost",
-        port=5432
+        dbname="neondb",
+        user="neondb_owner",
+        password="npg_pPVueS4skO8j",
+        host="ep-snowy-glade-aty6j16z-pooler.c-9.us-east-1.aws.neon.tech",
+        sslmode="require"
     )
     conn = ConnectionWrapper(raw_conn)
     cursor = conn.cursor()

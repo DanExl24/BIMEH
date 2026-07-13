@@ -10,11 +10,11 @@ def migrate():
     # Connect to PostgreSQL
     try:
         pg_conn = psycopg2.connect(
-            dbname="bimeh",
-            user="postgres",
-            password="postgres",
-            host="localhost",
-            port=5432
+            dbname="neondb",
+            user="neondb_owner",
+            password="npg_pPVueS4skO8j",
+            host="ep-snowy-glade-aty6j16z-pooler.c-9.us-east-1.aws.neon.tech",
+            sslmode="require"
         )
         pg_cursor = pg_conn.cursor()
     except Exception as e:
