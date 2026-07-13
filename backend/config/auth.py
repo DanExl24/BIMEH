@@ -26,7 +26,15 @@ def obtener_credenciales():
     if not creds or not creds.valid:
 
         if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
+            try:
+                creds.refresh(Request())
+            except Exception as e:
+                # Si el token ha sido revocado o expirado (invalid_grant), iniciamos el flujo desde cero
+                flow = InstalledAppFlow.from_client_secrets_file(
+                    CREDENTIALS_PATH,
+                    SCOPES
+                )
+                creds = flow.run_local_server(port=0)
 
         else:
             flow = InstalledAppFlow.from_client_secrets_file(
