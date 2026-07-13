@@ -504,13 +504,7 @@ def sincronizar_desde_drive(
     e inserta los nuevos datos en la base de datos de Neon.
     """
     try:
-        # 1. Ejecutar la lógica de leer_carpetas para actualizar listado_meses.json
-        from leer_carpetas import listar_dias_mes
-        meses = listar_dias_mes()
-        with open("listado_meses.json", "w", encoding="utf-8") as ls:
-            json.dump(meses, ls, indent=4, ensure_ascii=False)
-
-        # 2. Obtener filtros de la consulta
+        # 1. Obtener filtros de la consulta
         target_month = req.mes
         target_date = req.fecha
         
@@ -529,6 +523,23 @@ def sincronizar_desde_drive(
         elif req.tipo == "todo":
             target_month = None
             target_date = None
+
+        # 2. Ejecutar la lógica de leer_carpetas para actualizar listado_meses.json (filtrando por mes para mayor velocidad)
+        from leer_carpetas import listar_dias_mes
+        meses_nuevos = listar_dias_mes(target_month=target_month)
+        
+        # Leer listado_meses.json existente para no borrar información de otros meses
+        existing_meses = {}
+        try:
+            with open("listado_meses.json", "r", encoding="utf-8") as ls:
+                existing_meses = json.load(ls)
+        except Exception:
+            existing_meses = {}
+            
+        existing_meses.update(meses_nuevos)
+        
+        with open("listado_meses.json", "w", encoding="utf-8") as ls:
+            json.dump(existing_meses, ls, indent=4, ensure_ascii=False)
 
         # 3. Ejecutar la lógica de leer_archivos_excel para descargar y actualizar las hojas mensuales
         # Pasamos db=None ya que obtener_hojas abre su propia conexion temporal rapida y la cierra de inmediato

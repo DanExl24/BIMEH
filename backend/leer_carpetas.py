@@ -25,14 +25,27 @@ def get_carpeta(ID):
     ]
 
 
-def listar_dias_mes():
+def listar_dias_mes(target_month=None):
     meses = {}
     for mes in MONTH_FOLDERS:
-        archivos = get_carpeta(mes['id'])
+        # Encontrar el nombre del mes
+        mes_name = None
         for m in MONTHS:
             if m in mes["name"]:
-                meses[m] = archivos
+                mes_name = m
                 break
+                
+        if not mes_name:
+            continue
+            
+        # Si hay un mes objetivo y no coincide, lo omitimos
+        if target_month and mes_name != target_month:
+            continue
+            
+        print(f"Listando archivos de Google Drive para el mes: {mes_name}...")
+        archivos = get_carpeta(mes['id'])
+        meses[mes_name] = archivos
+        
     return meses
 
 if __name__ == "__main__":
