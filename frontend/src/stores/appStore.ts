@@ -106,75 +106,6 @@ export const useAppStore = defineStore('app', () => {
     }
   }
 
-  const startDriveSyncCsvTest = async (params: { tipo: string; fecha?: string | null; mes?: string | null; overwrite: boolean }) => {
-    if (isSyncingDrive.value) return
-
-    isSyncingDrive.value = true
-    syncSecondsElapsed.value = 0
-    syncStatus.value = 'running'
-    syncMessage.value = '[CSV Test] Sincronizando y Convirtiendo Excel a CSV...'
-    syncErrors.value = []
-
-    // Iniciar temporizador de segundos transcurridos
-    syncTimer.value = setInterval(() => {
-      syncSecondsElapsed.value++
-    }, 1000)
-
-    try {
-      const token = localStorage.getItem('bimej12_auth_token')
-      const res = await fetch(`${apiBase}/api/sincronizar/drive/csv-test`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-        },
-        body: JSON.stringify({
-          tipo: params.tipo,
-          fecha: params.fecha || null,
-          mes: params.mes || null,
-          overwrite: params.overwrite
-        })
-      })
-
-      if (res.status === 401) {
-        localStorage.removeItem('bimej12_auth_token')
-        window.location.hash = '/login'
-        syncStatus.value = 'error'
-        syncMessage.value = 'Sesión expirada. Redirigiendo...'
-        return
-      }
-
-      const data = await res.json()
-
-      if (res.ok && data.status === 'success') {
-        syncStatus.value = 'success'
-        syncErrors.value = data.errors || []
-        syncMessage.value = data.message || 'Sincronización de prueba CSV completada con éxito.'
-        await fetchAvailableDates()
-      } else {
-        syncStatus.value = 'error'
-        syncMessage.value = data.detail || 'Ocurrió un error en la prueba de CSV.'
-      }
-    } catch (error) {
-      console.error('Error in CSV Test sync:', error)
-      syncStatus.value = 'error'
-      syncMessage.value = 'Error de conexión con el servidor.'
-    } finally {
-      isSyncingDrive.value = false
-      if (syncTimer.value) {
-        clearInterval(syncTimer.value)
-        syncTimer.value = null
-      }
-
-      setTimeout(() => {
-        if (!isSyncingDrive.value && syncErrors.value.length === 0 && syncStatus.value !== 'error') {
-          syncStatus.value = 'idle'
-          syncMessage.value = ''
-        }
-      }, 8000)
-    }
-  }
-  
   return {
     apiBase,
     selectedDate,
@@ -189,7 +120,6 @@ export const useAppStore = defineStore('app', () => {
     syncMessage,
     syncErrors,
     fetchAvailableDates,
-    startDriveSync,
-    startDriveSyncCsvTest
+    startDriveSync
   }
 })
