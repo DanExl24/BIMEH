@@ -1,11 +1,11 @@
 import json
-from auth import obtener_servicio_drive
-from config import MONTHS,EXCEL_MIME
+from config.auth import obtener_servicio_drive
+from config.config import MONTHS, EXCEL_MIME
 drive = obtener_servicio_drive()
 
 MONTH_FOLDERS = {}
 
-with open("carpeta_principal.json") as pf:
+with open("config/carpeta_principal.json") as pf:
     MONTH_FOLDERS = json.load(pf)
 
 

@@ -6,8 +6,17 @@ const getApiBase = () => {
   return store.apiBase
 }
 
+const fetchWithAuth = (url: string, options: RequestInit = {}): Promise<Response> => {
+  const token = localStorage.getItem('bimej12_auth_token')
+  const headers = {
+    ...(options.headers || {}),
+    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+  }
+  return fetch(url, { ...options, headers })
+}
+
 export async function fetchFechas(): Promise<string[]> {
-  const res = await fetch(`${getApiBase()}/api/fechas`)
+  const res = await fetchWithAuth(`${getApiBase()}/api/fechas`)
   if (!res.ok) throw new Error('Error al obtener fechas')
   return res.json()
 }
@@ -22,7 +31,7 @@ export async function fetchKPIs(mes?: string, dia?: string, fecha?: string): Pro
     if (typeof dia === 'string') params.push(`dia=${dia}`)
     url += params.join('&')
   }
-  const res = await fetch(url)
+  const res = await fetchWithAuth(url)
   if (!res.ok) throw new Error('Error al obtener KPIs')
   return res.json()
 }
@@ -37,7 +46,7 @@ export async function fetchCambios(mes?: string, dia?: string, fecha?: string): 
     if (typeof dia === 'string') params.push(`dia=${dia}`)
     url += params.join('&')
   }
-  const res = await fetch(url)
+  const res = await fetchWithAuth(url)
   if (!res.ok) throw new Error('Error al obtener cambios de estado')
   return res.json()
 }
@@ -47,7 +56,7 @@ export async function fetchEvolucion(mes?: string, dia?: string): Promise<Types.
   if (typeof mes === 'string') params.push(`mes=${mes}`)
   if (typeof dia === 'string') params.push(`dia=${dia}`)
   const url = `${getApiBase()}/api/dashboard/evolucion?${params.join('&')}`
-  const res = await fetch(url)
+  const res = await fetchWithAuth(url)
   if (!res.ok) throw new Error('Error al obtener evolución')
   return res.json()
 }
@@ -62,7 +71,7 @@ export async function fetchNovedadesFrecuentes(mes?: string, dia?: string, fecha
     if (typeof dia === 'string') params.push(`dia=${dia}`)
     url += params.join('&')
   }
-  const res = await fetch(url)
+  const res = await fetchWithAuth(url)
   if (!res.ok) throw new Error('Error al obtener novedades frecuentes')
   return res.json()
 }
@@ -77,55 +86,55 @@ export async function fetchDistribucion(mes?: string, dia?: string, fecha?: stri
     if (typeof dia === 'string') params.push(`dia=${dia}`)
     url += params.join('&')
   }
-  const res = await fetch(url)
+  const res = await fetchWithAuth(url)
   if (!res.ok) throw new Error('Error al obtener distribución')
   return res.json()
 }
 
 export async function buscarPersonal(q: string): Promise<Types.PersonalSearchResult[]> {
-  const res = await fetch(`${getApiBase()}/api/personal/buscar?q=${q}`)
+  const res = await fetchWithAuth(`${getApiBase()}/api/personal/buscar?q=${q}`)
   if (!res.ok) throw new Error('Error al buscar personal')
   return res.json()
 }
 
 export async function fetchPersonalDetalle(cedula: number): Promise<Types.PersonalDetalle> {
-  const res = await fetch(`${getApiBase()}/api/personal/${cedula}`)
+  const res = await fetchWithAuth(`${getApiBase()}/api/personal/${cedula}`)
   if (!res.ok) throw new Error('Error al obtener detalle del personal')
   return res.json()
 }
 
 export async function fetchPersonalHistorial(cedula: number): Promise<Types.HistorialRegistro[]> {
-  const res = await fetch(`${getApiBase()}/api/personal/${cedula}/historial`)
+  const res = await fetchWithAuth(`${getApiBase()}/api/personal/${cedula}/historial`)
   if (!res.ok) throw new Error('Error al obtener historial del personal')
   return res.json()
 }
 
 export async function fetchPersonalAcumulado(cedula: number): Promise<Types.AcumuladoNovedad[]> {
-  const res = await fetch(`${getApiBase()}/api/personal/${cedula}/acumulado`)
+  const res = await fetchWithAuth(`${getApiBase()}/api/personal/${cedula}/acumulado`)
   if (!res.ok) throw new Error('Error al obtener acumulado del personal')
   return res.json()
 }
 
 export async function fetchCalendario(mes: string): Promise<Types.CalendarioItem[]> {
-  const res = await fetch(`${getApiBase()}/api/reportes/calendario?mes=${mes}`)
+  const res = await fetchWithAuth(`${getApiBase()}/api/reportes/calendario?mes=${mes}`)
   if (!res.ok) throw new Error('Error al obtener calendario')
   return res.json()
 }
 
 export async function fetchReporteDia(fecha: string): Promise<Types.PersonalDia[]> {
-  const res = await fetch(`${getApiBase()}/api/reportes/dia?fecha=${fecha}`)
+  const res = await fetchWithAuth(`${getApiBase()}/api/reportes/dia?fecha=${fecha}`)
   if (!res.ok) throw new Error('Error al obtener reporte del día')
   return res.json()
 }
 
 export async function fetchStatsRanking(): Promise<Types.RankingsData> {
-  const res = await fetch(`${getApiBase()}/api/stats/ranking`)
+  const res = await fetchWithAuth(`${getApiBase()}/api/stats/ranking`)
   if (!res.ok) throw new Error('Error al obtener rankings de estadísticas')
   return res.json()
 }
 
 export async function fetchStatsHeatmap(mes: string): Promise<Types.HeatmapResponse> {
-  const res = await fetch(`${getApiBase()}/api/stats/heatmap?mes=${mes}`)
+  const res = await fetchWithAuth(`${getApiBase()}/api/stats/heatmap?mes=${mes}`)
   if (!res.ok) throw new Error('Error al obtener heatmap')
   return res.json()
 }

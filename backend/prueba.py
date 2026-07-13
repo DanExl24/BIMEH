@@ -1,4 +1,4 @@
-from auth import obtener_servicio_drive
+from config.auth import obtener_servicio_drive
 import json
 drive = obtener_servicio_drive()
 
@@ -21,5 +21,5 @@ PRINCIPAL_FOLDER = p_folder()
 
 
 
-with open("carpeta_principal.json","w") as resultado:
+with open("config/carpeta_principal.json","w") as resultado:
     json.dump(PRINCIPAL_FOLDER,resultado,indent=4)

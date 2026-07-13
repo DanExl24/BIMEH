@@ -1,5 +1,6 @@
 <template>
-  <div class="space-y-6">
+  <div>
+    <div class="space-y-6">
     <!-- Back Button -->
     <div>
       <router-link 
@@ -197,7 +198,7 @@
             <h3 class="text-sm font-bold text-slate-200 uppercase tracking-wide flex items-center gap-2">
               <span class="w-2.5 h-4 bg-cyan-500 rounded-sm"></span> Mi Historial Operacional y Mapa de Calor
             </h3>
-            <p class="text-xs text-slate-500 mt-1 font-sans">Hoja de ruta y visualización de disponibilidad diaria de este integrante.</p>
+            <p class="text-xs text-slate-500 mt-1 font-sans">Hoja de ruta y disponibilidad diaria (D = Disponible, N = Novedad, R = Retirado, - = Sin registro).</p>
           </div>
 
           <!-- Tabs -->
@@ -235,7 +236,7 @@
                 v-model="selectedMonthlyHeatmapMonth"
                 class="bg-darkBg border border-darkBorder rounded-lg px-2.5 py-1 text-xs text-slate-300 outline-none focus:border-cyan-500/50"
               >
-                <option v-for="m in appStore.months" :key="m" :value="m">{{ m }}</option>
+                <option v-for="m in activeMonths" :key="m" :value="m">{{ m }}</option>
               </select>
             </div>
 
@@ -276,7 +277,7 @@
             </div>
             
             <!-- Rows for months -->
-            <div v-for="m in appStore.months" :key="m" class="flex items-center gap-1.5 font-mono">
+            <div v-for="m in activeMonths" :key="m" class="flex items-center gap-1.5 font-mono">
               <!-- Month Name Label -->
               <div class="w-24 text-[10px] font-bold text-slate-400 uppercase tracking-wider text-right pr-3">{{ m }}</div>
               <!-- Days cells -->
@@ -479,7 +480,7 @@
             class="w-full bg-darkBg border border-darkBorder rounded-xl px-3 py-2 text-xs text-slate-200 outline-none focus:border-cyan-500/50"
           >
             <option v-if="modalReportType === 'personal'" value="">Todos los Meses</option>
-            <option v-for="m in appStore.months" :key="m" :value="m">{{ m }}</option>
+            <option v-for="m in activeMonths" :key="m" :value="m">{{ m }}</option>
           </select>
         </div>
 
@@ -518,6 +519,7 @@
       </div>
     </div>
   </div>
+</div>
 </template>
 
 <script setup lang="ts">
@@ -546,6 +548,21 @@ const filtroSubnovedad = ref('')
 // Heatmap individual variables
 const activeHeatmapTab = ref<'mensual' | 'anual' | 'diario'>('mensual')
 const selectedMonthlyHeatmapMonth = ref('JULIO')
+
+const activeMonths = computed(() => {
+  if (!profile.value || !profile.value.fecha_retiro) {
+    return appStore.months
+  }
+  try {
+    const parts = profile.value.fecha_retiro.split('-')
+    const retirementMonthNum = parseInt(parts[1], 10)
+    const monthList = ['ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO', 'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE']
+    return monthList.slice(0, retirementMonthNum)
+  } catch (e) {
+    console.error("Error computing active months:", e)
+    return appStore.months
+  }
+})
 const tableSearchQuery = ref('')
 const tableSubnovedadFilter = ref('')
 const tablePage = ref(1)
@@ -678,8 +695,17 @@ const MONTH_MAP: Record<string, string> = {
   'MAYO': '05', 'JUNIO': '06', 'JULIO': '07', 'AGOSTO': '08', 
   'SEPTIEMBRE': '09', 'OCTUBRE': '10', 'NOVIEMBRE': '11', 'DICIEMBRE': '12'
 }
+const isRetiredForDate = (monthName: string, dayNum: number) => {
+  if (!profile.value || !profile.value.fecha_retiro) return false
+  const mm = MONTH_MAP[monthName]
+  if (!mm) return false
+  const dd = String(dayNum).padStart(2, '0')
+  const targetDate = `2026-${mm}-${dd}`
+  return targetDate >= profile.value.fecha_retiro
+}
 
 const getStatusForDate = (monthName: string, dayNum: number) => {
+  if (isRetiredForDate(monthName, dayNum)) return 'RETIRADO'
   const mm = MONTH_MAP[monthName]
   if (!mm) return 'N/A'
   const dd = String(dayNum).padStart(2, '0')
@@ -690,6 +716,7 @@ const getStatusForDate = (monthName: string, dayNum: number) => {
 
 const getIndividualHeatmapCellClass = (monthName: string, dayNum: number) => {
   const est = getStatusForDate(monthName, dayNum)
+  if (est === 'RETIRADO') return 'bg-red-500/80 shadow shadow-red-500/10 text-red-100'
   if (est === 'N/A') return 'bg-darkBg border border-darkBorder/40 text-slate-600'
   return isAvailable(est) 
     ? 'bg-emerald-500/80 shadow shadow-emerald-500/10 text-emerald-100' 
@@ -698,6 +725,7 @@ const getIndividualHeatmapCellClass = (monthName: string, dayNum: number) => {
 
 const getIndividualHeatmapCellLetter = (monthName: string, dayNum: number) => {
   const est = getStatusForDate(monthName, dayNum)
+  if (est === 'RETIRADO') return 'R'
   if (est === 'N/A') return '-'
   return isAvailable(est) ? 'D' : 'N'
 }
@@ -767,9 +795,24 @@ const downloadUrl = computed(() => {
   return url
 })
 
+watch(activeMonths, (newMonths) => {
+  if (newMonths && newMonths.length > 0) {
+    if (!newMonths.includes(selectedMonthlyHeatmapMonth.value)) {
+      selectedMonthlyHeatmapMonth.value = newMonths[newMonths.length - 1]
+    }
+    if (modalMonth.value && !newMonths.includes(modalMonth.value)) {
+      modalMonth.value = newMonths[newMonths.length - 1]
+    }
+  }
+}, { immediate: true })
+
 watch(modalReportType, (newType) => {
   if (newType === 'consolidado_mensual' && !modalMonth.value) {
-    modalMonth.value = 'JULIO'
+    if (activeMonths.value && activeMonths.value.length > 0) {
+      modalMonth.value = activeMonths.value[activeMonths.value.length - 1]
+    } else {
+      modalMonth.value = 'JULIO'
+    }
   }
 })
 </script>

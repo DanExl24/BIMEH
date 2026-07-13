@@ -9,18 +9,18 @@ Este sistema automatiza la búsqueda, consolidación y visualización del histor
 El sistema está construido bajo una arquitectura desacoplada y moderna que separa el backend y el frontend:
 
 ### 1. Backend (Python + FastAPI + PostgreSQL)
-El núcleo de la API se encuentra estructurado de forma modular bajo el directorio `app/`:
+El núcleo de la API se encuentra estructurado de forma modular bajo el directorio `backend/`:
 
-* **`app/main.py`**: Punto de entrada de la aplicación FastAPI. Carga los middleware de CORS y monta los enrutadores.
-* **`app/database.py`**: Módulo de conexión y adaptador para la base de datos PostgreSQL.
-* **`app/dependencies.py`**: Dependencias inyectables compartidas (como `get_db` para la sesión de base de datos).
-* **`app/models.py`**: Definiciones de modelos y tipos auxiliares de Python.
-* **`app/routers/`**: Enrutadores independientes para organizar las operaciones de la API:
-  * [`dashboard.py`](file:///c:/Users/alejo/Downloads/automPYdrive/app/routers/dashboard.py): KPIs iniciales y métricas del panel principal.
-  * [`personal.py`](file:///c:/Users/alejo/Downloads/automPYdrive/app/routers/personal.py): Búsqueda, listado, detalles, autocompletado e historial detallado de los integrantes.
-  * [`stats.py`](file:///c:/Users/alejo/Downloads/automPYdrive/app/routers/stats.py): Estadísticas consolidadas y acumulados generales.
-  * [`alertas.py`](file:///c:/Users/alejo/Downloads/automPYdrive/app/routers/alertas.py): Notificaciones del estado operacional.
-  * [`exportar.py`](file:///c:/Users/alejo/Downloads/automPYdrive/app/routers/exportar.py): Motor de generación de reportes en formatos **Excel, CSV y PDF** (utilizando ReportLab y OpenPyXL) para reportes diarios, heatmaps mensuales e historiales de integrantes.
+* **`backend/app/main.py`**: Punto de entrada de la aplicación FastAPI. Carga los middleware de CORS y monta los enrutadores.
+* **`backend/app/database.py`**: Módulo de conexión y adaptador para la base de datos PostgreSQL.
+* **`backend/app/dependencies.py`**: Dependencias inyectables compartidas (como `get_db` para la sesión de base de datos).
+* **`backend/app/models.py`**: Definiciones de modelos y tipos auxiliares de Python.
+* **`backend/app/routers/`**: Enrutadores independientes para organizar las operaciones de la API:
+  * [`dashboard.py`](file:///c:/Users/alejo/Downloads/automPYdrive/backend/app/routers/dashboard.py): KPIs iniciales y métricas del panel principal.
+  * [`personal.py`](file:///c:/Users/alejo/Downloads/automPYdrive/backend/app/routers/personal.py): Búsqueda, listado, detalles, autocompletado e historial del personal.
+  * [`stats.py`](file:///c:/Users/alejo/Downloads/automPYdrive/backend/app/routers/stats.py): Estadísticas consolidadas y acumulados.
+  * [`alertas.py`](file:///c:/Users/alejo/Downloads/automPYdrive/backend/app/routers/alertas.py): Notificaciones del estado operacional.
+  * [`exportar.py`](file:///c:/Users/alejo/Downloads/automPYdrive/backend/app/routers/exportar.py): Generación de reportes (Excel, CSV y PDF).
 
 ### 2. Frontend (Vue 3 + Vite + Tailwind CSS + Pinia)
 El cliente web está localizado en el directorio `frontend/` y sigue una estructura altamente tipada:
@@ -33,7 +33,7 @@ El cliente web está localizado en el directorio `frontend/` y sigue una estruct
   * `CronologiaView.vue`: Bitácora y flujo operacional diario.
   * `ReportesView.vue`: Módulo para exportar el Reporte Diario Operacional.
   * `PersonalView.vue`: Buscador y catálogo de perfiles del personal.
-  * `PersonalDetalleView.vue`: Expediente individual de cada integrante (acumulado en gráfico de torta RoseType de ECharts, timeline cronológico, heatmap mensual/anual, reporte tabular paginado y modal unificado de generación de reportes).
+  * `PersonalDetalleView.vue`: Expediente individual de cada integrante.
 
 ---
 
@@ -45,7 +45,7 @@ El backend consume una base de datos PostgreSQL llamada `bimeh` con los siguient
 * **Usuario**: `postgres`
 * **Contraseña**: `postgres`
 
-Si requieres cambiar los accesos, los puedes configurar en el archivo [`config.py`](file:///c:/Users/alejo/Downloads/automPYdrive/config.py).
+Si requieres cambiar los accesos, los puedes configurar en el archivo [`config.py`](file:///c:/Users/alejo/Downloads/automPYdrive/backend/config.py).
 
 ---
 
@@ -55,9 +55,10 @@ Si requieres cambiar los accesos, los puedes configurar en el archivo [`config.p
 > Arranca ambos servicios de forma independiente desde terminales diferentes en tu entorno de desarrollo local.
 
 ### 1. Iniciar el Servidor Backend
-Navega a la raíz del proyecto, activa tu entorno virtual de Python y ejecuta:
+Navega a la carpeta del backend, activa el entorno virtual de la raíz y ejecuta el servidor FastAPI:
 ```bash
-.venv\Scripts\activate
+cd backend
+..\.venv\Scripts\activate
 uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 ```
 La API estará disponible en `http://127.0.0.1:8000`.

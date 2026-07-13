@@ -138,9 +138,10 @@ def exportar_csv(
         if report_ids:
             rep_placeholders = ",".join("%s" for _ in report_ids)
             query = f"""
-                SELECT p.cedula, p.nombre, rp.id_reporte, sn.nombre as subnovedad
+                SELECT p.cedula, p.nombre, p.fecha_retiro, r.fecha as report_fecha, rp.id_reporte, sn.nombre as subnovedad
                 FROM REGISTRO_PERSONAL rp
                 JOIN PERSONAL p ON rp.id_personal = p.id
+                JOIN REPORTES r ON rp.id_reporte = r.id
                 JOIN SUB_NOVEDADES sn ON rp.id_sub_novedad = sn.id
                 WHERE rp.id_reporte IN ({rep_placeholders})
             """
@@ -157,15 +158,22 @@ def exportar_csv(
             
             person_map = {}
             for row in cursor.fetchall():
-                key = (row[0], row[1])
+                key = (row[0], row[1], row[2]) # cedula, nombre, fecha_retiro
                 if key not in person_map:
                     person_map[key] = {}
-                person_map[key][row[2]] = row[3]
+                person_map[key][row[4]] = row[5] # id_reporte: subnovedad
                 
-            for (cedula, nombre), reports_dict in sorted(person_map.items(), key=lambda x: x[0][1]):
+            for (cedula, nombre, f_retiro), reports_dict in sorted(person_map.items(), key=lambda x: x[0][1]):
                 row_data = [cedula, nombre]
-                for r_id in report_ids:
-                    row_data.append(reports_dict.get(r_id, "N/A"))
+                for r_id, r_fecha in reports_db:
+                    is_retired = False
+                    if f_retiro and r_fecha >= f_retiro:
+                        is_retired = True
+                        
+                    if is_retired:
+                        row_data.append("RETIRADO")
+                    else:
+                        row_data.append(reports_dict.get(r_id, "N/A"))
                 writer.writerow(row_data)
         filename = f"consolidado_mensual_{mes}.csv"
         
@@ -513,9 +521,10 @@ def exportar_excel(
         if report_ids:
             rep_placeholders = ",".join("%s" for _ in report_ids)
             query = f"""
-                SELECT p.cedula, p.nombre, rp.id_reporte, sn.nombre as subnovedad
+                SELECT p.cedula, p.nombre, p.fecha_retiro, r.fecha as report_fecha, rp.id_reporte, sn.nombre as subnovedad
                 FROM REGISTRO_PERSONAL rp
                 JOIN PERSONAL p ON rp.id_personal = p.id
+                JOIN REPORTES r ON rp.id_reporte = r.id
                 JOIN SUB_NOVEDADES sn ON rp.id_sub_novedad = sn.id
                 WHERE rp.id_reporte IN ({rep_placeholders})
             """
@@ -532,15 +541,22 @@ def exportar_excel(
             
             person_map = {}
             for row in cursor.fetchall():
-                key = (row[0], row[1])
+                key = (row[0], row[1], row[2]) # cedula, nombre, fecha_retiro
                 if key not in person_map:
                     person_map[key] = {}
-                person_map[key][row[2]] = row[3]
+                person_map[key][row[4]] = row[5] # id_reporte: subnovedad
                 
-            for (cedula, nombre), reports_dict in sorted(person_map.items(), key=lambda x: x[0][1]):
+            for (cedula, nombre, f_retiro), reports_dict in sorted(person_map.items(), key=lambda x: x[0][1]):
                 row_data = [cedula, nombre]
-                for r_id in report_ids:
-                    row_data.append(reports_dict.get(r_id, "N/A"))
+                for r_id, r_fecha in reports_db:
+                    is_retired = False
+                    if f_retiro and r_fecha >= f_retiro:
+                        is_retired = True
+                        
+                    if is_retired:
+                        row_data.append("RETIRADO")
+                    else:
+                        row_data.append(reports_dict.get(r_id, "N/A"))
                 ws.append(row_data)
                 
         for r_idx in range(4, ws.max_row + 1):
@@ -558,6 +574,9 @@ def exportar_excel(
                     elif val == "N/A":
                         cell.fill = PatternFill(start_color="F3F4F6", end_color="F3F4F6", fill_type="solid")
                         cell.font = Font(name="Calibri", size=9, color="6B7280")
+                    elif val == "RETIRADO":
+                        cell.fill = PatternFill(start_color="FEE2E2", end_color="FEE2E2", fill_type="solid")
+                        cell.font = Font(name="Calibri", size=9, color="DC2626", bold=True)
                     else:
                         cell.fill = PatternFill(start_color="FFE4E6", end_color="FFE4E6", fill_type="solid")
                         cell.font = Font(name="Calibri", size=9, color="991B1B")
@@ -1016,7 +1035,7 @@ def exportar_pdf(
         if cedula:
             pdf_title = f"BIMEJ12 — HISTORIAL DE PERSONAL (CC {cedula}) — {mes.upper()}"
         story.append(Paragraph(pdf_title, title_style))
-        story.append(Paragraph(f"Generado: {datetime.now().strftime('%Y-%m-%d %H:%M')} | D = Disponible, N = Novedad, - = N/A", subtitle_style))
+        story.append(Paragraph(f"Generado: {datetime.now().strftime('%Y-%m-%d %H:%M')} | D = Disponible, N = Novedad, R = Retirado, - = N/A", subtitle_style))
         
         dates = get_month_dates(mes)
         if not dates:
@@ -1038,13 +1057,15 @@ def exportar_pdf(
         disp_style = ParagraphStyle('DStyle', parent=td_style, textColor=colors.HexColor('#10B981'), fontName='Helvetica-Bold', alignment=1)
         nov_style = ParagraphStyle('NStyle', parent=td_style, textColor=colors.HexColor('#EF4444'), fontName='Helvetica-Bold', alignment=1)
         na_style = ParagraphStyle('NAStyle', parent=td_style, textColor=colors.HexColor('#6B7280'), alignment=1)
+        ret_style = ParagraphStyle('RStyle', parent=td_style, textColor=colors.HexColor('#DC2626'), fontName='Helvetica-Bold', alignment=1)
         
         if report_ids:
             rep_placeholders = ",".join("%s" for _ in report_ids)
             query = f"""
-                SELECT p.cedula, p.nombre, rp.id_reporte, sn.nombre as subnovedad
+                SELECT p.cedula, p.nombre, p.fecha_retiro, r.fecha as report_fecha, rp.id_reporte, sn.nombre as subnovedad
                 FROM REGISTRO_PERSONAL rp
                 JOIN PERSONAL p ON rp.id_personal = p.id
+                JOIN REPORTES r ON rp.id_reporte = r.id
                 JOIN SUB_NOVEDADES sn ON rp.id_sub_novedad = sn.id
                 WHERE rp.id_reporte IN ({rep_placeholders})
             """
@@ -1061,24 +1082,31 @@ def exportar_pdf(
             
             person_map = {}
             for row in cursor.fetchall():
-                key = (row[0], row[1])
+                key = (row[0], row[1], row[2]) # cedula, nombre, fecha_retiro
                 if key not in person_map:
                     person_map[key] = {}
-                person_map[key][row[2]] = row[3]
+                person_map[key][row[4]] = row[5] # id_reporte: subnovedad
                 
-            for (cedula, nombre), reports_dict in sorted(person_map.items(), key=lambda x: x[0][1]):
+            for (cedula, nombre, f_retiro), reports_dict in sorted(person_map.items(), key=lambda x: x[0][1]):
                 row_data = [
                     Paragraph(str(cedula), td_style),
                     Paragraph(nombre, td_style)
                 ]
-                for r_id in report_ids:
-                    val = reports_dict.get(r_id, "N/A")
-                    if val in DISPONIBLE_STATUSES:
-                        row_data.append(Paragraph("D", disp_style))
-                    elif val == "N/A":
-                        row_data.append(Paragraph("-", na_style))
+                for r_id, r_fecha in reports_db:
+                    is_retired = False
+                    if f_retiro and r_fecha >= f_retiro:
+                        is_retired = True
+                        
+                    if is_retired:
+                        row_data.append(Paragraph("R", ret_style))
                     else:
-                        row_data.append(Paragraph("N", nov_style))
+                        val = reports_dict.get(r_id, "N/A")
+                        if val in DISPONIBLE_STATUSES:
+                            row_data.append(Paragraph("D", disp_style))
+                        elif val == "N/A":
+                            row_data.append(Paragraph("-", na_style))
+                        else:
+                            row_data.append(Paragraph("N", nov_style))
                 data.append(row_data)
                 
         num_days_col = len(report_dates)

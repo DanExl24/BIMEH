@@ -31,6 +31,17 @@
       </router-link>
     </nav>
 
+    <!-- Logout Button -->
+    <div class="px-4 py-2 border-t border-darkBorder/40">
+      <button 
+        @click="handleLogout"
+        class="w-full flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-200 group text-red-400/80 hover:text-red-400 hover:bg-red-500/10 cursor-pointer text-left border-none bg-transparent"
+      >
+        <LogOut class="w-5 h-5 transition-transform duration-200 group-hover:scale-110" />
+        <span class="text-sm font-semibold">Cerrar Sesión</span>
+      </button>
+    </div>
+
     <!-- Footer Status info -->
     <div class="p-4 border-t border-darkBorder bg-darkBg/30">
       <div class="flex items-center gap-3">
@@ -50,14 +61,27 @@ import {
   Users, 
   BarChart3, 
   Calendar,
-  Download
+  Download,
+  Upload,
+  LogOut
 } from '@lucide/vue'
+import { useAuthStore } from '../../stores/authStore'
+import { useRouter } from 'vue-router'
+
+const authStore = useAuthStore()
+const router = useRouter()
+
+const handleLogout = () => {
+  authStore.logout()
+  router.push('/login')
+}
 
 const menuItems = [
   { name: 'Dashboard', path: '/', icon: LayoutDashboard },
   { name: 'Buscador Personal', path: '/personal', icon: Users },
   { name: 'Estadísticas Históricas', path: '/estadisticas', icon: BarChart3 },
   { name: 'Cronología y Heatmap', path: '/cronologia', icon: Calendar },
-  { name: 'Exportar Reportes', path: '/reportes', icon: Download }
+  { name: 'Exportar Reportes', path: '/reportes', icon: Download },
+  { name: 'Sincronizar Reportes', path: '/sincronizar', icon: Upload }
 ]
 </script>

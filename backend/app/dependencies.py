@@ -1,5 +1,29 @@
 from datetime import datetime
 from typing import List, Optional
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+import jwt
+
+security = HTTPBearer()
+
+SECRET_KEY = "bimej12_super_secret_jwt_key_2026"
+ALGORITHM = "HS256"
+
+def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> dict:
+    token = credentials.credentials
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        return payload
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="El token de sesión ha expirado"
+        )
+    except jwt.InvalidTokenError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token de sesión inválido"
+        )
 
 DISPONIBLE_STATUSES = ["CDO UNIDAD", "AREA OPERACIONES"]
 
