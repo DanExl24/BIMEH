@@ -470,8 +470,7 @@ def sync_local_jsons_to_db(db, target_month=None, target_date=None, force_overwr
 @router.post("/sincronizar/drive")
 def sincronizar_desde_drive(
     req: DriveSyncRequest,
-    current_user: dict = Depends(get_current_user),
-    db = Depends(get_db)
+    current_user: dict = Depends(get_current_user)
 ):
     """
     Ejecuta el script leer_carpetas.py y leer_archivos_excel.py 
@@ -506,21 +505,40 @@ def sincronizar_desde_drive(
             target_date = None
 
         # 3. Ejecutar la lógica de leer_archivos_excel para descargar y actualizar las hojas mensuales
+        # Pasamos db=None ya que obtener_hojas abre su propia conexion temporal rapida y la cierra de inmediato
         from leer_archivos_excel import obtener_hojas
         errors = obtener_hojas(
-            db=db,
+            db=None,
             target_month=target_month,
             target_date=target_date,
             force_overwrite=req.overwrite
         )
 
         # 4. Sincronizar todos los JSONs locales nuevos a la base de datos (PostgreSQL Neon)
-        sync_local_jsons_to_db(
-            db=db,
-            target_month=target_month,
-            target_date=target_date,
-            force_overwrite=req.overwrite
+        # Para evitar InterfaceError: cursor already closed debido a timeouts idle de Neon en descargas largas,
+        # abrimos una conexion dedicada y fresca de corta duracion únicamente para la insercion.
+        from app.database import ConnectionWrapper
+        import psycopg2
+        
+        print("Abriendo conexion dedicada de escritura a Neon...")
+        raw_conn = psycopg2.connect(
+            dbname="neondb",
+            user="neondb_owner",
+            password="npg_pPVueS4skO8j",
+            host="ep-snowy-glade-aty6j16z-pooler.c-9.us-east-1.aws.neon.tech",
+            sslmode="require"
         )
+        db_write = ConnectionWrapper(raw_conn)
+        try:
+            sync_local_jsons_to_db(
+                db=db_write,
+                target_month=target_month,
+                target_date=target_date,
+                force_overwrite=req.overwrite
+            )
+        finally:
+            db_write.close()
+            print("Conexion dedicada cerrada exitosamente.")
 
         return {
             "status": "success",

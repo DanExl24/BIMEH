@@ -71,22 +71,35 @@ def parse_date_from_filename(name):
     return None
 
 def obtener_hojas(db=None, target_month=None, target_date=None, force_overwrite=False):
+    import time
+    t_global_start = time.time()
+    
     # Cargar el listado de archivos agrupados por mes
     with open("listado_meses.json", encoding="utf-8") as l:
         listado_meses = json.load(l)
 
     errors = []
     
-    # Obtener fechas en base de datos si db está disponible
+    # Obtener fechas en base de datos abriendo una conexión temporal rápida para evitar idle timeouts
     dates_in_db = set()
-    if db:
-        try:
-            cursor = db.cursor()
-            cursor.execute("SELECT fecha FROM REPORTES;")
-            dates_in_db = {row[0] for row in cursor.fetchall()}
-        except Exception as e:
-            print(f"Error consultando fechas en base de datos: {e}")
-            dates_in_db = set()
+    try:
+        import psycopg2
+        print("Consultando fechas existentes en Neon (conexión temporal)...")
+        temp_conn = psycopg2.connect(
+            dbname="neondb",
+            user="neondb_owner",
+            password="npg_pPVueS4skO8j",
+            host="ep-snowy-glade-aty6j16z-pooler.c-9.us-east-1.aws.neon.tech",
+            sslmode="require"
+        )
+        temp_cursor = temp_conn.cursor()
+        temp_cursor.execute("SELECT fecha FROM REPORTES;")
+        dates_in_db = {row[0] for row in temp_cursor.fetchall()}
+        temp_conn.close()
+        print(f"Fechas obtenidas con éxito: {len(dates_in_db)} encontradas.")
+    except Exception as e:
+        print(f"Error consultando fechas en base de datos: {e}")
+        dates_in_db = set()
 
     # Determinar qué meses procesar
     months_to_process = []
@@ -111,6 +124,7 @@ def obtener_hojas(db=None, target_month=None, target_date=None, force_overwrite=
         if mes not in MESES_MAP:
             continue
             
+        t_month_start = time.time()
         archivoF = Path(f"listadoMeses/{mes}.json")
         archivos = listado_meses.get(mes, [])
         
@@ -168,14 +182,21 @@ def obtener_hojas(db=None, target_month=None, target_date=None, force_overwrite=
         nuevos_datos_cargados = False
         for f_date, archivo in files_to_download:
             print(f"Descargando archivo específico para {f_date}: {archivo['name']}")
+            t_down_start = time.time()
             try:
                 wb = hoja_de_trabajo(archivo)
+                t_down_end = time.time()
+                print(f"  [Timer] Descarga y lectura de Excel completada en {t_down_end - t_down_start:.2f} segundos.")
+                
+                t_parse_start = time.time()
                 encabezados, fila_encabezado = leer_encabezados(wb)
                 datos_archivo[f_date] = extraer_datos(
                     encabezados,
                     fila_encabezado,
                     wb
                 )
+                t_parse_end = time.time()
+                print(f"  [Timer] Datos parseados y estructurados en {t_parse_end - t_parse_start:.2f} segundos.")
                 print(f"  -> Día {f_date} cargado exitosamente.")
                 nuevos_datos_cargados = True
             except Exception as e:
@@ -187,6 +208,7 @@ def obtener_hojas(db=None, target_month=None, target_date=None, force_overwrite=
         if still_missing and unparsed_files:
             print(f"Hay {len(still_missing)} fechas faltantes y {len(unparsed_files)} archivos sin fecha legible en el nombre. Evaluando fallbacks...")
             for archivo in unparsed_files:
+                t_fallback_start = time.time()
                 try:
                     wb = hoja_de_trabajo(archivo)
                 except Exception as e:
@@ -221,7 +243,8 @@ def obtener_hojas(db=None, target_month=None, target_date=None, force_overwrite=
                     try:
                         encabezados, fila_encabezado = leer_encabezados(wb)
                         datos_archivo[fecha] = extraer_datos(encabezados, fila_encabezado, wb)
-                        print(f"  -> Día {fecha} cargado exitosamente (fallback de contenido).")
+                        t_fallback_end = time.time()
+                        print(f"  -> Día {fecha} cargado exitosamente (fallback) en {t_fallback_end - t_fallback_start:.2f} segundos.")
                         nuevos_datos_cargados = True
                         still_missing.remove(fecha)
                     except Exception as e:
@@ -236,6 +259,11 @@ def obtener_hojas(db=None, target_month=None, target_date=None, force_overwrite=
         else:
             print(f"No se encontraron nuevos reportes para el mes {mes}.")
             
+        t_month_end = time.time()
+        print(f"[Timer] Sincronización del mes {mes} terminada. Tiempo total: {t_month_end - t_month_start:.2f} segundos.")
+            
+    t_global_end = time.time()
+    print(f"[Timer Global] Sincronización de Drive completada. Tiempo total acumulado: {t_global_end - t_global_start:.2f} segundos.")
     return errors
 
             
