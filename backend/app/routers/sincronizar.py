@@ -340,7 +340,15 @@ async def cargar_reporte(
         "message": f"Sincronización completada. Se cargaron reportes para {len(records_to_sync)} fechas operativas."
     }
 
-def sync_local_jsons_to_db(db):
+from pydantic import BaseModel
+
+class DriveSyncRequest(BaseModel):
+    tipo: str  # "dia", "mes" o "todo"
+    fecha: Optional[str] = None
+    mes: Optional[str] = None
+    overwrite: bool = False
+
+def sync_local_jsons_to_db(db, target_month=None, target_date=None, force_overwrite=False):
     cursor = db.cursor()
     cursor.execute("SELECT fecha FROM REPORTES;")
     existing_dates = {row[0] for row in cursor.fetchall()}
@@ -354,8 +362,15 @@ def sync_local_jsons_to_db(db):
         
     json_files = [f for f in os.listdir(months_dir) if f.endswith(".json")]
     
+    # Si filtramos por un mes en específico, solo procesamos ese archivo JSON
+    if target_month:
+        json_files = [f"{target_month}.json"]
+    
     for filename in json_files:
         filepath = months_dir / filename
+        if not filepath.exists():
+            continue
+            
         with open(filepath, "r", encoding="utf-8") as f:
             try:
                 data = json.load(f)
@@ -363,6 +378,22 @@ def sync_local_jsons_to_db(db):
                 continue
                 
         for date_str, records in data.items():
+            # Si filtramos por fecha específica, ignorar las demás
+            if target_date and date_str != target_date:
+                continue
+                
+            # Si force_overwrite es True (o si filtramos por esta fecha específica y queremos sobrescribir),
+            # eliminamos el reporte existente en base de datos para evitar registros duplicados.
+            if force_overwrite or (target_date and date_str == target_date):
+                cursor.execute("SELECT id FROM REPORTES WHERE fecha = ?;", (date_str,))
+                rep_row = cursor.fetchone()
+                if rep_row:
+                    rep_id = rep_row[0]
+                    cursor.execute("DELETE FROM REGISTRO_PERSONAL WHERE id_reporte = ?;", (rep_id,))
+                    cursor.execute("DELETE FROM REPORTES WHERE id = ?;", (rep_id,))
+                    # Remover de existing_dates para que el script proceda a insertarlo de nuevo
+                    existing_dates.discard(date_str)
+
             if date_str in existing_dates:
                 continue
                 
@@ -438,6 +469,7 @@ def sync_local_jsons_to_db(db):
 
 @router.post("/sincronizar/drive")
 def sincronizar_desde_drive(
+    req: DriveSyncRequest,
     current_user: dict = Depends(get_current_user),
     db = Depends(get_db)
 ):
@@ -453,12 +485,42 @@ def sincronizar_desde_drive(
         with open("listado_meses.json", "w", encoding="utf-8") as ls:
             json.dump(meses, ls, indent=4, ensure_ascii=False)
 
-        # 2. Ejecutar la lógica de leer_archivos_excel para descargar y actualizar las hojas mensuales
-        from leer_archivos_excel import obtener_hojas
-        errors = obtener_hojas(db)
+        # 2. Obtener filtros de la consulta
+        target_month = req.mes
+        target_date = req.fecha
+        
+        # Si es tipo día, extraemos el mes para optimizar
+        if req.tipo == "dia" and target_date:
+            try:
+                m_num = int(target_date.split("-")[1])
+                reverse_map = {
+                    1: "ENERO", 2: "FEBRERO", 3: "MARZO", 4: "ABRIL",
+                    5: "MAYO", 6: "JUNIO", 7: "JULIO", 8: "AGOSTO",
+                    9: "SEPTIEMBRE", 10: "OCTUBRE", 11: "NOVIEMBRE", 12: "DICIEMBRE"
+                }
+                target_month = reverse_map.get(m_num)
+            except Exception:
+                pass
+        elif req.tipo == "todo":
+            target_month = None
+            target_date = None
 
-        # 3. Sincronizar todos los JSONs locales nuevos a la base de datos (PostgreSQL Neon)
-        sync_local_jsons_to_db(db)
+        # 3. Ejecutar la lógica de leer_archivos_excel para descargar y actualizar las hojas mensuales
+        from leer_archivos_excel import obtener_hojas
+        errors = obtener_hojas(
+            db=db,
+            target_month=target_month,
+            target_date=target_date,
+            force_overwrite=req.overwrite
+        )
+
+        # 4. Sincronizar todos los JSONs locales nuevos a la base de datos (PostgreSQL Neon)
+        sync_local_jsons_to_db(
+            db=db,
+            target_month=target_month,
+            target_date=target_date,
+            force_overwrite=req.overwrite
+        )
 
         return {
             "status": "success",

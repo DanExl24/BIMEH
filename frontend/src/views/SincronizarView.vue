@@ -45,6 +45,29 @@
         <div class="space-y-4">
           <h4 class="text-xs font-bold text-slate-300 uppercase tracking-wider font-mono">Configuración de la Carga</h4>
           
+          <!-- Data Source Switcher -->
+          <div class="space-y-1.5">
+            <label class="text-[10px] uppercase font-bold text-slate-500">Origen de los Datos:</label>
+            <div class="grid grid-cols-2 gap-2 bg-darkBg p-1 rounded-xl border border-darkBorder/40 max-w-sm">
+              <button 
+                type="button"
+                @click="source = 'local'"
+                class="py-1.5 text-xs font-bold rounded-lg transition-all"
+                :class="source === 'local' ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/20' : 'text-slate-400 hover:text-slate-200'"
+              >
+                Subir Archivo Local
+              </button>
+              <button 
+                type="button"
+                @click="source = 'drive'"
+                class="py-1.5 text-xs font-bold rounded-lg transition-all"
+                :class="source === 'drive' ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/20' : 'text-slate-400 hover:text-slate-200'"
+              >
+                Desde Google Drive
+              </button>
+            </div>
+          </div>
+          
           <!-- Mode switch -->
           <div class="space-y-1.5">
             <label class="text-[10px] uppercase font-bold text-slate-500">Modo de Carga:</label>
@@ -105,8 +128,8 @@
             </div>
           </div>
 
-          <!-- File Upload Dropzone -->
-          <div class="space-y-1.5 pt-2">
+          <!-- File Upload Dropzone (Local mode) -->
+          <div v-if="source === 'local'" class="space-y-1.5 pt-2">
             <label class="text-[10px] uppercase font-bold text-slate-500">Archivo del Reporte:</label>
             
             <div 
@@ -159,18 +182,34 @@
               </div>
             </div>
           </div>
+
+          <!-- Google Drive Fetch Info (Drive mode) -->
+          <div v-else class="border border-cyan-500/20 bg-cyan-500/5 rounded-2xl p-8 text-center space-y-3">
+            <div class="w-12 h-12 bg-cyan-500/10 border border-cyan-500/20 rounded-full flex items-center justify-center mx-auto text-cyan-400">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
+              </svg>
+            </div>
+            <div class="space-y-1">
+              <p class="text-xs text-slate-200 font-bold">Búsqueda automática en Google Drive</p>
+              <p class="text-[10px] text-slate-500 max-w-sm mx-auto leading-relaxed">
+                El sistema consultará Google Drive y descargará de forma automática el reporte correspondiente
+                a <strong>{{ mode === 'dia' ? 'la fecha ' + fecha : 'el mes de ' + mes }}</strong>.
+              </p>
+            </div>
+          </div>
         </div>
 
         <!-- Submit Button -->
         <div class="pt-4 border-t border-darkBorder/40 flex justify-end">
           <button 
             type="button"
-            @click="submitReport"
-            :disabled="!selectedFile || (mode === 'dia' && !fecha) || (mode === 'mes' && !mes) || loadingSubmit"
+            @click="handleMainAction"
+            :disabled="isSubmitDisabled"
             class="px-5 py-2.5 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-40 disabled:pointer-events-none rounded-xl text-xs font-bold text-slate-100 flex items-center gap-2 transition-all shadow-md active:scale-95 cursor-pointer select-none"
           >
-            <div v-if="loadingSubmit" class="w-4 h-4 border-2 border-slate-100/25 border-t-slate-100 rounded-full animate-spin"></div>
-            <span v-else>Sincronizar Reporte</span>
+            <div v-if="loadingSubmit || appStore.isSyncingDrive" class="w-4 h-4 border-2 border-slate-100/25 border-t-slate-100 rounded-full animate-spin"></div>
+            <span>{{ mainButtonText }}</span>
           </button>
         </div>
       </div>
@@ -324,14 +363,14 @@
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
             </svg>
-            Sincronización con Google Drive
+            Sincronización Completa de Drive
           </h4>
           <p class="text-[11px] text-slate-500 font-sans leading-relaxed">
-            Busca y descarga los archivos de reportes más recientes que se hayan subido a Google Drive de forma automática.
+            Busca y descarga de forma masiva todos los reportes de meses y días faltantes en la base de datos de manera automática.
           </p>
           <button 
             type="button"
-            @click="appStore.startDriveSync()"
+            @click="appStore.startDriveSync({ tipo: 'todo', overwrite: false })"
             :disabled="appStore.isSyncingDrive"
             class="w-full py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 disabled:opacity-40 disabled:pointer-events-none rounded-xl text-xs font-bold text-slate-100 flex items-center justify-center gap-2 transition-all shadow-md active:scale-95 cursor-pointer select-none"
           >
@@ -339,7 +378,7 @@
             <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
             </svg>
-            <span>Descargar de Google Drive</span>
+            <span>Sincronizar Todo el Drive</span>
           </button>
         </div>
 
@@ -366,6 +405,7 @@ import { useAppStore } from '../stores/appStore'
 const appStore = useAppStore()
 
 // State variables
+const source = ref<'local' | 'drive'>('local')
 const mode = ref<'dia' | 'mes'>('dia')
 const fecha = ref('2026-05-07')
 const mes = ref('MAYO')
@@ -392,6 +432,35 @@ const formattedFileSize = computed(() => {
   if (kb < 1024) return `${kb.toFixed(1)} KB`
   return `${(kb / 1024).toFixed(1)} MB`
 })
+
+const isSubmitDisabled = computed(() => {
+  if (source.value === 'local') {
+    return !selectedFile.value || (mode.value === 'dia' && !fecha.value) || (mode.value === 'mes' && !mes.value) || loadingSubmit.value
+  } else {
+    return ((mode.value === 'dia' && !fecha.value) || (mode.value === 'mes' && !mes.value)) || appStore.isSyncingDrive
+  }
+})
+
+const mainButtonText = computed(() => {
+  if (source.value === 'local') {
+    return 'Sincronizar Reporte'
+  } else {
+    return 'Buscar y Sincronizar en Drive'
+  }
+})
+
+const handleMainAction = () => {
+  if (source.value === 'local') {
+    submitReport()
+  } else {
+    appStore.startDriveSync({
+      tipo: mode.value,
+      fecha: mode.value === 'dia' ? fecha.value : null,
+      mes: mode.value === 'mes' ? mes.value : null,
+      overwrite: overwrite.value
+    })
+  }
+}
 
 // Methods
 const handleDrop = (e: DragEvent) => {

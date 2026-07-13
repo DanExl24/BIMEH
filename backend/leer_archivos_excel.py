@@ -70,7 +70,7 @@ def parse_date_from_filename(name):
             
     return None
 
-def obtener_hojas(db=None):
+def obtener_hojas(db=None, target_month=None, target_date=None, force_overwrite=False):
     # Cargar el listado de archivos agrupados por mes
     with open("listado_meses.json", encoding="utf-8") as l:
         listado_meses = json.load(l)
@@ -88,12 +88,31 @@ def obtener_hojas(db=None):
             print(f"Error consultando fechas en base de datos: {e}")
             dates_in_db = set()
 
-    # Recorrer cada mes (ENERO, FEBRERO, ...)
-    for mes, archivos in listado_meses.items():
+    # Determinar qué meses procesar
+    months_to_process = []
+    if target_month:
+        months_to_process = [target_month]
+    elif target_date:
+        try:
+            m_num = int(target_date.split("-")[1])
+            reverse_map = {
+                1: "ENERO", 2: "FEBRERO", 3: "MARZO", 4: "ABRIL",
+                5: "MAYO", 6: "JUNIO", 7: "JULIO", 8: "AGOSTO",
+                9: "SEPTIEMBRE", 10: "OCTUBRE", 11: "NOVIEMBRE", 12: "DICIEMBRE"
+            }
+            months_to_process = [reverse_map.get(m_num)]
+        except Exception:
+            months_to_process = list(listado_meses.keys())
+    else:
+        months_to_process = list(listado_meses.keys())
+
+    # Recorrer los meses seleccionados
+    for mes in months_to_process:
         if mes not in MESES_MAP:
             continue
             
         archivoF = Path(f"listadoMeses/{mes}.json")
+        archivos = listado_meses.get(mes, [])
         
         datos_archivo = {}
         if archivoF.exists():
@@ -110,14 +129,23 @@ def obtener_hojas(db=None):
         num_days = calendar.monthrange(2026, month_num)[1]
         all_month_dates = [datetime.date(2026, month_num, d).isoformat() for d in range(1, num_days + 1)]
         
-        # Identificar qué fechas faltan en la base de datos o en el JSON local
-        missing_dates = [d for d in all_month_dates if d not in dates_in_db and d not in datos_archivo]
+        # Identificar qué fechas faltan o cuáles forzar
+        if target_date:
+            if force_overwrite:
+                missing_dates = [target_date]
+            else:
+                missing_dates = [target_date] if (target_date not in dates_in_db and target_date not in datos_archivo) else []
+        else:
+            if force_overwrite:
+                missing_dates = all_month_dates
+            else:
+                missing_dates = [d for d in all_month_dates if d not in dates_in_db and d not in datos_archivo]
         
         if not missing_dates:
-            print(f"El mes {mes} está completamente cargado en la BD y localmente. Omitiendo.")
+            print(f"El mes/día de {mes} está completamente cargado. Omitiendo.")
             continue
             
-        print(f"Fechas faltantes para {mes}: {missing_dates}")
+        print(f"Fechas faltantes/requeridas para {mes}: {missing_dates}")
 
         # Clasificar los archivos de Google Drive para este mes
         drive_files_by_date = {}
