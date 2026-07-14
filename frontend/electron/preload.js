@@ -1,4 +1,4 @@
-import { contextBridge } from 'electron';
+const { contextBridge } = require('electron');
 
 // El script de precarga (preload) corre antes de que el proceso de renderizado (Vue) se cargue.
 // Aquí exponemos APIs seguras del sistema a través de contextBridge.
