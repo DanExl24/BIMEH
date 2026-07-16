@@ -479,7 +479,7 @@
             v-model="modalMonth"
             class="w-full bg-darkBg border border-darkBorder rounded-xl px-3 py-2 text-xs text-slate-200 outline-none focus:border-cyan-500/50"
           >
-            <option v-if="modalReportType === 'personal'" value="">Todos los Meses</option>
+            <option value="">Todos los Meses</option>
             <option v-for="m in activeMonths" :key="m" :value="m">{{ m }}</option>
           </select>
         </div>
@@ -509,6 +509,7 @@
           Cancelar
         </button>
         <a 
+          v-if="!(modalFormat === 'pdf' && modalReportType === 'consolidado_mensual' && !modalMonth)"
           :href="downloadUrl"
           download
           @click="openExportModal = false"
@@ -516,6 +517,14 @@
         >
           Descargar
         </a>
+        <button 
+          v-else
+          disabled
+          class="flex-1 px-4 py-2 bg-slate-800 border border-darkBorder rounded-xl text-xs font-bold text-slate-500 cursor-not-allowed select-none"
+          title="El formato PDF no admite consolidar todos los meses por espacio horizontal. Use Excel o CSV."
+        >
+          No Disponible
+        </button>
       </div>
     </div>
   </div>

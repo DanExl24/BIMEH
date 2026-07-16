@@ -121,10 +121,17 @@ def exportar_csv(
             writer.writerow(list(row))
         filename = "catalogo_subnovedades.csv"
         
-    elif tipo == "consolidado_mensual" and mes:
-        dates = get_month_dates(mes)
-        if not dates:
-            raise HTTPException(status_code=400, detail="No hay reportes para el mes especificado.")
+    elif tipo == "consolidado_mensual":
+        is_all_months = not mes or mes.upper() == "TODOS" or mes == ""
+        if is_all_months:
+            cursor.execute("SELECT fecha FROM REPORTES ORDER BY fecha ASC;")
+            dates = [row[0] for row in cursor.fetchall()]
+            if not dates:
+                raise HTTPException(status_code=400, detail="No hay reportes registrados en el sistema.")
+        else:
+            dates = get_month_dates(mes)
+            if not dates:
+                raise HTTPException(status_code=400, detail="No hay reportes para el mes especificado.")
         
         placeholders = ",".join("%s" for _ in dates)
         cursor.execute(f"SELECT id, fecha FROM REPORTES WHERE fecha IN ({placeholders}) ORDER BY fecha ASC;", dates)
@@ -132,7 +139,10 @@ def exportar_csv(
         report_ids = [r[0] for r in reports_db]
         report_dates = [r[1] for r in reports_db]
         
-        headers = ["CEDULA", "INTEGRANTE"] + [f"Dia {d.split('-')[2]}" for d in report_dates]
+        if is_all_months:
+            headers = ["CEDULA", "INTEGRANTE"] + [f"{d.split('-')[2]}/{d.split('-')[1]}" for d in report_dates]
+        else:
+            headers = ["CEDULA", "INTEGRANTE"] + [f"Dia {d.split('-')[2]}" for d in report_dates]
         writer.writerow(headers)
         
         if report_ids:
@@ -175,7 +185,7 @@ def exportar_csv(
                     else:
                         row_data.append(reports_dict.get(r_id, "N/A"))
                 writer.writerow(row_data)
-        filename = f"consolidado_mensual_{mes}.csv"
+        filename = f"consolidado_mensual_{mes if mes else 'TODOS'}.csv"
         
     elif tipo == "historial_novedades":
         writer.writerow(["CEDULA", "APELLIDOS Y NOMBRES", "SUBNOVEDAD", "DESCRIPCION", "DESDE", "HASTA", "FECHA REPORTE"])
@@ -481,11 +491,19 @@ def exportar_excel(
                     cell.alignment = Alignment(horizontal="center")
         filename = "catalogo_subnovedades.xlsx"
         
-    elif tipo == "consolidado_mensual" and mes:
-        ws.title = f"Consolidado {mes}"
-        dates = get_month_dates(mes)
-        if not dates:
-            raise HTTPException(status_code=400, detail="No hay reportes para el mes especificado.")
+    elif tipo == "consolidado_mensual":
+        is_all_months = not mes or mes.upper() == "TODOS" or mes == ""
+        ws.title = "Consolidado Completo" if is_all_months else f"Consolidado {mes}"
+        
+        if is_all_months:
+            cursor.execute("SELECT fecha FROM REPORTES ORDER BY fecha ASC;")
+            dates = [row[0] for row in cursor.fetchall()]
+            if not dates:
+                raise HTTPException(status_code=400, detail="No hay reportes registrados en el sistema.")
+        else:
+            dates = get_month_dates(mes)
+            if not dates:
+                raise HTTPException(status_code=400, detail="No hay reportes para el mes especificado.")
             
         placeholders = ",".join("%s" for _ in dates)
         cursor.execute(f"SELECT id, fecha FROM REPORTES WHERE fecha IN ({placeholders}) ORDER BY fecha ASC;", dates)
@@ -498,15 +516,25 @@ def exportar_excel(
         
         ws.merge_cells(f"A1:{col_letter}1")
         if cedula:
-            ws["A1"] = f"BIMEJ12 — HISTORIAL DE PERSONAL (CC {cedula}) — {mes.upper()}"
+            title_text = f"BIMEJ12 — HISTORIAL DE PERSONAL (CC {cedula})"
         else:
-            ws["A1"] = f"BIMEJ12 — CONSOLIDADO DIARIO DE PERSONAL — {mes.upper()}"
+            title_text = "BIMEJ12 — CONSOLIDADO DIARIO DE PERSONAL"
+            
+        if not is_all_months:
+            title_text += f" — {mes.upper()}"
+        else:
+            title_text += " — TODOS LOS MESES"
+            
+        ws["A1"] = title_text
         ws["A1"].font = title_font
         ws["A1"].fill = title_fill
         ws["A1"].alignment = Alignment(horizontal="center", vertical="center")
         ws.row_dimensions[1].height = 40
         
-        headers = ["CÉDULA", "INTEGRANTE"] + [f"Día {d.split('-')[2]}" for d in report_dates]
+        if is_all_months:
+            headers = ["CÉDULA", "INTEGRANTE"] + [f"{d.split('-')[2]}/{d.split('-')[1]}" for d in report_dates]
+        else:
+            headers = ["CÉDULA", "INTEGRANTE"] + [f"Día {d.split('-')[2]}" for d in report_dates]
         ws.append([])
         ws.append(headers)
         ws.row_dimensions[3].height = 25
@@ -580,7 +608,7 @@ def exportar_excel(
                     else:
                         cell.fill = PatternFill(start_color="FFE4E6", end_color="FFE4E6", fill_type="solid")
                         cell.font = Font(name="Calibri", size=9, color="991B1B")
-        filename = f"consolidado_personal_{mes}.xlsx"
+        filename = f"consolidado_personal_{mes if mes else 'TODOS'}.xlsx"
         
     elif tipo == "historial_novedades":
         ws.title = "Historial Novedades"
@@ -1020,7 +1048,11 @@ def exportar_pdf(
         story.append(t)
         filename = "catalogo_subnovedades.pdf"
         
-    elif tipo == "consolidado_mensual" and mes:
+    elif tipo == "consolidado_mensual":
+        is_all_months = not mes or mes.upper() == "TODOS" or mes == ""
+        if is_all_months:
+            raise HTTPException(status_code=400, detail="El formato PDF no admite consolidar todos los meses por espacio horizontal. Use los formatos Excel o CSV.")
+            
         doc_layout = landscape(letter)
         doc = SimpleDocTemplate(
             pdf_buffer,
@@ -1126,7 +1158,7 @@ def exportar_pdf(
             ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#F8FAFC')])
         ]))
         story.append(t)
-        filename = f"consolidado_personal_{mes}.pdf"
+        filename = f"consolidado_personal_{mes if mes else 'TODOS'}.pdf"
         
     elif tipo == "historial_novedades":
         story.append(Paragraph("BIMEJ12 — HISTORIAL COMPLETO DE NOVEDADES", title_style))

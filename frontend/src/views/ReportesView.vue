@@ -118,6 +118,7 @@
               v-model="selectedMonth"
               class="w-full bg-darkBg border border-darkBorder rounded-xl px-3 py-2 text-xs text-slate-200 outline-none focus:border-cyan-500/50"
             >
+              <option value="TODOS">TODOS LOS MESES</option>
               <option v-for="m in meses" :key="m" :value="m">{{ m }}</option>
             </select>
           </div>
@@ -139,12 +140,21 @@
             CSV Consolidado ({{ selectedMonth }})
           </a>
           <a 
+            v-if="selectedMonth !== 'TODOS'"
             :href="`${appStore.apiBase}/api/exportar/pdf?tipo=consolidado_mensual&mes=${selectedMonth}`"
             download
             class="flex items-center justify-center text-center px-3 py-2.5 rounded-xl text-[10px] font-bold uppercase transition-all duration-200 border cursor-pointer select-none shadow-sm bg-cyan-500/10 border-cyan-500/20 text-cyan-400 hover:bg-cyan-500/20 hover:border-cyan-500/30"
           >
             PDF Consolidado ({{ selectedMonth }})
           </a>
+          <button
+            v-else
+            disabled
+            class="flex items-center justify-center text-center px-3 py-2.5 rounded-xl text-[10px] font-bold uppercase border bg-slate-800/50 border-darkBorder text-slate-500 cursor-not-allowed select-none"
+            title="El formato PDF no admite consolidar todos los meses por espacio horizontal"
+          >
+            PDF NO DISPONIBLE (TODOS)
+          </button>
         </div>
       </div>
 
