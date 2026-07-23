@@ -3,9 +3,18 @@ import psycopg2.extras
 from datetime import datetime
 from typing import List
 
+NEON_CONN_PARAMS = {
+    "dbname": "neondb",
+    "user": "neondb_owner",
+    "password": "npg_pPVueS4skO8j",
+    "host": "ep-snowy-glade-aty6j16z-pooler.c-9.us-east-1.aws.neon.tech",
+    "sslmode": "require"
+}
+
 class CursorWrapper:
-    def __init__(self, cursor):
+    def __init__(self, cursor, conn_wrapper=None):
         self._cursor = cursor
+        self._conn_wrapper = conn_wrapper
         
     def execute(self, query, vars=None):
         if isinstance(query, str):
@@ -14,44 +23,85 @@ class CursorWrapper:
             query = query.replace("strftime('%m', r.fecha)", "to_char(to_date(r.fecha, 'YYYY-MM-DD'), 'MM')")
             query = query.replace("strftime('%d', r.fecha)", "to_char(to_date(r.fecha, 'YYYY-MM-DD'), 'DD')")
             query = query.replace('?', '%s')
-        return self._cursor.execute(query, vars)
+        try:
+            return self._cursor.execute(query, vars)
+        except (psycopg2.OperationalError, psycopg2.InterfaceError) as e:
+            if self._conn_wrapper:
+                self._conn_wrapper.reconnect()
+                self._cursor = self._conn_wrapper._conn.cursor()
+                return self._cursor.execute(query, vars)
+            raise e
         
     def fetchone(self):
-        return self._cursor.fetchone()
+        try:
+            return self._cursor.fetchone()
+        except (psycopg2.OperationalError, psycopg2.InterfaceError) as e:
+            if self._conn_wrapper:
+                self._conn_wrapper.reconnect()
+                self._cursor = self._conn_wrapper._conn.cursor()
+                return self._cursor.fetchone()
+            raise e
         
     def fetchall(self):
-        return self._cursor.fetchall()
+        try:
+            return self._cursor.fetchall()
+        except (psycopg2.OperationalError, psycopg2.InterfaceError) as e:
+            if self._conn_wrapper:
+                self._conn_wrapper.reconnect()
+                self._cursor = self._conn_wrapper._conn.cursor()
+                return self._cursor.fetchall()
+            raise e
         
     def __getattr__(self, name):
         return getattr(self._cursor, name)
 
 class ConnectionWrapper:
-    def __init__(self, conn):
-        self._conn = conn
+    def __init__(self, conn=None, conn_params=None):
+        self._conn_params = conn_params or NEON_CONN_PARAMS
+        self._conn = conn if conn else psycopg2.connect(**self._conn_params)
         self._conn.cursor_factory = psycopg2.extras.DictCursor
         
+    def reconnect(self):
+        try:
+            if self._conn and not self._conn.closed:
+                self._conn.close()
+        except Exception:
+            pass
+        self._conn = psycopg2.connect(**self._conn_params)
+        self._conn.cursor_factory = psycopg2.extras.DictCursor
+
     def cursor(self, *args, **kwargs):
-        cursor = self._conn.cursor(*args, **kwargs)
-        return CursorWrapper(cursor)
+        try:
+            if self._conn.closed:
+                self.reconnect()
+            cursor = self._conn.cursor(*args, **kwargs)
+        except (psycopg2.OperationalError, psycopg2.InterfaceError):
+            self.reconnect()
+            cursor = self._conn.cursor(*args, **kwargs)
+        return CursorWrapper(cursor, self)
         
     def commit(self):
-        return self._conn.commit()
+        try:
+            return self._conn.commit()
+        except (psycopg2.OperationalError, psycopg2.InterfaceError):
+            self.reconnect()
+            return self._conn.commit()
         
     def rollback(self):
-        return self._conn.rollback()
+        try:
+            return self._conn.rollback()
+        except Exception:
+            pass
         
     def close(self):
-        return self._conn.close()
+        try:
+            return self._conn.close()
+        except Exception:
+            pass
         
     def execute(self, query, vars=None):
         if "PRAGMA" in query:
             return None
-        if isinstance(query, str):
-            query = query.replace("strftime('%m', fecha)", "to_char(to_date(fecha, 'YYYY-MM-DD'), 'MM')")
-            query = query.replace("strftime('%d', fecha)", "to_char(to_date(fecha, 'YYYY-MM-DD'), 'DD')")
-            query = query.replace("strftime('%m', r.fecha)", "to_char(to_date(r.fecha, 'YYYY-MM-DD'), 'MM')")
-            query = query.replace("strftime('%d', r.fecha)", "to_char(to_date(r.fecha, 'YYYY-MM-DD'), 'DD')")
-            query = query.replace('?', '%s')
         cursor = self.cursor()
         cursor.execute(query, vars)
         return cursor
@@ -62,14 +112,7 @@ class ConnectionWrapper:
 DATABASE_NAME = "bimeh"
 
 def get_db():
-    raw_conn = psycopg2.connect(
-        dbname="neondb",
-        user="neondb_owner",
-        password="npg_pPVueS4skO8j",
-        host="ep-snowy-glade-aty6j16z-pooler.c-9.us-east-1.aws.neon.tech",
-        sslmode="require"
-    )
-    conn = ConnectionWrapper(raw_conn)
+    conn = ConnectionWrapper(conn_params=NEON_CONN_PARAMS)
     try:
         yield conn
     finally:
@@ -83,14 +126,7 @@ def get_month_dates(month_name: str) -> List[str]:
     }
     month_num = month_order.get(month_name.upper(), 1)
     
-    raw_conn = psycopg2.connect(
-        dbname="neondb",
-        user="neondb_owner",
-        password="npg_pPVueS4skO8j",
-        host="ep-snowy-glade-aty6j16z-pooler.c-9.us-east-1.aws.neon.tech",
-        sslmode="require"
-    )
-    conn = ConnectionWrapper(raw_conn)
+    conn = ConnectionWrapper(conn_params=NEON_CONN_PARAMS)
     cursor = conn.cursor()
     cursor.execute("SELECT fecha FROM REPORTES ORDER BY fecha ASC;")
     all_dates = [row[0] for row in cursor.fetchall()]
