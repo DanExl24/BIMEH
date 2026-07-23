@@ -7,6 +7,7 @@ import csv
 import openpyxl
 from openpyxl.utils import get_column_letter
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+from openpyxl.comments import Comment
 
 from reportlab.lib import colors
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
@@ -19,9 +20,10 @@ from app.dependencies import DISPONIBLE_STATUSES
 
 def format_agil_month_ranges(records: List[tuple], highlight_html: bool = False) -> str:
     """
-    records: list of tuples (day_int, subnovedad_str) sorted by day_int
-    Returns string like: '10-15 (VACACIONES), 22 (PERMISO)'
-    If highlight_html=True, wraps day numbers in <font color="#DC2626"><b>range</b></font> for ReportLab PDF.
+    records: list of tuples (day_int, subnovedad_str, [desc]) sorted by day_int
+    Returns string with line breaks for each novelty range:
+    - HTML/PDF (<br/>): '<font color="#DC2626"><b>10-15</b></font> (VACACIONES)<br/><font color="#DC2626"><b>22</b></font> (PERMISO)'
+    - Excel/Plain (\n): '10-15 (VACACIONES)\n22 (PERMISO)'
     """
     if not records:
         return "-"
@@ -38,7 +40,9 @@ def format_agil_month_ranges(records: List[tuple], highlight_html: bool = False)
         else:
             return f'{day_str} ({nov})'
 
-    for day, nov in records[1:]:
+    for rec in records[1:]:
+        day = rec[0]
+        nov = rec[1]
         if day == curr_end + 1 and nov == curr_nov:
             curr_end = day
         else:
@@ -49,7 +53,9 @@ def format_agil_month_ranges(records: List[tuple], highlight_html: bool = False)
             
     ranges.append(make_label(curr_start, curr_end, curr_nov))
         
-    return ", ".join(ranges)
+    sep = "<br/>" if highlight_html else "\n"
+    return sep.join(ranges)
+
 
 
 router = APIRouter(prefix="/api/exportar", tags=["Exportaciones"])
@@ -887,20 +893,31 @@ def exportar_excel(
             for r in rows:
                 c_num, p_name, r_date, subnov, desc = r
                 day_num = int(r_date.split('-')[2])
-                person_novs[(c_num, p_name)].append((day_num, subnov))
+                person_novs[(c_num, p_name)].append((day_num, subnov, desc))
                 
             for (c_num, p_name), recs in sorted(person_novs.items(), key=lambda x: x[0][1]):
                 summary_str = format_agil_month_ranges(recs)
                 ws.append([c_num, p_name, summary_str])
+                current_r = ws.max_row
+                
+                obs = [f"• Día {d:02d} ({sn}): {desc.strip()}" for d, sn, desc in recs if desc and str(desc).strip()]
+                if obs:
+                    ws.cell(row=current_r, column=3).comment = Comment("DESCRIPCIÓN DE NOVEDADES:\n" + "\n".join(obs), "BIMEJ12")
                 
             for r_idx in range(5, ws.max_row + 1):
-                ws.row_dimensions[r_idx].height = 20
+                cell_val = ws.cell(row=r_idx, column=3).value or ""
+                num_lines = str(cell_val).count('\n') + 1
+                ws.row_dimensions[r_idx].height = max(22, num_lines * 18)
                 for c_idx in range(1, 4):
                     cell = ws.cell(row=r_idx, column=c_idx)
                     cell.font = normal_font
                     cell.border = thin_border
                     if c_idx == 1:
-                        cell.alignment = Alignment(horizontal="center")
+                        cell.alignment = Alignment(horizontal="center", vertical="center")
+                    elif c_idx == 2:
+                        cell.alignment = Alignment(horizontal="left", vertical="center")
+                    elif c_idx == 3:
+                        cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
             filename = f"exportacion_agil_{mes}.xlsx"
 
         else:
@@ -933,24 +950,44 @@ def exportar_excel(
                 c_num, p_name, r_date, subnov, desc = r
                 m_code = r_date.split('-')[1]
                 day_num = int(r_date.split('-')[2])
-                person_months[(c_num, p_name)][m_code].append((day_num, subnov))
+                person_months[(c_num, p_name)][m_code].append((day_num, subnov, desc))
                 
             for (c_num, p_name), m_dict in sorted(person_months.items(), key=lambda x: x[0][1]):
                 row_data = [c_num, p_name]
-                for m_code, _ in month_names_dict:
+                month_comments = {}
+                for idx, (m_code, _) in enumerate(month_names_dict):
                     recs = m_dict.get(m_code, [])
                     row_data.append(format_agil_month_ranges(recs))
+                    
+                    obs = [f"• Día {d:02d} ({sn}): {desc.strip()}" for d, sn, desc in recs if desc and str(desc).strip()]
+                    if obs:
+                        col_number = 3 + idx
+                        month_comments[col_number] = "DESCRIPCIÓN DE NOVEDADES:\n" + "\n".join(obs)
+                        
                 ws.append(row_data)
+                current_r = ws.max_row
+                for col_num, comment_txt in month_comments.items():
+                    ws.cell(row=current_r, column=col_num).comment = Comment(comment_txt, "BIMEJ12")
 
             for r_idx in range(5, ws.max_row + 1):
-                ws.row_dimensions[r_idx].height = 20
+                max_lines = 1
+                for c_idx in range(3, len(headers) + 1):
+                    val = str(ws.cell(row=r_idx, column=c_idx).value or "")
+                    max_lines = max(max_lines, val.count('\n') + 1)
+                ws.row_dimensions[r_idx].height = max(22, max_lines * 18)
+                
                 for c_idx in range(1, len(headers) + 1):
                     cell = ws.cell(row=r_idx, column=c_idx)
                     cell.font = normal_font
                     cell.border = thin_border
                     if c_idx == 1:
-                        cell.alignment = Alignment(horizontal="center")
+                        cell.alignment = Alignment(horizontal="center", vertical="center")
+                    elif c_idx == 2:
+                        cell.alignment = Alignment(horizontal="left", vertical="center")
+                    else:
+                        cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
             filename = f"exportacion_agil_anual_{cedula if cedula else 'todos'}.xlsx"
+
 
         
     else:
