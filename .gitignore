@@ -8,11 +8,25 @@ token.json
 **/token.json
 credentials.json
 
+# Dependencies & Build Outputs
 node_modules/
 dist/
 dist-desktop/
 frontend/dist-desktop/
 backend/build/
 backend/dist/
+out/
+build/
+respaldo/
+
+# Installers, Binaries & Packaging
+*.apk
+*.aab
+*.exe
+*.zip
+*.blockmap
+*.dmg
+*.AppImage
+
 .DS_Store
 .vscode/
