@@ -17,10 +17,11 @@ from reportlab.lib.pagesizes import letter, landscape
 from app.database import get_db, get_month_dates
 from app.dependencies import DISPONIBLE_STATUSES
 
-def format_agil_month_ranges(records: List[tuple]) -> str:
+def format_agil_month_ranges(records: List[tuple], highlight_html: bool = False) -> str:
     """
     records: list of tuples (day_int, subnovedad_str) sorted by day_int
     Returns string like: '10-15 (VACACIONES), 22 (PERMISO)'
+    If highlight_html=True, wraps day numbers in <font color="#DC2626"><b>range</b></font> for ReportLab PDF.
     """
     if not records:
         return "-"
@@ -30,24 +31,26 @@ def format_agil_month_ranges(records: List[tuple]) -> str:
     curr_end = records[0][0]
     curr_nov = records[0][1]
     
+    def make_label(start: int, end: int, nov: str) -> str:
+        day_str = f"{start:02d}" if start == end else f"{start:02d}-{end:02d}"
+        if highlight_html:
+            return f'<font color="#DC2626"><b>{day_str}</b></font> ({nov})'
+        else:
+            return f'{day_str} ({nov})'
+
     for day, nov in records[1:]:
         if day == curr_end + 1 and nov == curr_nov:
             curr_end = day
         else:
-            if curr_start == curr_end:
-                ranges.append(f"{curr_start:02d} ({curr_nov})")
-            else:
-                ranges.append(f"{curr_start:02d}-{curr_end:02d} ({curr_nov})")
+            ranges.append(make_label(curr_start, curr_end, curr_nov))
             curr_start = day
             curr_end = day
             curr_nov = nov
             
-    if curr_start == curr_end:
-        ranges.append(f"{curr_start:02d} ({curr_nov})")
-    else:
-        ranges.append(f"{curr_start:02d}-{curr_end:02d} ({curr_nov})")
+    ranges.append(make_label(curr_start, curr_end, curr_nov))
         
     return ", ".join(ranges)
+
 
 router = APIRouter(prefix="/api/exportar", tags=["Exportaciones"])
 
@@ -1713,7 +1716,7 @@ def exportar_pdf(
                     Paragraph(row[1], agil_td_style),
                     Paragraph(row[3], agil_td_style),
                     Paragraph(row[4] or "-", agil_td_style),
-                    Paragraph(row[2], agil_td_style)
+                    Paragraph(f'<font color="#DC2626"><b>{row[2]}</b></font>', agil_td_style)
                 ])
             col_widths = [65, 160, 110, 305, 80]
             filename = f"exportacion_agil_{fecha}.pdf"
@@ -1733,7 +1736,7 @@ def exportar_pdf(
                 person_novs[(c_num, p_name)].append((day_num, subnov))
                 
             for (c_num, p_name), recs in sorted(person_novs.items(), key=lambda x: x[0][1]):
-                summary_str = format_agil_month_ranges(recs)
+                summary_str = format_agil_month_ranges(recs, highlight_html=True)
                 data.append([
                     Paragraph(str(c_num), agil_td_style),
                     Paragraph(p_name, agil_td_style),
@@ -1771,13 +1774,14 @@ def exportar_pdf(
                 row_data = [Paragraph(str(c_num), agil_td_style), Paragraph(p_name, agil_td_style)]
                 for m_code, _ in month_names_dict:
                     recs = m_dict.get(m_code, [])
-                    summary_str = format_agil_month_ranges(recs)
+                    summary_str = format_agil_month_ranges(recs, highlight_html=True)
                     row_data.append(Paragraph(summary_str, agil_td_style))
                 data.append(row_data)
 
             month_col_w = max(int(540 / len(month_names_dict)), 46) if month_names_dict else 46
             col_widths = [55, 125] + [month_col_w for _ in month_names_dict]
             filename = f"exportacion_agil_anual_{cedula if cedula else 'todos'}.pdf"
+
 
 
         t = Table(data, colWidths=col_widths, repeatRows=1)
