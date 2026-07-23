@@ -901,15 +901,22 @@ def exportar_excel(
             filename = f"exportacion_agil_{mes}.xlsx"
 
         else:
-            month_names_dict = [
+            active_m_codes = set(r[2].split('-')[1] for r in rows)
+            if not active_m_codes:
+                cursor.execute("SELECT DISTINCT to_char(to_date(fecha, 'YYYY-MM-DD'), 'MM') FROM REPORTES;")
+                active_m_codes = set(row[0] for row in cursor.fetchall())
+                
+            all_month_tuples = [
                 ('01', 'ENERO'), ('02', 'FEBRERO'), ('03', 'MARZO'), ('04', 'ABRIL'),
                 ('05', 'MAYO'), ('06', 'JUNIO'), ('07', 'JULIO'), ('08', 'AGOSTO'),
                 ('09', 'SEPTIEMBRE'), ('10', 'OCTUBRE'), ('11', 'NOVIEMBRE'), ('12', 'DICIEMBRE')
             ]
+            month_names_dict = [m for m in all_month_tuples if m[0] in active_m_codes]
             headers = ["CÉDULA", "INTEGRANTE"] + [m_name for _, m_name in month_names_dict]
             ws.append([])
             ws.append(headers)
             ws.row_dimensions[4].height = 25
+
             for col_idx in range(1, len(headers) + 1):
                 cell = ws.cell(row=4, column=col_idx)
                 cell.font = header_font
@@ -1736,11 +1743,18 @@ def exportar_pdf(
             filename = f"exportacion_agil_{mes}.pdf"
 
         else:
-            month_names_dict = [
+            active_m_codes = set(r[2].split('-')[1] for r in rows)
+            if not active_m_codes:
+                cursor.execute("SELECT DISTINCT to_char(to_date(fecha, 'YYYY-MM-DD'), 'MM') FROM REPORTES;")
+                active_m_codes = set(row[0] for row in cursor.fetchall())
+
+            all_month_tuples = [
                 ('01', 'ENE'), ('02', 'FEB'), ('03', 'MAR'), ('04', 'ABR'),
                 ('05', 'MAY'), ('06', 'JUN'), ('07', 'JUL'), ('08', 'AGO'),
                 ('09', 'SEP'), ('10', 'OCT'), ('11', 'NOV'), ('12', 'DIC')
             ]
+            month_names_dict = [m for m in all_month_tuples if m[0] in active_m_codes]
+            
             headers = [Paragraph("CÉDULA", agil_th_style), Paragraph("INTEGRANTE", agil_th_style)] + [
                 Paragraph(m_name, agil_th_style) for _, m_name in month_names_dict
             ]
@@ -1761,8 +1775,10 @@ def exportar_pdf(
                     row_data.append(Paragraph(summary_str, agil_td_style))
                 data.append(row_data)
 
-            col_widths = [50, 110] + [46 for _ in month_names_dict]
+            month_col_w = max(int(540 / len(month_names_dict)), 46) if month_names_dict else 46
+            col_widths = [55, 125] + [month_col_w for _ in month_names_dict]
             filename = f"exportacion_agil_anual_{cedula if cedula else 'todos'}.pdf"
+
 
         t = Table(data, colWidths=col_widths, repeatRows=1)
         t.setStyle(TableStyle([

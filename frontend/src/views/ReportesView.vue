@@ -119,8 +119,9 @@
               class="w-full bg-darkBg border border-darkBorder rounded-xl px-3 py-2 text-xs text-slate-200 outline-none focus:border-cyan-500/50"
             >
               <option value="TODOS">TODOS LOS MESES</option>
-              <option v-for="m in meses" :key="m" :value="m">{{ m }}</option>
+              <option v-for="m in activeMonths" :key="m" :value="m">{{ m }}</option>
             </select>
+
           </div>
         </div>
 
@@ -284,9 +285,10 @@
                 v-model="agilSelectedMonth"
                 class="w-full bg-darkBg border border-darkBorder rounded-xl px-3 py-2 text-xs text-slate-200 outline-none focus:border-cyan-500/50"
               >
-                <option v-for="m in meses" :key="m" :value="m">{{ m }}</option>
+                <option v-for="m in activeMonths" :key="m" :value="m">{{ m }}</option>
               </select>
             </div>
+
 
             <div v-if="agilMode === 'DIA'" class="flex flex-col gap-1">
               <label class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Seleccionar Día:</label>
@@ -339,7 +341,10 @@ const meses = [
   'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE'
 ]
 
+const activeMonths = computed(() => appStore.availableMonths)
+
 const selectedMonth = ref(appStore.selectedMonth || 'JULIO')
+
 const selectedDate = ref('')
 
 const agilMode = ref<'ANUAL' | 'MES' | 'DIA'>('ANUAL')
