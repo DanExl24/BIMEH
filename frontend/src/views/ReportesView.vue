@@ -140,21 +140,12 @@
             CSV Consolidado ({{ selectedMonth }})
           </a>
           <a 
-            v-if="selectedMonth !== 'TODOS'"
             :href="`${appStore.apiBase}/api/exportar/pdf?tipo=consolidado_mensual&mes=${selectedMonth}`"
             download
             class="flex items-center justify-center text-center px-3 py-2.5 rounded-xl text-[10px] font-bold uppercase transition-all duration-200 border cursor-pointer select-none shadow-sm bg-cyan-500/10 border-cyan-500/20 text-cyan-400 hover:bg-cyan-500/20 hover:border-cyan-500/30"
           >
             PDF Consolidado ({{ selectedMonth }})
           </a>
-          <button
-            v-else
-            disabled
-            class="flex items-center justify-center text-center px-3 py-2.5 rounded-xl text-[10px] font-bold uppercase border bg-slate-800/50 border-darkBorder text-slate-500 cursor-not-allowed select-none"
-            title="El formato PDF no admite consolidar todos los meses por espacio horizontal"
-          >
-            PDF NO DISPONIBLE (TODOS)
-          </button>
         </div>
       </div>
 
@@ -249,6 +240,90 @@
         </div>
       </div>
 
+      <!-- Card 6: Exportación Ágil de Novedades -->
+      <div class="glass-panel p-6 rounded-2xl flex flex-col justify-between border-cyan-500/30 bg-gradient-to-br from-cyan-950/20 via-darkPanel to-blue-950/20 hover:border-cyan-400/50 transition-all duration-300 group md:col-span-2 shadow-lg shadow-cyan-950/30">
+        <div class="flex flex-col md:flex-row md:items-start justify-between gap-4">
+          <div class="space-y-3 flex-1">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500/20 to-blue-500/20 border border-cyan-500/30 flex items-center justify-center text-cyan-400 group-hover:scale-105 transition-transform duration-200 shadow-sm">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+              </div>
+              <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 animate-pulse">
+                NUEVO / EXCLUSIVO NOVEDADES
+              </span>
+            </div>
+            <div>
+              <h3 class="text-sm font-black text-slate-100 uppercase tracking-wide flex items-center gap-2">
+                Exportación Ágil de Novedades
+              </h3>
+              <p class="text-xs text-slate-400 mt-1 leading-relaxed">
+                Reporte exclusivo de novedades (excluye días disponibles). Consolida y simplifica los rangos continuos de fechas (ejemplo: <span class="text-cyan-300 font-bold font-mono">ENERO: 10-15 (VACACIONES)</span>) para agilizar la lectura por día, mes o año.
+              </p>
+            </div>
+          </div>
+          
+          <!-- Mode & Scope Selector -->
+          <div class="flex flex-col gap-2 w-full md:w-64">
+            <div class="flex flex-col gap-1">
+              <label class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Período Ágil:</label>
+              <select 
+                v-model="agilMode"
+                class="w-full bg-darkBg border border-darkBorder rounded-xl px-3 py-2 text-xs text-slate-200 outline-none focus:border-cyan-500/50"
+              >
+                <option value="ANUAL">TODOS LOS MESES (ANUAL)</option>
+                <option value="MES">MES ESPECÍFICO</option>
+                <option value="DIA">DÍA ESPECÍFICO</option>
+              </select>
+            </div>
+
+            <div v-if="agilMode === 'MES'" class="flex flex-col gap-1">
+              <label class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Seleccionar Mes:</label>
+              <select 
+                v-model="agilSelectedMonth"
+                class="w-full bg-darkBg border border-darkBorder rounded-xl px-3 py-2 text-xs text-slate-200 outline-none focus:border-cyan-500/50"
+              >
+                <option v-for="m in meses" :key="m" :value="m">{{ m }}</option>
+              </select>
+            </div>
+
+            <div v-if="agilMode === 'DIA'" class="flex flex-col gap-1">
+              <label class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Seleccionar Día:</label>
+              <select 
+                v-model="agilSelectedDate"
+                class="w-full bg-darkBg border border-darkBorder rounded-xl px-3 py-2 text-xs text-slate-200 outline-none focus:border-cyan-500/50"
+              >
+                <option v-for="d in sortedDates" :key="d" :value="d">{{ formatDate(d) }}</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-6 pt-4 border-t border-darkBorder/40">
+          <a 
+            :href="agilExcelUrl"
+            download
+            class="flex items-center justify-center gap-2 text-center px-4 py-2.5 rounded-xl text-[11px] font-black uppercase transition-all duration-200 border cursor-pointer select-none shadow-md bg-emerald-500/20 border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/30 hover:border-emerald-500/60"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            EXCEL ÁGIL ({{ agilLabel }})
+          </a>
+          <a 
+            :href="agilPdfUrl"
+            download
+            class="flex items-center justify-center gap-2 text-center px-4 py-2.5 rounded-xl text-[11px] font-black uppercase transition-all duration-200 border cursor-pointer select-none shadow-md bg-cyan-500/20 border-cyan-500/40 text-cyan-300 hover:bg-cyan-500/30 hover:border-cyan-500/60"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+            </svg>
+            PDF ÁGIL ({{ agilLabel }})
+          </a>
+        </div>
+      </div>
+
     </div>
   </div>
 </template>
@@ -264,8 +339,12 @@ const meses = [
   'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE'
 ]
 
-const selectedMonth = ref(appStore.selectedMonth || 'JUNIO')
+const selectedMonth = ref(appStore.selectedMonth || 'JULIO')
 const selectedDate = ref('')
+
+const agilMode = ref<'ANUAL' | 'MES' | 'DIA'>('ANUAL')
+const agilSelectedMonth = ref(appStore.selectedMonth || 'JULIO')
+const agilSelectedDate = ref('')
 
 onMounted(() => {
   if (appStore.availableDates.length === 0) {
@@ -281,6 +360,9 @@ watch(sortedDates, (newDates) => {
   if (newDates.length > 0 && !selectedDate.value) {
     selectedDate.value = newDates[0]
   }
+  if (newDates.length > 0 && !agilSelectedDate.value) {
+    agilSelectedDate.value = newDates[0]
+  }
 }, { immediate: true })
 
 const formatDate = (dateStr: string) => {
@@ -289,4 +371,31 @@ const formatDate = (dateStr: string) => {
   if (parts.length !== 3) return dateStr
   return `${parts[2]}/${parts[1]}/${parts[0]}`
 }
+
+const agilLabel = computed(() => {
+  if (agilMode.value === 'ANUAL') return 'ANUAL COMPLETO'
+  if (agilMode.value === 'MES') return agilSelectedMonth.value
+  return formatDate(agilSelectedDate.value)
+})
+
+const agilExcelUrl = computed(() => {
+  if (agilMode.value === 'ANUAL') {
+    return `${appStore.apiBase}/api/exportar/excel?tipo=agil&mes=TODOS`
+  } else if (agilMode.value === 'MES') {
+    return `${appStore.apiBase}/api/exportar/excel?tipo=agil&mes=${agilSelectedMonth.value}`
+  } else {
+    return `${appStore.apiBase}/api/exportar/excel?tipo=agil&fecha=${agilSelectedDate.value}`
+  }
+})
+
+const agilPdfUrl = computed(() => {
+  if (agilMode.value === 'ANUAL') {
+    return `${appStore.apiBase}/api/exportar/pdf?tipo=agil&mes=TODOS`
+  } else if (agilMode.value === 'MES') {
+    return `${appStore.apiBase}/api/exportar/pdf?tipo=agil&mes=${agilSelectedMonth.value}`
+  } else {
+    return `${appStore.apiBase}/api/exportar/pdf?tipo=agil&fecha=${agilSelectedDate.value}`
+  }
+})
 </script>
+

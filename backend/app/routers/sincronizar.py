@@ -367,8 +367,8 @@ def sync_local_jsons_to_db(db, target_month=None, target_date=None, target_dates
     from pathlib import Path
     
     months_dir = Path("listadoMeses")
-    if not months_dir.exists():
-        return
+    months_dir.mkdir(parents=True, exist_ok=True)
+
         
     json_files = [f for f in os.listdir(months_dir) if f.endswith(".json")]
     

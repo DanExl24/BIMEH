@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { fetchFechas } from '../services/api'
 
 export const useAppStore = defineStore('app', () => {
@@ -13,27 +13,140 @@ export const useAppStore = defineStore('app', () => {
   const selectedDashboardMonth = ref('JULIO')
   const selectedDashboardDay = ref('05')
   
-  const months = ['ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO', 'JULIO']
+  const months = ['ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO', 'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE']
+
+  const MONTH_NAME_TO_NUMBER: Record<string, string> = {
+    'ENERO': '01', 'FEBRERO': '02', 'MARZO': '03', 'ABRIL': '04',
+    'MAYO': '05', 'JUNIO': '06', 'JULIO': '07', 'AGOSTO': '08',
+    'SEPTIEMBRE': '09', 'OCTUBRE': '10', 'NOVIEMBRE': '11', 'DICIEMBRE': '12'
+  }
+
+  // Filter months to only those that actually exist in availableDates
+  const availableMonths = computed<string[]>(() => {
+    if (!availableDates.value || availableDates.value.length === 0) {
+      return months
+    }
+    const monthSet = new Set<string>()
+    availableDates.value.forEach(d => {
+      const parts = d.split('-')
+      if (parts.length === 3) monthSet.add(parts[1])
+    })
+
+    const result = months.filter(m => {
+      const num = MONTH_NAME_TO_NUMBER[m]
+      return monthSet.has(num)
+    })
+    return result.length > 0 ? result : months
+  })
+
+  // Get days that actually have records for a given month
+  const getAvailableDaysForMonth = (monthName: string): string[] => {
+    if (!monthName) {
+      const daySet = new Set<string>()
+      availableDates.value.forEach(d => {
+        const parts = d.split('-')
+        if (parts.length === 3) daySet.add(parts[2])
+      })
+      return Array.from(daySet).sort()
+    }
+
+    const mNum = MONTH_NAME_TO_NUMBER[monthName.toUpperCase()]
+    if (!mNum) return []
+
+    const daySet = new Set<string>()
+    availableDates.value.forEach(d => {
+      const parts = d.split('-')
+      if (parts.length === 3 && parts[1] === mNum) {
+        daySet.add(parts[2])
+      }
+    })
+
+    return Array.from(daySet).sort()
+  }
+
   
   const isSyncingDrive = ref(false)
   const syncSecondsElapsed = ref(0)
   const syncTimer = ref<any>(null)
+  const syncAbortController = ref<AbortController | null>(null)
   const syncStatus = ref<'idle' | 'running' | 'success' | 'error'>('idle')
   const syncMessage = ref('')
   const syncErrors = ref<any[]>([])
   const syncLogs = ref<any[]>([])
 
+  const cancelDriveSync = () => {
+    if (syncAbortController.value) {
+      syncAbortController.value.abort()
+      syncAbortController.value = null
+    }
+    isSyncingDrive.value = false
+    if (syncTimer.value) {
+      clearInterval(syncTimer.value)
+      syncTimer.value = null
+    }
+    syncStatus.value = 'error'
+    syncMessage.value = 'Sincronización cancelada por el usuario.'
+    autoDismissSyncStatus(4000)
+  }
+
+  const MONTH_MAP_REVERSE: Record<number, string> = {
+    1: 'ENERO', 2: 'FEBRERO', 3: 'MARZO', 4: 'ABRIL',
+    5: 'MAYO', 6: 'JUNIO', 7: 'JULIO', 8: 'AGOSTO',
+    9: 'SEPTIEMBRE', 10: 'OCTUBRE', 11: 'NOVIEMBRE', 12: 'DICIEMBRE'
+  }
+
   const fetchAvailableDates = async () => {
     try {
       const data = await fetchFechas()
       availableDates.value = data
+      if (data && data.length > 0) {
+        const sorted = [...data].sort()
+        const latestDate = sorted[sorted.length - 1]
+        selectedDate.value = latestDate
+        
+        const parts = latestDate.split('-')
+        if (parts.length === 3) {
+          const mNum = parseInt(parts[1], 10)
+          const mName = MONTH_MAP_REVERSE[mNum]
+          const dayStr = parts[2]
+          
+          if (mName) {
+            selectedMonth.value = mName
+            selectedDashboardMonth.value = mName
+            selectedDashboardDay.value = dayStr
+          }
+        }
+      }
     } catch (error) {
       console.error('Error fetching available dates:', error)
     }
   }
 
+
+  let dismissTimeout: any = null
+
+  const clearSyncStatus = () => {
+    if (dismissTimeout) {
+      clearTimeout(dismissTimeout)
+      dismissTimeout = null
+    }
+    syncStatus.value = 'idle'
+  }
+
+  const autoDismissSyncStatus = (delayMs = 5000) => {
+    if (dismissTimeout) clearTimeout(dismissTimeout)
+    dismissTimeout = setTimeout(() => {
+      syncStatus.value = 'idle'
+    }, delayMs)
+  }
+
   const startDriveSync = async (params: { tipo: string; fecha?: string | null; fechas?: string[] | null; mes?: string | null; overwrite: boolean }) => {
     if (isSyncingDrive.value) return
+
+    if (dismissTimeout) {
+      clearTimeout(dismissTimeout)
+      dismissTimeout = null
+    }
 
     isSyncingDrive.value = true
     syncSecondsElapsed.value = 0
@@ -41,6 +154,7 @@ export const useAppStore = defineStore('app', () => {
     syncMessage.value = 'Sincronizando con Google Drive...'
     syncErrors.value = []
     syncLogs.value = []
+    syncAbortController.value = new AbortController()
 
     // Iniciar temporizador de segundos transcurridos
     syncTimer.value = setInterval(() => {
@@ -61,14 +175,17 @@ export const useAppStore = defineStore('app', () => {
           fechas: params.fechas || null,
           mes: params.mes || null,
           overwrite: params.overwrite
-        })
+        }),
+        signal: syncAbortController.value.signal
       })
+
 
       if (res.status === 401) {
         localStorage.removeItem('bimej12_auth_token')
         window.location.hash = '/login'
         syncStatus.value = 'error'
         syncMessage.value = 'Sesión expirada. Redirigiendo...'
+        autoDismissSyncStatus(4000)
         return
       }
 
@@ -84,14 +201,17 @@ export const useAppStore = defineStore('app', () => {
           syncMessage.value = data.message || 'Sincronización completada con éxito.'
         }
         await fetchAvailableDates()
+        autoDismissSyncStatus(5000)
       } else {
         syncStatus.value = 'error'
         syncMessage.value = data.detail || 'Ocurrió un error al sincronizar con Google Drive.'
+        autoDismissSyncStatus(6000)
       }
     } catch (error) {
       console.error('Error in background drive sync:', error)
       syncStatus.value = 'error'
       syncMessage.value = 'Error de conexión con el servidor.'
+      autoDismissSyncStatus(6000)
     } finally {
       isSyncingDrive.value = false
       if (syncTimer.value) {
@@ -101,6 +221,7 @@ export const useAppStore = defineStore('app', () => {
     }
   }
 
+
   return {
     apiBase,
     selectedDate,
@@ -109,13 +230,20 @@ export const useAppStore = defineStore('app', () => {
     selectedDashboardDay,
     availableDates,
     months,
+    availableMonths,
+    getAvailableDaysForMonth,
     isSyncingDrive,
+
     syncSecondsElapsed,
     syncStatus,
     syncMessage,
     syncErrors,
     syncLogs,
     fetchAvailableDates,
-    startDriveSync
+    startDriveSync,
+    cancelDriveSync,
+    clearSyncStatus
   }
+
+
 })

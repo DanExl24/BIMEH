@@ -28,6 +28,14 @@
         <span>{{ errorMessage }}</span>
       </div>
 
+      <!-- Nota informativa sobre Google OAuth -->
+      <div class="bg-cyan-500/10 border border-cyan-500/20 text-cyan-300 text-[11px] px-3.5 py-2.5 rounded-xl flex items-start gap-2">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-cyan-400 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <span>En el primer inicio de sesión se abrirá tu navegador para autenticar tu cuenta con la API de Google Drive.</span>
+      </div>
+
       <!-- Formulario -->
       <form @submit.prevent="handleLogin" class="space-y-4">
         <!-- Correo Electrónico -->
@@ -70,13 +78,14 @@
           :disabled="authStore.loading"
           class="w-full mt-2 py-3 bg-cyan-600 hover:bg-cyan-500 disabled:bg-cyan-800 disabled:text-slate-500 rounded-xl text-xs font-bold text-slate-100 flex items-center justify-center gap-2 transition-all cursor-pointer shadow-md shadow-cyan-900/20 active:scale-98 select-none"
         >
-          <div 
-            v-if="authStore.loading" 
-            class="w-4 h-4 border-2 border-slate-100/20 border-t-slate-100 rounded-full animate-spin"
-          ></div>
+          <template v-if="authStore.loading">
+            <div class="w-4 h-4 border-2 border-slate-100/20 border-t-slate-100 rounded-full animate-spin"></div>
+            <span>VERIFICANDO GOOGLE DRIVE...</span>
+          </template>
           <span v-else>INGRESAR AL SISTEMA</span>
         </button>
       </form>
+
     </div>
   </div>
 </template>

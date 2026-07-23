@@ -1,14 +1,77 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { onMounted, computed } from 'vue'
 import Sidebar from './components/layout/Sidebar.vue'
+
 import { useAppStore } from './stores/appStore'
+import { useAuthStore } from './stores/authStore'
+
 
 const appStore = useAppStore()
-const diasDelMes = Array.from({ length: 31 }, (_, i) => String(i + 1).padStart(2, '0'))
+const authStore = useAuthStore()
 
-onMounted(() => {
-  appStore.fetchAvailableDates()
+const MONTH_NUMBER_MAP: Record<string, string> = {
+  'ENERO': '01', 'FEBRERO': '02', 'MARZO': '03', 'ABRIL': '04',
+  'MAYO': '05', 'JUNIO': '06', 'JULIO': '07', 'AGOSTO': '08',
+  'SEPTIEMBRE': '09', 'OCTUBRE': '10', 'NOVIEMBRE': '11', 'DICIEMBRE': '12'
+}
+
+const diasDelMesFormatted = computed(() => {
+  const selectedMonth = appStore.selectedDashboardMonth
+  if (!selectedMonth) {
+    return Array.from({ length: 31 }, (_, i) => {
+      const d = String(i + 1).padStart(2, '0')
+      return { val: d, label: d, isAvailable: true }
+    })
+  }
+
+  const mNum = MONTH_NUMBER_MAP[selectedMonth.toUpperCase()]
+  if (!mNum) {
+    return Array.from({ length: 31 }, (_, i) => {
+      const d = String(i + 1).padStart(2, '0')
+      return { val: d, label: d, isAvailable: true }
+    })
+  }
+
+  const availableDaysInMonth = new Set(
+    appStore.availableDates
+      .filter(dateStr => {
+        const parts = dateStr.split('-')
+        return parts.length === 3 && parts[1] === mNum
+      })
+      .map(dateStr => dateStr.split('-')[2])
+  )
+
+  return Array.from({ length: 31 }, (_, i) => {
+    const d = String(i + 1).padStart(2, '0')
+    const hasData = availableDaysInMonth.has(d)
+    return {
+      val: d,
+      label: hasData ? d : `${d} - (SIN REGISTRO)`,
+      isAvailable: hasData
+    }
+  })
 })
+
+onMounted(async () => {
+  await appStore.fetchAvailableDates()
+
+  if (authStore.isAuthenticated) {
+    const isValid = await authStore.checkMe()
+    if (isValid) {
+      // Auto-sync current month in background on app load
+      const currentMonthIndex = new Date().getMonth()
+      const monthNames = ['ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO', 'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE']
+      const currentMonthName = monthNames[currentMonthIndex]
+
+      appStore.startDriveSync({
+        tipo: 'mes',
+        mes: currentMonthName,
+        overwrite: false
+      })
+    }
+  }
+})
+
 </script>
 
 <template>
@@ -67,7 +130,14 @@ onMounted(() => {
                 class="bg-darkCard border border-darkBorder rounded-lg px-3 py-1.5 text-sm text-slate-200 outline-none focus:border-cyan-500/50"
               >
                 <option value="">Todos los Días</option>
-                <option v-for="d in diasDelMes" :key="d" :value="d">{{ d }}</option>
+                <option 
+                  v-for="d in diasDelMesFormatted" 
+                  :key="d.val" 
+                  :value="d.val"
+                  :class="!d.isAvailable ? 'text-slate-500 italic' : 'text-slate-100 font-medium'"
+                >
+                  {{ d.label }}
+                </option>
               </select>
             </div>
           </div>
@@ -121,13 +191,39 @@ onMounted(() => {
         </p>
       </div>
 
-      <!-- Timer overlay if running -->
-      <div v-if="appStore.syncStatus === 'running'" class="text-[10px] font-mono text-cyan-400 bg-cyan-500/10 px-2 py-1 rounded-md font-bold">
-        {{ Math.floor(appStore.syncSecondsElapsed / 60) }}m {{ appStore.syncSecondsElapsed % 60 }}s
+      <!-- Timer overlay and Cancel button if running -->
+      <div v-if="appStore.syncStatus === 'running'" class="flex items-center gap-2 shrink-0">
+        <div class="text-[10px] font-mono text-cyan-400 bg-cyan-500/10 px-2 py-1 rounded-md font-bold">
+          {{ Math.floor(appStore.syncSecondsElapsed / 60) }}m {{ appStore.syncSecondsElapsed % 60 }}s
+        </div>
+        <button 
+          @click="appStore.cancelDriveSync()" 
+          class="px-2 py-1 bg-red-500/15 hover:bg-red-500/25 text-red-400 border border-red-500/30 rounded-md text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1 active:scale-95"
+          title="Detener sincronización"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+          <span>Cancelar</span>
+        </button>
       </div>
+
+      <!-- Manual close button when not running -->
+      <button 
+        v-if="appStore.syncStatus !== 'running'"
+        @click="appStore.clearSyncStatus()" 
+        class="text-slate-400 hover:text-slate-200 p-1 rounded-lg hover:bg-slate-700/50 transition-all cursor-pointer shrink-0 ml-1"
+        title="Cerrar notificación"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+
     </div>
   </div>
 </template>
+
 
 <style>
 .fade-enter-active,

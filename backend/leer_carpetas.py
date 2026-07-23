@@ -1,15 +1,16 @@
 import json
 from config.auth import obtener_servicio_drive
 from config.config import MONTHS, EXCEL_MIME
-drive = obtener_servicio_drive()
-
-MONTH_FOLDERS = {}
-
-with open("config/carpeta_principal.json") as pf:
-    MONTH_FOLDERS = json.load(pf)
-
+MONTH_FOLDERS = []
+try:
+    with open("config/carpeta_principal.json") as pf:
+        MONTH_FOLDERS = json.load(pf)
+except Exception:
+    pass
 
 def get_carpeta(ID):
+
+    drive = obtener_servicio_drive()
     resultado = (
     drive.files()
     .list(
@@ -23,6 +24,7 @@ def get_carpeta(ID):
         for archivo in resultado
         if not archivo["name"].startswith("~$")
     ]
+
 
 
 def listar_dias_mes(target_month=None):

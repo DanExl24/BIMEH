@@ -41,8 +41,12 @@ export const useAuthStore = defineStore('auth', () => {
       token.value = data.access_token
       user.value = data.usuario
 
+      token.value = data.access_token
+      user.value = data.usuario
+
       localStorage.setItem('bimej12_auth_token', data.access_token)
       localStorage.setItem('bimej12_auth_user', JSON.stringify(data.usuario))
+      localStorage.setItem('bimej12_auth_time', Date.now().toString())
       
       return true
     } catch (error) {
@@ -55,6 +59,19 @@ export const useAuthStore = defineStore('auth', () => {
 
   const checkMe = async () => {
     if (!token.value) return false
+
+    // Check client-side 24-hour expiration
+    const tokenTimeStr = localStorage.getItem('bimej12_auth_time')
+    if (tokenTimeStr) {
+      const tokenTime = parseInt(tokenTimeStr, 10)
+      const oneDayMs = 24 * 60 * 60 * 1000
+      if (Date.now() - tokenTime > oneDayMs) {
+        console.warn('Session token expired (older than 24 hours). Logging out.')
+        logout()
+        return false
+      }
+    }
+
     try {
       const response = await fetch('http://127.0.0.1:8000/api/auth/me', {
         headers: { 'Authorization': `Bearer ${token.value}` }
@@ -83,7 +100,10 @@ export const useAuthStore = defineStore('auth', () => {
     user.value = null
     localStorage.removeItem('bimej12_auth_token')
     localStorage.removeItem('bimej12_auth_user')
+    localStorage.removeItem('bimej12_auth_time')
+    window.location.hash = '/login'
   }
+
 
   return {
     token,

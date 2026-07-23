@@ -37,8 +37,46 @@ function createWindow() {
   }
 }
 
+import { spawn } from 'child_process';
+
+let apiProcess = null;
+
+// Función para arrancar el backend de Python en producción
+function startBackend() {
+  const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
+  if (!isDev) {
+    // En producción, el ejecutable de la API se copia a la carpeta de recursos (resources) de la aplicación
+    const apiPath = path.join(process.resourcesPath, 'bimeh-api.exe');
+    
+    // Carpeta AppData escribible propia de la aplicación para guardar datos dinámicos localmente
+    const userDataPath = app.getPath('userData');
+    
+    console.log(`Iniciando API en: ${apiPath}`);
+    console.log(`Directorio de trabajo (AppData): ${userDataPath}`);
+    
+    // Levanta el proceso de Python y redirige el directorio de trabajo (cwd) a userDataPath
+    apiProcess = spawn(apiPath, [], {
+      cwd: userDataPath,
+      env: { ...process.env }
+    });
+
+    apiProcess.stdout.on('data', (data) => {
+      console.log(`[FastAPI stdout]: ${data}`);
+    });
+
+    apiProcess.stderr.on('data', (data) => {
+      console.error(`[FastAPI stderr]: ${data}`);
+    });
+
+    apiProcess.on('close', (code) => {
+      console.log(`El subproceso del backend cerró con código: ${code}`);
+    });
+  }
+}
+
 // Iniciar Electron una vez que esté listo
 app.whenReady().then(() => {
+  startBackend();
   createWindow();
 
   app.on('activate', () => {
@@ -53,5 +91,13 @@ app.whenReady().then(() => {
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit();
+  }
+});
+
+// Evento de ciclo de vida antes de salir de Electron: detener el subproceso del backend
+app.on('will-quit', () => {
+  if (apiProcess) {
+    console.log('Deteniendo subproceso de la API de Python...');
+    apiProcess.kill();
   }
 });

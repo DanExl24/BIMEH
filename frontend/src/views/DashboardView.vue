@@ -6,7 +6,31 @@
       <p class="text-slate-400 text-sm font-medium">Cargando datos operacionales...</p>
     </div>
 
+    <!-- Error / Day without records -->
+    <div v-else-if="hasError" class="glass-panel p-12 rounded-2xl text-center space-y-4 border-amber-500/30">
+      <div class="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center mx-auto shadow-lg">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+        </svg>
+      </div>
+      <div>
+        <h3 class="text-base font-bold text-slate-100 uppercase tracking-wider">Día Sin Registro de Datos</h3>
+        <p class="text-xs text-slate-400 max-w-md mx-auto mt-1 font-sans">
+          El día seleccionado ({{ appStore.selectedDashboardDay }} de {{ appStore.selectedDashboardMonth || 'Todos los meses' }}) aún no ha sido cargado o sincronizado en la base de datos.
+        </p>
+      </div>
+      <div class="pt-2 flex justify-center gap-3">
+        <button 
+          @click="appStore.selectedDashboardDay = ''"
+          class="px-4 py-2 bg-darkBg border border-darkBorder hover:border-slate-500 rounded-xl text-xs font-bold text-slate-300 transition-all cursor-pointer"
+        >
+          Ver Todo el Mes ({{ appStore.selectedDashboardMonth }})
+        </button>
+      </div>
+    </div>
+
     <div v-else class="space-y-6">
+
       <!-- 1. KPIs Section -->
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
         <!-- Tarjeta Fecha -->
@@ -246,6 +270,7 @@ import type { KPIData, CambiosResponse } from '../types'
 const appStore = useAppStore()
 
 const loading = ref(true)
+const hasError = ref(false)
 const kpis = ref<KPIData | null>(null)
 const cambios = ref<CambiosResponse | null>(null)
 const activeChangeTab = ref<'entraron' | 'volvieron' | 'otros'>('entraron')
@@ -263,6 +288,7 @@ let distribucionChart: echarts.ECharts | null = null
 // Fetch API
 const loadDashboardData = async () => {
   loading.value = true
+  hasError.value = false
   try {
     const mes = appStore.selectedDashboardMonth
     const dia = appStore.selectedDashboardDay
@@ -287,8 +313,10 @@ const loadDashboardData = async () => {
   } catch (error) {
     console.error('Error loading dashboard data:', error)
     loading.value = false
+    hasError.value = true
   }
 }
+
 
 // Chart Initializations
 const initEvolutionChart = async () => {

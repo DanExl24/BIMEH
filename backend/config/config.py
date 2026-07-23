@@ -17,5 +17,6 @@ MONTHS = [
 
 FOLDER_MIME = "application/vnd.google-apps.folder"
 EXCEL_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-drive = obtener_servicio_drive()
+def get_drive_service():
+    return obtener_servicio_drive()
 

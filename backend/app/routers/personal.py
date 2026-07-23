@@ -128,7 +128,7 @@ def get_personal_historial(cedula: int, db = Depends(get_db)):
         JOIN REPORTES r ON rp.id_reporte = r.id
         JOIN SUB_NOVEDADES sn ON rp.id_sub_novedad = sn.id
         WHERE rp.id_personal = ?
-        ORDER BY r.fecha DESC;
+        ORDER BY r.fecha ASC;
     """, (p_id,))
     
     rows = cursor.fetchall()

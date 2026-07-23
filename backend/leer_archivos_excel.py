@@ -1,8 +1,11 @@
 from openpyxl import load_workbook
+import os
+import io
 import json
 from googleapiclient.http import MediaIoBaseDownload
-import io
-from config.config import drive
+
+
+from config.auth import obtener_servicio_drive
 import openpyxl
 import re
 from dateparser import parse
@@ -48,22 +51,20 @@ def parse_date_from_filename(name):
             
     return None
 
-def excel_to_csv_in_memory(file_item):
+def excel_to_csv_in_memory(file_item, drive=None):
     """
     Descarga el archivo Excel desde Google Drive en memoria RAM,
-    lee la hoja 'DEMOSTRATIVO' usando openpyxl (en modo optimizado de solo lectura)
+    lee la hoja 'DEMOSTRATIVO' (o la primera hoja disponible) usando openpyxl
     y convierte el contenido a un string con formato CSV estándar.
-    
-    Mide e imprime en consola detalladamente:
-    - ¿Cuánto demora en descargar?
-    - ¿Cuánto demora en abrir el Excel con openpyxl?
-    - ¿Cuánto demora en convertir y escribir el CSV?
     """
     import time
+    if drive is None:
+        drive = obtener_servicio_drive()
     
     # 1. Petición de descarga de binarios de Drive
     t_down_start = time.time()
     request = drive.files().get_media(fileId=file_item['id'])
+
     excel_stream = io.BytesIO()
     downloader = MediaIoBaseDownload(excel_stream, request)
     done = False
@@ -76,11 +77,22 @@ def excel_to_csv_in_memory(file_item):
     # 2. Cargar Excel en modo rápido (read_only=True y data_only=True)
     t_open_start = time.time()
     wb = openpyxl.load_workbook(excel_stream, read_only=True, data_only=True)
-    if "DEMOSTRATIVO" not in wb.sheetnames:
-        raise ValueError("No se encontró la hoja 'DEMOSTRATIVO' en el libro de Excel.")
-    sheet = wb["DEMOSTRATIVO"]
+    
+    target_sheet = None
+    for s_name in wb.sheetnames:
+        if "demostrativo" in s_name.strip().lower():
+            target_sheet = s_name
+            break
+            
+    if not target_sheet and len(wb.sheetnames) > 0:
+        target_sheet = wb.sheetnames[0]
+        
+    if not target_sheet:
+        raise ValueError("No se encontraron hojas de cálculo en el libro de Excel.")
+        
+    sheet = wb[target_sheet]
     t_open_end = time.time()
-    print(f"  [Timer Detail] Apertura de Excel (openpyxl): {t_open_end - t_open_start:.2f} segundos.")
+    print(f"  [Timer Detail] Apertura de Excel '{target_sheet}' (openpyxl): {t_open_end - t_open_start:.2f} segundos.")
     
     # 3. Escribir a una cadena de texto CSV en memoria RAM
     t_write_start = time.time()
@@ -96,6 +108,7 @@ def excel_to_csv_in_memory(file_item):
     print(f"  [Timer Detail] Conversión y Escritura a CSV: {t_write_end - t_write_start:.4f} segundos.")
     
     return csv_stream.getvalue()
+
 
 def extraer_datos_csv(csv_content):
     """
@@ -202,7 +215,7 @@ def consultar_fechas_db():
         dates_in_db = set()
     return dates_in_db
 
-def descargar_y_procesar_fecha(archivo, f_date, datos_archivo):
+def descargar_y_procesar_fecha(archivo, f_date, datos_archivo, drive=None):
     """
     Descarga el archivo Excel de Drive, lo convierte a CSV en memoria y estructura
     los datos dentro de 'datos_archivo'. Registra métricas de tiempo por consola.
@@ -212,7 +225,7 @@ def descargar_y_procesar_fecha(archivo, f_date, datos_archivo):
     t_down_start = time.time()
     try:
         # Conversión en memoria a CSV
-        csv_content = excel_to_csv_in_memory(archivo)
+        csv_content = excel_to_csv_in_memory(archivo, drive=drive)
         t_conv = time.time()
         print(f"  [Timer] Descarga y conversión a CSV completada en {t_conv - t_down_start:.2f} segundos.")
         
@@ -226,7 +239,7 @@ def descargar_y_procesar_fecha(archivo, f_date, datos_archivo):
         print(f"Error procesando {archivo['name']}: {e}")
         raise e
 
-def descargar_y_procesar_fallback(archivo, still_missing, datos_archivo):
+def descargar_y_procesar_fallback(archivo, still_missing, datos_archivo, drive=None):
     """
     Procesa archivos que no tienen fecha en su nombre. Descarga, convierte a CSV en memoria,
     inspecciona su contenido buscando la fecha y procesa si coincide con alguna fecha faltante.
@@ -236,10 +249,11 @@ def descargar_y_procesar_fallback(archivo, still_missing, datos_archivo):
     t_fallback_start = time.time()
     try:
         # Descarga y conversión a CSV en memoria
-        csv_content = excel_to_csv_in_memory(archivo)
+        csv_content = excel_to_csv_in_memory(archivo, drive=drive)
     except Exception as e:
         print(f"Error descargando archivo fallback {archivo['name']}: {e}")
         raise e
+
         
     f_stream = io.StringIO(csv_content)
     reader = csv.reader(f_stream)
@@ -286,6 +300,8 @@ def obtener_hojas(db=None, target_month=None, target_date=None, target_dates=Non
     """
     import time
     t_global_start = time.time()
+    drive = obtener_servicio_drive()
+
     
     # Carga el mapeo de archivos de Drive guardado por leer_carpetas
     with open("listado_meses.json", encoding="utf-8") as l:
@@ -335,7 +351,9 @@ def obtener_hojas(db=None, target_month=None, target_date=None, target_dates=Non
             continue
             
         t_month_start = time.time()
+        os.makedirs("listadoMeses", exist_ok=True)
         archivoF = Path(f"listadoMeses/{mes}.json")
+
         archivos = listado_meses.get(mes, [])
         
         datos_archivo = {}
@@ -437,7 +455,7 @@ def obtener_hojas(db=None, target_month=None, target_date=None, target_dates=Non
         nuevos_datos_cargados = False
         for f_date, archivo in files_to_download:
             try:
-                success = descargar_y_procesar_fecha(archivo, f_date, datos_archivo)
+                success = descargar_y_procesar_fecha(archivo, f_date, datos_archivo, drive=drive)
                 if success:
                     nuevos_datos_cargados = True
                     sync_log.append({
@@ -450,7 +468,7 @@ def obtener_hojas(db=None, target_month=None, target_date=None, target_dates=Non
                 sync_log.append({
                     "file": archivo['name'],
                     "status": "error",
-                    "detail": "El archivo está corrupto o tiene un formato incorrecto y no se pudo leer."
+                    "detail": f"Error al procesar: {str(e)}"
                 })
                 
         # Búsqueda fallback
@@ -459,7 +477,7 @@ def obtener_hojas(db=None, target_month=None, target_date=None, target_dates=Non
             print(f"Hay {len(still_missing)} fechas faltantes y {len(unparsed_files)} archivos sin fecha legible en el nombre. Evaluando fallbacks...")
             for archivo in unparsed_files:
                 try:
-                    fecha_detectada = descargar_y_procesar_fallback(archivo, still_missing, datos_archivo)
+                    fecha_detectada = descargar_y_procesar_fallback(archivo, still_missing, datos_archivo, drive=drive)
                     if fecha_detectada:
                         processed_files[archivo['name']] = fecha_detectada
                         if fecha_detectada in datos_archivo:
@@ -488,8 +506,9 @@ def obtener_hojas(db=None, target_month=None, target_date=None, target_dates=Non
                     sync_log.append({
                         "file": archivo['name'],
                         "status": "error",
-                        "detail": "El archivo está corrupto o falló al leer la fecha de reporte."
+                        "detail": f"Error en lectura de reporte ({str(e)})."
                     })
+
 
         # Guardar en local JSON si hay cambios
         if nuevos_datos_cargados or not archivoF.exists():

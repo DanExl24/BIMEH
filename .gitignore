@@ -5,8 +5,14 @@ __pycache__/
 personal_consolidado.json
 processing_report.json
 token.json
+**/token.json
 credentials.json
+
 node_modules/
 dist/
+dist-desktop/
+frontend/dist-desktop/
+backend/build/
+backend/dist/
 .DS_Store
 .vscode/

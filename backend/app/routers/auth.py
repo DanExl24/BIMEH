@@ -77,6 +77,19 @@ def login(request: LoginRequest, db = Depends(get_db)):
             detail="Correo o contraseña incorrectos"
         )
         
+    # Verificar / obtener credenciales de Google Drive
+    # Si token.json no existe en esta instalación/equipo, abrirá el flujo OAuth en el navegador.
+    # Una vez completado con éxito, token.json persistirá localmente para futuros inicios de sesión.
+    from config.auth import obtener_servicio_drive, eliminar_token_existente
+    try:
+        obtener_servicio_drive()
+    except Exception as e:
+        print(f"Error durante autenticación de Google Drive en login: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Error en la autenticación con Google Drive: {str(e)}"
+        )
+        
     # Update last login time
     now = datetime.now()
     cursor.execute("""
@@ -109,6 +122,12 @@ def login(request: LoginRequest, db = Depends(get_db)):
             "roles": roles
         }
     }
+
+@router.post("/logout")
+def logout():
+    """Endpoint para cerrar sesión."""
+    return {"message": "Sesión cerrada correctamente"}
+
 
 # We will define a helper that decodes the token
 def decode_token(token: str) -> dict:

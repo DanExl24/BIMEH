@@ -108,12 +108,13 @@
         <!-- Tiempo acumulado subnovedad chart -->
         <div class="glass-panel p-6 rounded-2xl flex flex-col h-[400px]">
           <h3 class="text-sm font-bold text-slate-200 mb-4 uppercase tracking-wider flex items-center gap-2">
-            <span class="w-2 h-4 bg-cyan-500 rounded-sm"></span> Distribución de Novedades (Días)
+            <span class="w-2 h-4 bg-cyan-500 rounded-sm"></span> Distribución de Novedades {{ filterSubtitle }}
           </h3>
           <div class="flex-1 min-h-0">
             <div ref="acumuladoChartDom" class="chart-container"></div>
           </div>
         </div>
+
 
         <!-- Línea de tiempo individual -->
         <div class="glass-panel p-6 rounded-2xl lg:col-span-2 flex flex-col h-[400px]">
@@ -269,30 +270,46 @@
         </div>
 
         <!-- Content: Vista Anual -->
-        <div v-else-if="activeHeatmapTab === 'anual'" class="bg-darkCard p-5 rounded-xl border border-darkBorder/40 overflow-x-auto">
-          <div class="space-y-3 min-w-[850px]">
-            <!-- Header row for days -->
-            <div class="flex items-center gap-1.5 font-mono text-[9px] text-slate-500 pl-24">
-              <div v-for="d in 31" :key="d" class="w-6.5 text-center font-bold">D{{ d }}</div>
-            </div>
-            
-            <!-- Rows for months -->
-            <div v-for="m in activeMonths" :key="m" class="flex items-center gap-1.5 font-mono">
-              <!-- Month Name Label -->
-              <div class="w-24 text-[10px] font-bold text-slate-400 uppercase tracking-wider text-right pr-3">{{ m }}</div>
-              <!-- Days cells -->
-              <div 
-                v-for="d in 31" 
-                :key="d"
-                class="w-6.5 h-6.5 rounded transition-colors flex items-center justify-center text-[9px] font-bold"
-                :class="getIndividualHeatmapCellClass(m, d)"
-                :title="`${m} ${d}: ${getStatusForDate(m, d)}`"
-              >
-                {{ getIndividualHeatmapCellLetter(m, d) }}
+        <div v-else-if="activeHeatmapTab === 'anual'" class="space-y-4">
+          <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-darkBg/30 p-4 rounded-xl border border-darkBorder/20">
+            <span class="text-xs font-bold text-slate-300 uppercase font-mono tracking-wider">Matriz Heatmap Anual Completa (Todos los Meses)</span>
+            <button 
+              @click="triggerExportModal('consolidado_mensual', '')"
+              class="px-3.5 py-1.5 bg-cyan-600/20 hover:bg-cyan-600/30 border border-cyan-500/20 hover:border-cyan-500/40 rounded-xl text-[10px] font-bold text-cyan-400 flex items-center gap-1.5 transition-all cursor-pointer select-none active:scale-95"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              Exportar Heatmap Anual (Todos los Meses)
+            </button>
+          </div>
+
+          <div class="bg-darkCard p-5 rounded-xl border border-darkBorder/40 overflow-x-auto">
+            <div class="space-y-3 min-w-[850px]">
+              <!-- Header row for days -->
+              <div class="flex items-center gap-1.5 font-mono text-[9px] text-slate-500 pl-24">
+                <div v-for="d in 31" :key="d" class="w-6.5 text-center font-bold">D{{ d }}</div>
+              </div>
+              
+              <!-- Rows for months -->
+              <div v-for="m in activeMonths" :key="m" class="flex items-center gap-1.5 font-mono">
+                <!-- Month Name Label -->
+                <div class="w-24 text-[10px] font-bold text-slate-400 uppercase tracking-wider text-right pr-3">{{ m }}</div>
+                <!-- Days cells -->
+                <div 
+                  v-for="d in 31" 
+                  :key="d"
+                  class="w-6.5 h-6.5 rounded transition-colors flex items-center justify-center text-[9px] font-bold"
+                  :class="getIndividualHeatmapCellClass(m, d)"
+                  :title="`${m} ${d}: ${getStatusForDate(m, d)}`"
+                >
+                  {{ getIndividualHeatmapCellLetter(m, d) }}
+                </div>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+
 
       <!-- Content: Reporte Detallado (Tabla) -->
       <div v-else-if="activeHeatmapTab === 'diario'" class="space-y-4 font-sans">
@@ -464,25 +481,28 @@
             v-model="modalReportType"
             class="w-full bg-darkBg border border-darkBorder rounded-xl px-3 py-2 text-xs text-slate-200 outline-none focus:border-cyan-500/50"
           >
-            <option value="personal">Historial Completo (Listado)</option>
-            <option value="consolidado_mensual">Heatmap Mensual (Matriz)</option>
+            <option value="personal">Historial Completo (Listado Cronológico)</option>
+            <option value="consolidado_mensual">Heatmap Matriz (Mensual o Anual Completo)</option>
+            <option value="agil">⚡ Exportación Ágil (Exclusivo Novedades Simplificadas)</option>
           </select>
         </div>
 
         <!-- Mes selector (Conditional) -->
-        <div v-if="modalReportType === 'consolidado_mensual' || modalReportType === 'personal'" class="space-y-1.5">
+        <div v-if="modalReportType === 'consolidado_mensual' || modalReportType === 'personal' || modalReportType === 'agil'" class="space-y-1.5">
           <div class="flex items-center justify-between">
             <label class="text-[10px] uppercase font-bold text-slate-400">Mes del Reporte:</label>
-            <span v-if="modalReportType === 'personal'" class="text-[8px] text-slate-500 uppercase font-bold">(Opcional)</span>
+            <span class="text-[8px] text-slate-500 uppercase font-bold">(Opcional)</span>
           </div>
           <select 
             v-model="modalMonth"
             class="w-full bg-darkBg border border-darkBorder rounded-xl px-3 py-2 text-xs text-slate-200 outline-none focus:border-cyan-500/50"
           >
-            <option value="">Todos los Meses</option>
+            <option value="">Todos los Meses (Consolidado Anual)</option>
             <option v-for="m in activeMonths" :key="m" :value="m">{{ m }}</option>
           </select>
         </div>
+
+
 
         <!-- Subnovedad selector (Opcional) -->
         <div class="space-y-1.5">
@@ -509,7 +529,6 @@
           Cancelar
         </button>
         <a 
-          v-if="!(modalFormat === 'pdf' && modalReportType === 'consolidado_mensual' && !modalMonth)"
           :href="downloadUrl"
           download
           @click="openExportModal = false"
@@ -517,14 +536,7 @@
         >
           Descargar
         </a>
-        <button 
-          v-else
-          disabled
-          class="flex-1 px-4 py-2 bg-slate-800 border border-darkBorder rounded-xl text-xs font-bold text-slate-500 cursor-not-allowed select-none"
-          title="El formato PDF no admite consolidar todos los meses por espacio horizontal. Use Excel o CSV."
-        >
-          No Disponible
-        </button>
+
       </div>
     </div>
   </div>
@@ -603,6 +615,26 @@ const filteredHistorial = computed(() => {
   })
 })
 
+const MONTH_NAMES_SPANISH: Record<string, string> = {
+  '01': 'Enero', '02': 'Febrero', '03': 'Marzo', '04': 'Abril',
+  '05': 'Mayo', '06': 'Junio', '07': 'Julio', '08': 'Agosto',
+  '09': 'Septiembre', '10': 'Octubre', '11': 'Noviembre', '12': 'Diciembre'
+}
+
+const filterSubtitle = computed(() => {
+  const parts: string[] = []
+  if (filtroMes.value && MONTH_NAMES_SPANISH[filtroMes.value]) {
+    parts.push(MONTH_NAMES_SPANISH[filtroMes.value])
+  }
+  if (filtroDia.value) {
+    parts.push(`Día ${filtroDia.value}`)
+  }
+  if (filtroSubnovedad.value) {
+    parts.push(filtroSubnovedad.value)
+  }
+  return parts.length > 0 ? `(${parts.join(' - ')})` : '(Anual Completo)'
+})
+
 const DISPONIBLE_STATUSES = ["CDO UNIDAD", "AREA OPERACIONES"]
 const isAvailable = (subnovedad: string) => {
   return DISPONIBLE_STATUSES.includes(subnovedad)
@@ -625,7 +657,7 @@ const loadProfile = async () => {
   }
 }
 
-const initAcumuladoChart = async () => {
+const initAcumuladoChart = () => {
   if (!acumuladoChartDom.value || !profile.value) return
   
   if (acumuladoChart) {
@@ -635,12 +667,33 @@ const initAcumuladoChart = async () => {
   acumuladoChart = echarts.init(acumuladoChartDom.value)
   
   try {
-    const data = await fetchPersonalAcumulado(profile.value.cedula)
+    // Compute subnovedad distribution dynamically from filteredHistorial
+    const counts: Record<string, number> = {}
+    filteredHistorial.value.forEach(item => {
+      if (item.subnovedad) {
+        counts[item.subnovedad] = (counts[item.subnovedad] || 0) + 1
+      }
+    })
     
-    const chartData = data.map((d: any) => ({
-      name: d.subnovedad,
-      value: d.dias
-    }))
+    const chartData = Object.entries(counts)
+      .map(([subnovedad, dias]) => ({
+        name: subnovedad,
+        value: dias
+      }))
+      .sort((a, b) => b.value - a.value)
+      
+    if (chartData.length === 0) {
+      acumuladoChart.setOption({
+        backgroundColor: 'transparent',
+        title: {
+          text: 'Sin registros para el filtro',
+          left: 'center',
+          top: 'center',
+          textStyle: { color: '#64748b', fontSize: 12, fontWeight: 'normal' }
+        }
+      })
+      return
+    }
     
     acumuladoChart.setOption({
       backgroundColor: 'transparent',
@@ -676,13 +729,25 @@ const initAcumuladoChart = async () => {
     // Add click handler to filter by clicked subnovedad
     acumuladoChart.on('click', (params: any) => {
       if (params.name) {
-        filtroSubnovedad.value = params.name
+        if (filtroSubnovedad.value === params.name) {
+          filtroSubnovedad.value = '' // Toggle off
+        } else {
+          filtroSubnovedad.value = params.name
+        }
       }
     })
   } catch (error) {
     console.error('Error generating accumulated chart:', error)
   }
 }
+
+// Watch filters to re-render accumulated chart synchronously
+watch(
+  () => [filtroMes.value, filtroDia.value, filtroSubnovedad.value],
+  () => {
+    initAcumuladoChart()
+  }
+)
 
 const handleResize = () => {
   acumuladoChart?.resize()
@@ -697,6 +762,7 @@ onBeforeUnmount(() => {
   window.removeEventListener('resize', handleResize)
   acumuladoChart?.dispose()
 })
+
 
 // Individual Heatmap Calculations
 const MONTH_MAP: Record<string, string> = {
@@ -772,11 +838,11 @@ watch([tableSearchQuery, tableSubnovedadFilter], () => {
 // Modal state variables and logic
 const openExportModal = ref(false)
 const modalFormat = ref<'excel' | 'csv' | 'pdf'>('excel')
-const modalReportType = ref<'personal' | 'consolidado_mensual'>('personal')
+const modalReportType = ref<'personal' | 'consolidado_mensual' | 'agil'>('personal')
 const modalMonth = ref('JULIO')
 const modalSubnovedad = ref('')
 
-const triggerExportModal = (tipo: 'personal' | 'consolidado_mensual', defaultMonth?: string) => {
+const triggerExportModal = (tipo: 'personal' | 'consolidado_mensual' | 'agil', defaultMonth?: string) => {
   modalReportType.value = tipo
   if (defaultMonth) {
     modalMonth.value = defaultMonth
@@ -791,11 +857,12 @@ const downloadUrl = computed(() => {
   
   let url = `${appStore.apiBase}/api/exportar/${format}?tipo=${tipo}&cedula=${cedula}`
   
-  if (tipo === 'consolidado_mensual') {
+  if (tipo === 'consolidado_mensual' || tipo === 'agil') {
     url += `&mes=${modalMonth.value}`
   } else if (tipo === 'personal' && modalMonth.value) {
     url += `&mes=${modalMonth.value}`
   }
+
   
   if (modalSubnovedad.value) {
     url += `&subnovedad=${encodeURIComponent(modalSubnovedad.value)}`
