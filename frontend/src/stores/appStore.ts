@@ -171,7 +171,7 @@ export const useAppStore = defineStore('app', () => {
 
     try {
       const token = localStorage.getItem('bimej12_auth_token')
-      const res = await fetch(`${apiBase}/api/sincronizar/drive`, {
+      const res = await fetch(`${apiBase.value}/api/sincronizar/drive`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -195,6 +195,13 @@ export const useAppStore = defineStore('app', () => {
         syncMessage.value = 'Sesión expirada. Redirigiendo...'
         autoDismissSyncStatus(4000)
         return
+      }
+
+      const contentType = res.headers.get('content-type') || ''
+      if (!contentType.includes('application/json')) {
+        const textErr = await res.text()
+        console.error('Non-JSON response from server:', textErr)
+        throw new Error(`El servidor en la nube está iniciando (${res.status}). Por favor reintenta en un momento.`)
       }
 
       const data = await res.json()
