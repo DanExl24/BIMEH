@@ -8,6 +8,7 @@ token.json
 **/token.json
 credentials.json
 redeploy.ps1
+bimeh-credentials.md
 
 
 # Dependencies & Build Outputs
