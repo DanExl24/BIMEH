@@ -122,18 +122,18 @@
             <h3 class="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-2">
               <span class="w-2 h-4 bg-teal-500 rounded-sm"></span> Línea de Tiempo de Novedades e Historial
             </h3>
-            <!-- Selectores de Filtro -->
-            <div class="flex items-center gap-2">
+            <!-- Selectores de Filtro (Bloques Verticales en Móvil) -->
+            <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
               <select 
                 v-model="filtroSubnovedad"
-                class="bg-darkBg border border-darkBorder rounded-lg px-2.5 py-1 text-[11px] text-slate-300 outline-none focus:border-cyan-500/50"
+                class="w-full sm:w-auto bg-darkBg border border-darkBorder rounded-lg px-3 py-1.5 text-[11px] text-slate-300 outline-none focus:border-cyan-500/50"
               >
                 <option value="">Todas las Novedades</option>
                 <option v-for="s in subnovedadesList" :key="s" :value="s">{{ s }}</option>
               </select>
               <select 
                 v-model="filtroMes"
-                class="bg-darkBg border border-darkBorder rounded-lg px-2.5 py-1 text-[11px] text-slate-300 outline-none focus:border-cyan-500/50"
+                class="w-full sm:w-auto bg-darkBg border border-darkBorder rounded-lg px-3 py-1.5 text-[11px] text-slate-300 outline-none focus:border-cyan-500/50"
               >
                 <option value="">Todos los Meses</option>
                 <option value="01">Enero</option>
@@ -146,13 +146,14 @@
               </select>
               <select 
                 v-model="filtroDia"
-                class="bg-darkBg border border-darkBorder rounded-lg px-2.5 py-1 text-[11px] text-slate-300 outline-none focus:border-cyan-500/50"
+                class="w-full sm:w-auto bg-darkBg border border-darkBorder rounded-lg px-3 py-1.5 text-[11px] text-slate-300 outline-none focus:border-cyan-500/50"
               >
                 <option value="">Todos los Días</option>
                 <option v-for="d in diasDelMes" :key="d" :value="d">{{ d }}</option>
               </select>
             </div>
           </div>
+
           
           <div class="flex-1 overflow-y-auto pr-2 space-y-4">
             <div v-if="filteredHistorial.length === 0" class="text-center py-20 text-slate-500 text-xs">

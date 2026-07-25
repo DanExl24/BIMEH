@@ -80,7 +80,7 @@ onMounted(async () => {
     <!-- Mobile Top Navigation Header -->
     <header 
       v-if="$route.name !== 'login'"
-      class="md:hidden fixed top-0 left-0 right-0 h-14 bg-darkCard/95 border-b border-darkBorder z-30 flex items-center justify-between px-4 backdrop-blur-md"
+      class="md:hidden fixed top-0 left-0 right-0 z-30 flex items-center justify-between px-4 bg-darkCard/95 border-b border-darkBorder backdrop-blur-md pt-[env(safe-area-inset-top,0px)] h-[calc(3.75rem+env(safe-area-inset-top,0px))]"
     >
       <div class="flex items-center gap-3">
         <button 
@@ -109,8 +109,9 @@ onMounted(async () => {
     <!-- Main Content Area -->
     <main 
       class="flex-1 min-h-screen flex flex-col w-full max-w-full transition-all duration-300"
-      :class="$route.name !== 'login' ? 'ml-0 md:ml-64 p-4 md:p-8 pt-18 md:pt-8' : ''"
+      :class="$route.name !== 'login' ? 'ml-0 md:ml-64 p-4 md:p-8 pt-[calc(4.75rem+env(safe-area-inset-top,0px))] md:pt-8 pb-[calc(2.5rem+env(safe-area-inset-bottom,0px))]' : ''"
     >
+
       <!-- Top header layout -->
       <header v-if="$route.name !== 'login'" class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 md:mb-8 border-b border-darkBorder/40 pb-4">
         <div>

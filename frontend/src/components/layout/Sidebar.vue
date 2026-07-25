@@ -13,7 +13,8 @@
       :class="isOpen ? 'translate-x-0 shadow-2xl shadow-cyan-500/10' : '-translate-x-full md:translate-x-0'"
     >
       <!-- Brand / Title -->
-      <div class="h-16 flex items-center justify-between px-6 border-b border-darkBorder">
+      <div class="h-[calc(4rem+env(safe-area-inset-top,0px))] pt-[env(safe-area-inset-top,0px)] flex items-center justify-between px-6 border-b border-darkBorder">
+
         <div class="flex items-center gap-3">
           <div class="w-8 h-8 bg-cyan-500 rounded-lg flex items-center justify-center text-darkBg font-bold shadow-lg shadow-cyan-500/20">
             B
