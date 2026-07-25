@@ -77,18 +77,12 @@ def login(request: LoginRequest, db = Depends(get_db)):
             detail="Correo o contraseña incorrectos"
         )
         
-    # Verificar / obtener credenciales de Google Drive
-    # Si token.json no existe en esta instalación/equipo, abrirá el flujo OAuth en el navegador.
-    # Una vez completado con éxito, token.json persistirá localmente para futuros inicios de sesión.
-    from config.auth import obtener_servicio_drive, eliminar_token_existente
+    # Intentar verificar credenciales de Google Drive (no bloquea el login si falla o falta token)
     try:
+        from config.auth import obtener_servicio_drive
         obtener_servicio_drive()
     except Exception as e:
-        print(f"Error durante autenticación de Google Drive en login: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Error en la autenticación con Google Drive: {str(e)}"
-        )
+        print(f"[AUTH WARNING] Google Drive no autenticado aún en el servidor ({e}). El usuario podrá iniciar sesión normalmente.")
         
     # Update last login time
     now = datetime.now()
