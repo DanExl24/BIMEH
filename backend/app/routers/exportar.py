@@ -1009,6 +1009,7 @@ def exportar_pdf(
     print(f"==========================================")
 
     pdf_buffer = io.BytesIO()
+    uid = id(pdf_buffer)
     
     # Select document layout based on export type
     doc_layout = landscape(letter) if tipo in ("dia", "mes", "consolidado_mensual") else letter
@@ -1023,9 +1024,9 @@ def exportar_pdf(
     
     styles = getSampleStyleSheet()
     
-    # Custom Styles
+    # Custom Styles (Unique name per request to avoid ReportLab duplicate style KeyError)
     title_style = ParagraphStyle(
-        'DocTitle',
+        f'DocTitle_{uid}',
         parent=styles['Heading1'],
         fontName='Helvetica-Bold',
         fontSize=18,
@@ -1035,7 +1036,7 @@ def exportar_pdf(
     )
     
     subtitle_style = ParagraphStyle(
-        'DocSubtitle',
+        f'DocSubtitle_{uid}',
         parent=styles['Normal'],
         fontName='Helvetica',
         fontSize=11,
@@ -1045,7 +1046,7 @@ def exportar_pdf(
     )
     
     th_style = ParagraphStyle(
-        'TableHeader',
+        f'TableHeader_{uid}',
         parent=styles['Normal'],
         fontName='Helvetica-Bold',
         fontSize=9,
@@ -1054,7 +1055,7 @@ def exportar_pdf(
     )
     
     td_style = ParagraphStyle(
-        'TableCell',
+        f'TableCell_{uid}',
         parent=styles['Normal'],
         fontName='Helvetica',
         fontSize=8,
@@ -1433,12 +1434,12 @@ def exportar_pdf(
         report_ids = [r[0] for r in reports_db]
         print(f"[PDF DEBUG] Se encontraron {len(reports_db)} reportes en BD (report_ids: {report_ids[:5]}...)")
         
-        # Styles for cells
-        p_disp_style = ParagraphStyle('PDispG', parent=td_style, fontSize=5 if not use_letras else 4.5, leading=6, textColor=colors.HexColor('#065F46'), fontName='Helvetica-Bold', alignment=1)
-        p_nov_style = ParagraphStyle('PNovG', parent=td_style, fontSize=5 if not use_letras else 4.5, leading=6, textColor=colors.HexColor('#92400E'), fontName='Helvetica-Bold', alignment=1)
-        p_na_style = ParagraphStyle('PNAG', parent=td_style, fontSize=5, leading=6, textColor=colors.HexColor('#9CA3AF'), alignment=1)
-        p_ret_style = ParagraphStyle('PRetG', parent=td_style, fontSize=4.5, leading=6, textColor=colors.HexColor('#7F1D1D'), fontName='Helvetica-Bold', alignment=1)
-        month_title_style = ParagraphStyle('MonthTitle', parent=subtitle_style, fontSize=11, leading=14, textColor=colors.HexColor('#06B6D4'), fontName='Helvetica-Bold', spaceBefore=10, spaceAfter=5)
+        # Styles for cells (Unique names per request)
+        p_disp_style = ParagraphStyle(f'PDispG_{uid}', parent=td_style, fontSize=5 if not use_letras else 4.5, leading=6, textColor=colors.HexColor('#065F46'), fontName='Helvetica-Bold', alignment=1)
+        p_nov_style = ParagraphStyle(f'PNovG_{uid}', parent=td_style, fontSize=5 if not use_letras else 4.5, leading=6, textColor=colors.HexColor('#92400E'), fontName='Helvetica-Bold', alignment=1)
+        p_na_style = ParagraphStyle(f'PNAG_{uid}', parent=td_style, fontSize=5, leading=6, textColor=colors.HexColor('#9CA3AF'), alignment=1)
+        p_ret_style = ParagraphStyle(f'PRetG_{uid}', parent=td_style, fontSize=4.5, leading=6, textColor=colors.HexColor('#7F1D1D'), fontName='Helvetica-Bold', alignment=1)
+        month_title_style = ParagraphStyle(f'MonthTitle_{uid}', parent=subtitle_style, fontSize=11, leading=14, textColor=colors.HexColor('#06B6D4'), fontName='Helvetica-Bold', spaceBefore=10, spaceAfter=5)
 
         if report_ids:
             rep_placeholders = ",".join("%s" for _ in report_ids)
@@ -1661,8 +1662,8 @@ def exportar_pdf(
         cursor.execute(query, params)
         rows = cursor.fetchall()
 
-        agil_td_style = ParagraphStyle('AgilTd', parent=td_style, fontSize=7, leading=9)
-        agil_th_style = ParagraphStyle('AgilTh', parent=th_style, fontSize=8, leading=10)
+        agil_td_style = ParagraphStyle(f'AgilTd_{uid}', parent=td_style, fontSize=7, leading=9)
+        agil_th_style = ParagraphStyle(f'AgilTh_{uid}', parent=th_style, fontSize=8, leading=10)
 
         if fecha:
             headers = [
