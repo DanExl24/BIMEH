@@ -22,8 +22,12 @@ else:
     TOKEN_PATH = os.path.join(BASE_DIR, "token.json")
     CREDENTIALS_PATH = os.path.join(BASE_DIR, "credentials.json")
 
+# Permitir variaciones de scopes otorgados por Google en respuestas OAuth
+os.environ["OAUTHLIB_RELAX_TOKEN_SCOPE"] = "1"
+
 SCOPES = [
     "https://www.googleapis.com/auth/drive.readonly",
+    "https://www.googleapis.com/auth/drive.metadata.readonly",
     "https://www.googleapis.com/auth/spreadsheets.readonly"
 ]
 
