@@ -10,5 +10,6 @@ if __name__ == "__main__":
     if getattr(sys, 'frozen', False):
         os.chdir(os.path.dirname(sys.executable))
     
-    # Iniciar FastAPI en puerto 8000 pasando el objeto de la aplicación directamente
-    uvicorn.run(app, host="127.0.0.1", port=8000, reload=False, workers=1)
+    # Iniciar FastAPI en puerto 8000 escuchando en todas las interfaces de red (0.0.0.0)
+    uvicorn.run(app, host="0.0.0.0", port=8000, reload=False, workers=1)
+

@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import { useAppStore } from './appStore'
 
 export interface User {
   nombre: string
@@ -11,6 +12,11 @@ export const useAuthStore = defineStore('auth', () => {
   const token = ref<string | null>(localStorage.getItem('bimej12_auth_token'))
   const user = ref<User | null>(null)
   const loading = ref(false)
+
+  const getApiBase = () => {
+    const appStore = useAppStore()
+    return appStore.apiBase
+  }
 
   if (localStorage.getItem('bimej12_auth_user')) {
     try {
@@ -25,7 +31,7 @@ export const useAuthStore = defineStore('auth', () => {
   const login = async (correo: string, password: string) => {
     loading.value = true
     try {
-      const response = await fetch('http://127.0.0.1:8000/api/auth/login', {
+      const response = await fetch(`${getApiBase()}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ correo, password })
@@ -38,9 +44,6 @@ export const useAuthStore = defineStore('auth', () => {
 
       const data = await response.json()
       
-      token.value = data.access_token
-      user.value = data.usuario
-
       token.value = data.access_token
       user.value = data.usuario
 
@@ -73,9 +76,10 @@ export const useAuthStore = defineStore('auth', () => {
     }
 
     try {
-      const response = await fetch('http://127.0.0.1:8000/api/auth/me', {
+      const response = await fetch(`${getApiBase()}/api/auth/me`, {
         headers: { 'Authorization': `Bearer ${token.value}` }
       })
+
       if (response.ok) {
         const data = await response.json()
         user.value = {
