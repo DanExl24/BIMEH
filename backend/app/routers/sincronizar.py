@@ -3,7 +3,7 @@ import json
 import openpyxl
 from datetime import datetime
 from typing import Optional, List
-from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Form, Request
 from fastapi.responses import StreamingResponse, HTMLResponse
 from app.dependencies import DISPONIBLE_STATUSES, get_current_user
 from app.database import get_db, get_month_dates
@@ -23,11 +23,15 @@ def obtener_url_oauth(redirect_uri: str = Query(...)):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/sincronizar/oauth/callback")
-def callback_oauth(code: str = Query(...), redirect_uri: str = Query(...)):
+def callback_oauth(request: Request, code: str = Query(...), redirect_uri: Optional[str] = Query(None)):
     """
     Recibe el código de autorización de Google, obtiene y guarda el token.
     """
     try:
+        if not redirect_uri:
+            # Reconstruir la redirect_uri exacta recibida en la peticion (sin parametros de query)
+            redirect_uri = str(request.url).split('?')[0]
+
         intercambiar_codigo_oauth(code, redirect_uri)
         html_content = """
         <html>
@@ -42,6 +46,7 @@ def callback_oauth(code: str = Query(...), redirect_uri: str = Query(...)):
         return HTMLResponse(content=html_content)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error en callback OAuth: {str(e)}")
+
 
 @router.get("/sincronizar/plantilla/{format}")
 
