@@ -4,13 +4,47 @@ import openpyxl
 from datetime import datetime
 from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Form
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, HTMLResponse
 from app.dependencies import DISPONIBLE_STATUSES, get_current_user
 from app.database import get_db, get_month_dates
+from config.auth import generar_oauth_url, intercambiar_codigo_oauth
 
 router = APIRouter(prefix="/api", tags=["Sincronizar"])
 
+@router.get("/sincronizar/oauth/url")
+def obtener_url_oauth(redirect_uri: str = Query(...)):
+    """
+    Genera la URL oficial de inicio de sesión con Google OAuth.
+    """
+    try:
+        url = generar_oauth_url(redirect_uri)
+        return {"auth_url": url}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/sincronizar/oauth/callback")
+def callback_oauth(code: str = Query(...), redirect_uri: str = Query(...)):
+    """
+    Recibe el código de autorización de Google, obtiene y guarda el token.
+    """
+    try:
+        intercambiar_codigo_oauth(code, redirect_uri)
+        html_content = """
+        <html>
+            <head><title>Google Drive Conectado</title></head>
+            <body style="font-family: sans-serif; text-align: center; padding-top: 50px; background: #0F172A; color: white;">
+                <h1 style="color: #22C55E;">¡Google Drive Conectado con Éxito! 🎉</h1>
+                <p>Tu cuenta de Google fue autorizada correctamente.</p>
+                <p>Ya puedes volver a la aplicación BIMEH en tu celular o computador.</p>
+            </body>
+        </html>
+        """
+        return HTMLResponse(content=html_content)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error en callback OAuth: {str(e)}")
+
 @router.get("/sincronizar/plantilla/{format}")
+
 def descargar_plantilla(format: str):
     """
     Genera y descarga un archivo plantilla para la carga de datos.
