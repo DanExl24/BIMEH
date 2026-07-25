@@ -1,6 +1,13 @@
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, ipcMain, shell } from 'electron';
 import path from 'path';
 import { fileURLToPath } from 'url';
+
+// Escuchar peticiones para abrir URLs externas en el navegador del sistema (Chrome/Edge)
+ipcMain.on('open-external', (event, url) => {
+  if (url && (url.startsWith('http://') || url.startsWith('https://'))) {
+    shell.openExternal(url);
+  }
+});
 
 // En entornos con ES Modules (debido a "type": "module" en package.json),
 // __dirname y __filename no están definidos globalmente. Los reconstruimos aquí:

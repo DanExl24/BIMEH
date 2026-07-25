@@ -170,7 +170,7 @@ const iniciarOAuth = async () => {
       // En Electron: usar shell.openExternal para abrir en el navegador del sistema (Edge/Chrome)
       // En web o móvil: window.open en nueva pestaña
       const electronAPI = (window as any).electronAPI
-      if (electronAPI && electronAPI.openExternal) {
+      if (electronAPI && typeof electronAPI.openExternal === 'function') {
         electronAPI.openExternal(data.auth_url)
       } else {
         window.open(data.auth_url, '_blank')

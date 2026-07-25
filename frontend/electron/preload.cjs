@@ -1,10 +1,10 @@
-const { contextBridge, shell } = require('electron');
+const { contextBridge, ipcRenderer } = require('electron');
 
 // El script de precarga (preload) corre antes de que el proceso de renderizado (Vue) se cargue.
-// Al usar la extensión .cjs, Node.js lo ejecuta estrictamente en formato CommonJS,
-// lo cual es requerido por Electron para scripts de precarga.
+// Al usar la extensión .cjs, Node.js lo ejecuta estrictamente en formato CommonJS.
 contextBridge.exposeInMainWorld('electronAPI', {
   platform: process.platform,
-  // Abre una URL en el navegador predeterminado del sistema operativo (Edge, Chrome, etc.)
-  openExternal: (url) => shell.openExternal(url),
+  // Delega la apertura de URL al proceso principal de Electron via IPC
+  openExternal: (url) => ipcRenderer.send('open-external', url),
 });
+
