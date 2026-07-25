@@ -3,11 +3,19 @@ import { ref, computed } from 'vue'
 import { fetchFechas } from '../services/api'
 
 export const useAppStore = defineStore('app', () => {
-  const apiBase = 'http://127.0.0.1:8000'
+  const defaultApiBase = import.meta.env.VITE_API_BASE || 'http://127.0.0.1:8000'
+  const apiBase = ref(localStorage.getItem('bimej12_custom_api_url') || defaultApiBase)
+
+  const setCustomApiBase = (url: string) => {
+    const cleanUrl = url.trim().replace(/\/$/, '')
+    apiBase.value = cleanUrl
+    localStorage.setItem('bimej12_custom_api_url', cleanUrl)
+  }
   
   const selectedDate = ref('2026-07-05') // Keep for fallback/reference
   const selectedMonth = ref('JULIO')
   const availableDates = ref<string[]>([])
+
   
   // Dashboard month/day filters
   const selectedDashboardMonth = ref('JULIO')
@@ -224,6 +232,7 @@ export const useAppStore = defineStore('app', () => {
 
   return {
     apiBase,
+    setCustomApiBase,
     selectedDate,
     selectedMonth,
     selectedDashboardMonth,
