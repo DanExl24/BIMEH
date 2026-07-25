@@ -1142,15 +1142,21 @@
     "JULIO": [
         {
             "mimeType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            "webViewLink": "https://docs.google.com/spreadsheets/d/1x4J4dcP8mAGv2iSdbB8aGHRHcMsbtOPf/edit?usp=drivesdk&ouid=107888446569521806220&rtpof=true&sd=true",
-            "id": "1x4J4dcP8mAGv2iSdbB8aGHRHcMsbtOPf",
-            "name": "BIMEJ PARTE DEMOSTRATIVO 22 JULIO 2026.xlsx"
+            "webViewLink": "https://docs.google.com/spreadsheets/d/19IoJyxMXaL2ynvHxeAlq2G9YZnXXi-Qv/edit?usp=drivesdk&ouid=107888446569521806220&rtpof=true&sd=true",
+            "id": "19IoJyxMXaL2ynvHxeAlq2G9YZnXXi-Qv",
+            "name": "BIMEJ PARTE DEMOSTRATIVO 24 JULIO 2026.xlsx"
         },
         {
             "mimeType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             "webViewLink": "https://docs.google.com/spreadsheets/d/1gTYYX42PN7Uy1U7ix-3pSNFHQpiS2kY7/edit?usp=drivesdk&ouid=107888446569521806220&rtpof=true&sd=true",
             "id": "1gTYYX42PN7Uy1U7ix-3pSNFHQpiS2kY7",
             "name": "BIMEJ PARTE DEMOSTRATIVO 23 JULIO 2026.xlsx"
+        },
+        {
+            "mimeType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "webViewLink": "https://docs.google.com/spreadsheets/d/1x4J4dcP8mAGv2iSdbB8aGHRHcMsbtOPf/edit?usp=drivesdk&ouid=107888446569521806220&rtpof=true&sd=true",
+            "id": "1x4J4dcP8mAGv2iSdbB8aGHRHcMsbtOPf",
+            "name": "BIMEJ PARTE DEMOSTRATIVO 22 JULIO 2026.xlsx"
         },
         {
             "mimeType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

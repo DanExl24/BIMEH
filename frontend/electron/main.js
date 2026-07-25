@@ -14,8 +14,8 @@ function createWindow() {
     height: 800,
     title: "BIMEH - Sistema de Gestión de Personal",
     webPreferences: {
-      // Cargar el script de precarga (preload)
-      preload: path.join(__dirname, 'preload.js'),
+      // Cargar el script de precarga (preload) en formato CommonJS (.cjs)
+      preload: path.join(__dirname, 'preload.cjs'),
       // Aislar los contextos de Electron y de la página web por seguridad (Recomendado)
       contextIsolation: true,
       // Desactivar Node de forma directa en el frontend para evitar vulnerabilidades XSS
@@ -27,8 +27,15 @@ function createWindow() {
   const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
 
   if (isDev) {
-    // En desarrollo, cargar el servidor de Vite
-    mainWindow.loadURL('http://localhost:5173');
+    const devUrl = 'http://localhost:5173';
+    mainWindow.loadURL(devUrl).catch(() => {
+      console.log('Reintentando conexión con Vite dev server (http://localhost:5173)...');
+      setTimeout(() => {
+        mainWindow.loadURL(devUrl).catch((err) => {
+          console.error('No se pudo conectar al servidor de desarrollo de Vite. Asegúrate de ejecutar "npm run dev".', err);
+        });
+      }, 2000);
+    });
     // Abrir herramientas de desarrollo automáticamente
     mainWindow.webContents.openDevTools();
   } else {

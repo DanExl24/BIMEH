@@ -503,7 +503,18 @@
           </select>
         </div>
 
-
+        <!-- Modo selector (solo para consolidado_mensual) -->
+        <div v-if="modalReportType === 'consolidado_mensual'" class="space-y-1.5">
+          <label class="text-[10px] uppercase font-bold text-slate-400">Modo de Celdas:</label>
+          <select 
+            v-model="modalModo"
+            :disabled="!modalMonth || modalMonth === ''"
+            class="w-full bg-darkBg border border-darkBorder rounded-xl px-3 py-2 text-xs text-slate-200 outline-none focus:border-cyan-500/50 disabled:opacity-50"
+          >
+            <option value="letras">LETRAS DEFINIDAS (D, N, R)</option>
+            <option value="detalle">DETALLE DE NOVEDAD</option>
+          </select>
+        </div>
 
         <!-- Subnovedad selector (Opcional) -->
         <div class="space-y-1.5">
@@ -842,6 +853,7 @@ const modalFormat = ref<'excel' | 'csv' | 'pdf'>('excel')
 const modalReportType = ref<'personal' | 'consolidado_mensual' | 'agil'>('personal')
 const modalMonth = ref('JULIO')
 const modalSubnovedad = ref('')
+const modalModo = ref<'letras' | 'detalle'>('letras')
 
 const triggerExportModal = (tipo: 'personal' | 'consolidado_mensual' | 'agil', defaultMonth?: string) => {
   modalReportType.value = tipo
@@ -856,15 +868,14 @@ const downloadUrl = computed(() => {
   const tipo = modalReportType.value
   const cedula = profile.value ? profile.value.cedula : ''
   
-  let url = `${appStore.apiBase}/api/exportar/${format}?tipo=${tipo}&cedula=${cedula}`
+  let url = `${appStore.apiBase.value}/api/exportar/${format}?tipo=${tipo}&cedula=${cedula}`
   
   if (tipo === 'consolidado_mensual' || tipo === 'agil') {
-    url += `&mes=${modalMonth.value}`
+    url += `&mes=${modalMonth.value}&modo=${modalModo.value}`
   } else if (tipo === 'personal' && modalMonth.value) {
     url += `&mes=${modalMonth.value}`
   }
 
-  
   if (modalSubnovedad.value) {
     url += `&subnovedad=${encodeURIComponent(modalSubnovedad.value)}`
   }

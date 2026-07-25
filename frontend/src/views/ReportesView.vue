@@ -96,7 +96,7 @@
         </div>
       </div>
 
-      <!-- Card 3: Consolidado Mensual Operacional -->
+      <!-- Card 3: Consolidado Diario Mensual (Heatmap) -->
       <div class="glass-panel p-6 rounded-2xl flex flex-col justify-between hover:border-cyan-500/30 transition-all duration-300 group md:col-span-2">
         <div class="flex flex-col md:flex-row md:items-start justify-between gap-4">
           <div class="space-y-3 flex-1">
@@ -106,51 +106,90 @@
               </svg>
             </div>
             <div>
-              <h3 class="text-sm font-bold text-slate-200 uppercase tracking-wide">Consolidado Diario Mensual (Heatmap)</h3>
-              <p class="text-xs text-slate-500 mt-1">Genera una grilla completa del mes seleccionado con el estado diario de cada integrante de la unidad (D = Disponible, N = Novedad, - = N/A). El formato Excel se genera coloreado imitando el Heatmap.</p>
+              <h3 class="text-sm font-bold text-slate-200 uppercase tracking-wide">Consolidado Diario Mensual (HEATMAP)</h3>
+              <p class="text-xs text-slate-500 mt-1 leading-relaxed">
+                Genera la matriz de novedades del personal. Puedes elegir entre ver letras estáticas (D=Disponible, N=Novedad, R=Retirado) o el detalle completo de novedad por celda para cualquier período exportado.
+              </p>
             </div>
           </div>
           
-          <!-- Month Selector -->
-          <div class="flex flex-col gap-1.5 w-full md:w-56">
-            <label class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Mes a exportar:</label>
-            <select 
-              v-model="selectedMonth"
-              class="w-full bg-darkBg border border-darkBorder rounded-xl px-3 py-2 text-xs text-slate-200 outline-none focus:border-cyan-500/50"
-            >
-              <option value="TODOS">TODOS LOS MESES</option>
-              <option v-for="m in activeMonths" :key="m" :value="m">{{ m }}</option>
-            </select>
+          <!-- Heatmap Filter Controls -->
+          <div class="flex flex-col gap-2.5 w-full md:w-64">
+            <!-- Mode Selector -->
+            <div class="flex flex-col gap-1">
+              <label class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Modo de Celdas:</label>
+              <select 
+                v-model="heatmapModo"
+                class="w-full bg-darkBg border border-darkBorder rounded-xl px-3 py-2 text-xs text-slate-200 outline-none focus:border-cyan-500/50"
+              >
+                <option value="letras">LETRAS DEFINIDAS (D, N, R)</option>
+                <option value="detalle">DETALLE DE NOVEDAD</option>
+              </select>
+            </div>
 
+            <!-- Scope Selector -->
+            <div class="flex flex-col gap-1">
+              <label class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Período a exportar:</label>
+              <select 
+                v-model="heatmapScope"
+                class="w-full bg-darkBg border border-darkBorder rounded-xl px-3 py-2 text-xs text-slate-200 outline-none focus:border-cyan-500/50"
+              >
+                <option value="ANUAL">TODOS LOS MESES (ANUAL)</option>
+                <option value="MES">MES ESPECÍFICO</option>
+                <option value="DIA">DÍA ESPECÍFICO</option>
+              </select>
+            </div>
+
+            <!-- Month Dropdown (visible for MES or DIA) -->
+            <div v-if="heatmapScope === 'MES' || heatmapScope === 'DIA'" class="flex flex-col gap-1">
+              <label class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Seleccionar Mes:</label>
+              <select 
+                v-model="heatmapSelectedMonth"
+                class="w-full bg-darkBg border border-darkBorder rounded-xl px-3 py-2 text-xs text-slate-200 outline-none focus:border-cyan-500/50"
+              >
+                <option v-for="m in activeMonths" :key="m" :value="m">{{ m }}</option>
+              </select>
+            </div>
+
+            <!-- Date Dropdown (filtered by selected month) -->
+            <div v-if="heatmapScope === 'DIA'" class="flex flex-col gap-1">
+              <label class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Seleccionar Día (de {{ heatmapSelectedMonth }}):</label>
+              <select 
+                v-model="heatmapSelectedDate"
+                class="w-full bg-darkBg border border-darkBorder rounded-xl px-3 py-2 text-xs text-slate-200 outline-none focus:border-cyan-500/50"
+              >
+                <option v-for="d in heatmapFilteredDates" :key="d" :value="d">{{ formatDate(d) }}</option>
+              </select>
+            </div>
           </div>
         </div>
 
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-8">
           <a 
-            :href="`${appStore.apiBase}/api/exportar/excel?tipo=consolidado_mensual&mes=${selectedMonth}`"
+            :href="heatmapExcelUrl"
             download
             class="flex items-center justify-center text-center px-3 py-2.5 rounded-xl text-[10px] font-bold uppercase transition-all duration-200 border cursor-pointer select-none shadow-sm bg-emerald-500/10 border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20 hover:border-emerald-500/30"
           >
-            EXCEL Consolidado ({{ selectedMonth }})
+            EXCEL Heatmap ({{ heatmapLabel }})
           </a>
           <a 
-            :href="`${appStore.apiBase}/api/exportar/csv?tipo=consolidado_mensual&mes=${selectedMonth}`"
+            :href="heatmapCsvUrl"
             download
             class="flex items-center justify-center text-center px-3 py-2.5 rounded-xl text-[10px] font-bold uppercase transition-all duration-200 border cursor-pointer select-none shadow-sm bg-slate-500/10 border-slate-500/20 text-slate-400 hover:bg-slate-500/20 hover:border-slate-500/30"
           >
-            CSV Consolidado ({{ selectedMonth }})
+            CSV Heatmap ({{ heatmapLabel }})
           </a>
           <a 
-            :href="`${appStore.apiBase}/api/exportar/pdf?tipo=consolidado_mensual&mes=${selectedMonth}`"
+            :href="heatmapPdfUrl"
             download
             class="flex items-center justify-center text-center px-3 py-2.5 rounded-xl text-[10px] font-bold uppercase transition-all duration-200 border cursor-pointer select-none shadow-sm bg-cyan-500/10 border-cyan-500/20 text-cyan-400 hover:bg-cyan-500/20 hover:border-cyan-500/30"
           >
-            PDF Consolidado ({{ selectedMonth }})
+            PDF Heatmap ({{ heatmapLabel }})
           </a>
         </div>
       </div>
 
-      <!-- Card 4: Reporte Diario de Personal (Por Fecha) -->
+      <!-- Card 4: Reporte Detallado de Personal -->
       <div class="glass-panel p-6 rounded-2xl flex flex-col justify-between hover:border-cyan-500/30 transition-all duration-300 group md:col-span-2">
         <div class="flex flex-col md:flex-row md:items-start justify-between gap-4">
           <div class="space-y-3 flex-1">
@@ -160,88 +199,75 @@
               </svg>
             </div>
             <div>
-              <h3 class="text-sm font-bold text-slate-200 uppercase tracking-wide">Reporte Diario de Personal</h3>
-              <p class="text-xs text-slate-500 mt-1">Exporta el listado completo de novedades, disponibilidad y justificaciones del personal asignado para un día específico registrado en el sistema.</p>
+              <h3 class="text-sm font-bold text-slate-200 uppercase tracking-wide">Reporte Detallado de Personal</h3>
+              <p class="text-xs text-slate-500 mt-1">Exporta el reporte detallado con cédula, nombres, subnovedad, descripción y fechas exactas. Puedes filtrar por todos los meses (anual), un mes en específico o un día específico.</p>
             </div>
           </div>
           
-          <!-- Date Selector -->
-          <div class="flex flex-col gap-1.5 w-full md:w-56">
-            <label class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Fecha a exportar:</label>
-            <select 
-              v-model="selectedDate"
-              class="w-full bg-darkBg border border-darkBorder rounded-xl px-3 py-2 text-xs text-slate-200 outline-none focus:border-cyan-500/50"
-            >
-              <option v-for="d in sortedDates" :key="d" :value="d">{{ formatDate(d) }}</option>
-            </select>
+          <!-- Detailed Filter Controls -->
+          <div class="flex flex-col gap-2.5 w-full md:w-64">
+            <div class="flex flex-col gap-1">
+              <label class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Período a exportar:</label>
+              <select 
+                v-model="detalladoScope"
+                class="w-full bg-darkBg border border-darkBorder rounded-xl px-3 py-2 text-xs text-slate-200 outline-none focus:border-cyan-500/50"
+              >
+                <option value="ANUAL">TODOS LOS MESES (ANUAL)</option>
+                <option value="MES">MES ESPECÍFICO</option>
+                <option value="DIA">DÍA ESPECÍFICO</option>
+              </select>
+            </div>
+
+            <!-- Month Dropdown (visible for MES or DIA) -->
+            <div v-if="detalladoScope === 'MES' || detalladoScope === 'DIA'" class="flex flex-col gap-1">
+              <label class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Seleccionar Mes:</label>
+              <select 
+                v-model="detalladoSelectedMonth"
+                class="w-full bg-darkBg border border-darkBorder rounded-xl px-3 py-2 text-xs text-slate-200 outline-none focus:border-cyan-500/50"
+              >
+                <option v-for="m in activeMonths" :key="m" :value="m">{{ m }}</option>
+              </select>
+            </div>
+
+            <!-- Date Dropdown (filtered by selected month) -->
+            <div v-if="detalladoScope === 'DIA'" class="flex flex-col gap-1">
+              <label class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Seleccionar Día (de {{ detalladoSelectedMonth }}):</label>
+              <select 
+                v-model="detalladoSelectedDate"
+                class="w-full bg-darkBg border border-darkBorder rounded-xl px-3 py-2 text-xs text-slate-200 outline-none focus:border-cyan-500/50"
+              >
+                <option v-for="d in detalladoFilteredDates" :key="d" :value="d">{{ formatDate(d) }}</option>
+              </select>
+            </div>
           </div>
         </div>
 
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-8">
           <a 
-            :href="`${appStore.apiBase}/api/exportar/excel?tipo=dia&fecha=${selectedDate}`"
+            :href="detalladoExcelUrl"
             download
             class="flex items-center justify-center text-center px-3 py-2.5 rounded-xl text-[10px] font-bold uppercase transition-all duration-200 border cursor-pointer select-none shadow-sm bg-emerald-500/10 border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20 hover:border-emerald-500/30"
           >
-            EXCEL Reporte Diario
+            EXCEL Detallado ({{ detalladoLabel }})
           </a>
           <a 
-            :href="`${appStore.apiBase}/api/exportar/csv?tipo=dia&fecha=${selectedDate}`"
+            :href="detalladoCsvUrl"
             download
             class="flex items-center justify-center text-center px-3 py-2.5 rounded-xl text-[10px] font-bold uppercase transition-all duration-200 border cursor-pointer select-none shadow-sm bg-slate-500/10 border-slate-500/20 text-slate-400 hover:bg-slate-500/20 hover:border-slate-500/30"
           >
-            CSV Reporte Diario
+            CSV Detallado ({{ detalladoLabel }})
           </a>
           <a 
-            :href="`${appStore.apiBase}/api/exportar/pdf?tipo=dia&fecha=${selectedDate}`"
+            :href="detalladoPdfUrl"
             download
             class="flex items-center justify-center text-center px-3 py-2.5 rounded-xl text-[10px] font-bold uppercase transition-all duration-200 border cursor-pointer select-none shadow-sm bg-cyan-500/10 border-cyan-500/20 text-cyan-400 hover:bg-cyan-500/20 hover:border-cyan-500/30"
           >
-            PDF Reporte Diario
+            PDF Detallado ({{ detalladoLabel }})
           </a>
         </div>
       </div>
 
-      <!-- Card 5: Historial Completo de Novedades -->
-      <div class="glass-panel p-6 rounded-2xl flex flex-col justify-between hover:border-cyan-500/30 transition-all duration-300 group md:col-span-2">
-        <div class="space-y-3">
-          <div class="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 group-hover:scale-105 transition-transform duration-200">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          </div>
-          <div>
-            <h3 class="text-sm font-bold text-slate-200 uppercase tracking-wide">Historial Completo de Novedades</h3>
-            <p class="text-xs text-slate-500 mt-1">Exporta todos los registros operacionales e historial de novedades diario generados en el sistema desde el primer día registrado. Útil para análisis estadísticos avanzados a largo plazo.</p>
-          </div>
-        </div>
-
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-6">
-          <a 
-            :href="`${appStore.apiBase}/api/exportar/excel?tipo=historial_novedades`"
-            download
-            class="flex items-center justify-center text-center px-3 py-2.5 rounded-xl text-[10px] font-bold uppercase transition-all duration-200 border cursor-pointer select-none shadow-sm bg-emerald-500/10 border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20 hover:border-emerald-500/30"
-          >
-            EXCEL Historial
-          </a>
-          <a 
-            :href="`${appStore.apiBase}/api/exportar/csv?tipo=historial_novedades`"
-            download
-            class="flex items-center justify-center text-center px-3 py-2.5 rounded-xl text-[10px] font-bold uppercase transition-all duration-200 border cursor-pointer select-none shadow-sm bg-slate-500/10 border-slate-500/20 text-slate-400 hover:bg-slate-500/20 hover:border-slate-500/30"
-          >
-            CSV Historial
-          </a>
-          <a 
-            :href="`${appStore.apiBase}/api/exportar/pdf?tipo=historial_novedades`"
-            download
-            class="flex items-center justify-center text-center px-3 py-2.5 rounded-xl text-[10px] font-bold uppercase transition-all duration-200 border cursor-pointer select-none shadow-sm bg-cyan-500/10 border-cyan-500/20 text-cyan-400 hover:bg-cyan-500/20 hover:border-cyan-500/30"
-          >
-            PDF Historial
-          </a>
-        </div>
-      </div>
-
-      <!-- Card 6: Exportación Ágil de Novedades -->
+      <!-- Card 5: Exportación Ágil de Novedades -->
       <div class="glass-panel p-6 rounded-2xl flex flex-col justify-between border-cyan-500/30 bg-gradient-to-br from-cyan-950/20 via-darkPanel to-blue-950/20 hover:border-cyan-400/50 transition-all duration-300 group md:col-span-2 shadow-lg shadow-cyan-950/30">
         <div class="flex flex-col md:flex-row md:items-start justify-between gap-4">
           <div class="space-y-3 flex-1">
@@ -279,7 +305,8 @@
               </select>
             </div>
 
-            <div v-if="agilMode === 'MES'" class="flex flex-col gap-1">
+            <!-- Month Dropdown (visible for MES or DIA) -->
+            <div v-if="agilMode === 'MES' || agilMode === 'DIA'" class="flex flex-col gap-1">
               <label class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Seleccionar Mes:</label>
               <select 
                 v-model="agilSelectedMonth"
@@ -289,14 +316,14 @@
               </select>
             </div>
 
-
+            <!-- Date Dropdown (filtered by selected month) -->
             <div v-if="agilMode === 'DIA'" class="flex flex-col gap-1">
-              <label class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Seleccionar Día:</label>
+              <label class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Seleccionar Día (de {{ agilSelectedMonth }}):</label>
               <select 
                 v-model="agilSelectedDate"
                 class="w-full bg-darkBg border border-darkBorder rounded-xl px-3 py-2 text-xs text-slate-200 outline-none focus:border-cyan-500/50"
               >
-                <option v-for="d in sortedDates" :key="d" :value="d">{{ formatDate(d) }}</option>
+                <option v-for="d in agilFilteredDates" :key="d" :value="d">{{ formatDate(d) }}</option>
               </select>
             </div>
           </div>
@@ -336,20 +363,29 @@ import { useAppStore } from '../stores/appStore'
 
 const appStore = useAppStore()
 
-const meses = [
-  'ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO', 'JULIO',
-  'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE'
-]
-
 const activeMonths = computed(() => appStore.availableMonths)
 
-const selectedMonth = ref(appStore.selectedMonth || 'JULIO')
+// Heatmap state
+const heatmapModo = ref<'letras' | 'detalle'>('letras')
+const heatmapScope = ref<'ANUAL' | 'MES' | 'DIA'>('ANUAL')
+const heatmapSelectedMonth = ref(appStore.selectedMonth || 'JULIO')
+const heatmapSelectedDate = ref('')
 
-const selectedDate = ref('')
+// Reporte Detallado state
+const detalladoScope = ref<'ANUAL' | 'MES' | 'DIA'>('ANUAL')
+const detalladoSelectedMonth = ref(appStore.selectedMonth || 'JULIO')
+const detalladoSelectedDate = ref('')
 
+// Exportación Ágil state
 const agilMode = ref<'ANUAL' | 'MES' | 'DIA'>('ANUAL')
 const agilSelectedMonth = ref(appStore.selectedMonth || 'JULIO')
 const agilSelectedDate = ref('')
+
+const monthToNumber: Record<string, string> = {
+  'ENERO': '01', 'FEBRERO': '02', 'MARZO': '03', 'ABRIL': '04',
+  'MAYO': '05', 'JUNIO': '06', 'JULIO': '07', 'AGOSTO': '08',
+  'SEPTIEMBRE': '09', 'OCTUBRE': '10', 'NOVIEMBRE': '11', 'DICIEMBRE': '12'
+}
 
 onMounted(() => {
   if (appStore.availableDates.length === 0) {
@@ -361,13 +397,38 @@ const sortedDates = computed(() => {
   return [...appStore.availableDates].sort((a, b) => b.localeCompare(a))
 })
 
-watch(sortedDates, (newDates) => {
-  if (newDates.length > 0 && !selectedDate.value) {
-    selectedDate.value = newDates[0]
-  }
-  if (newDates.length > 0 && !agilSelectedDate.value) {
-    agilSelectedDate.value = newDates[0]
-  }
+// Filtered dates per card based on chosen month
+const heatmapFilteredDates = computed(() => {
+  const monthNum = monthToNumber[heatmapSelectedMonth.value]
+  if (!monthNum) return sortedDates.value
+  const filtered = sortedDates.value.filter(d => d.split('-')[1] === monthNum)
+  return filtered.length > 0 ? filtered : sortedDates.value
+})
+
+const detalladoFilteredDates = computed(() => {
+  const monthNum = monthToNumber[detalladoSelectedMonth.value]
+  if (!monthNum) return sortedDates.value
+  const filtered = sortedDates.value.filter(d => d.split('-')[1] === monthNum)
+  return filtered.length > 0 ? filtered : sortedDates.value
+})
+
+const agilFilteredDates = computed(() => {
+  const monthNum = monthToNumber[agilSelectedMonth.value]
+  if (!monthNum) return sortedDates.value
+  const filtered = sortedDates.value.filter(d => d.split('-')[1] === monthNum)
+  return filtered.length > 0 ? filtered : sortedDates.value
+})
+
+watch(heatmapFilteredDates, (newDates) => {
+  if (newDates.length > 0) heatmapSelectedDate.value = newDates[0]
+}, { immediate: true })
+
+watch(detalladoFilteredDates, (newDates) => {
+  if (newDates.length > 0) detalladoSelectedDate.value = newDates[0]
+}, { immediate: true })
+
+watch(agilFilteredDates, (newDates) => {
+  if (newDates.length > 0) agilSelectedDate.value = newDates[0]
 }, { immediate: true })
 
 const formatDate = (dateStr: string) => {
@@ -377,6 +438,69 @@ const formatDate = (dateStr: string) => {
   return `${parts[2]}/${parts[1]}/${parts[0]}`
 }
 
+// Heatmap computed URLs
+const heatmapLabel = computed(() => {
+  if (heatmapScope.value === 'ANUAL') return 'ANUAL'
+  if (heatmapScope.value === 'MES') return heatmapSelectedMonth.value
+  return formatDate(heatmapSelectedDate.value)
+})
+
+const heatmapExcelUrl = computed(() => {
+  let url = `${appStore.apiBase.value}/api/exportar/excel?tipo=consolidado_mensual&modo=${heatmapModo.value}`
+  if (heatmapScope.value === 'ANUAL') url += '&mes=TODOS'
+  else if (heatmapScope.value === 'MES') url += `&mes=${heatmapSelectedMonth.value}`
+  else url += `&fecha=${heatmapSelectedDate.value}`
+  return url
+})
+
+const heatmapCsvUrl = computed(() => {
+  let url = `${appStore.apiBase.value}/api/exportar/csv?tipo=consolidado_mensual&modo=${heatmapModo.value}`
+  if (heatmapScope.value === 'ANUAL') url += '&mes=TODOS'
+  else if (heatmapScope.value === 'MES') url += `&mes=${heatmapSelectedMonth.value}`
+  else url += `&fecha=${heatmapSelectedDate.value}`
+  return url
+})
+
+const heatmapPdfUrl = computed(() => {
+  let url = `${appStore.apiBase.value}/api/exportar/pdf?tipo=consolidado_mensual&modo=${heatmapModo.value}`
+  if (heatmapScope.value === 'ANUAL') url += '&mes=TODOS'
+  else if (heatmapScope.value === 'MES') url += `&mes=${heatmapSelectedMonth.value}`
+  else url += `&fecha=${heatmapSelectedDate.value}`
+  return url
+})
+
+// Detallado computed URLs
+const detalladoLabel = computed(() => {
+  if (detalladoScope.value === 'ANUAL') return 'ANUAL'
+  if (detalladoScope.value === 'MES') return detalladoSelectedMonth.value
+  return formatDate(detalladoSelectedDate.value)
+})
+
+const detalladoExcelUrl = computed(() => {
+  let url = `${appStore.apiBase.value}/api/exportar/excel?tipo=dia`
+  if (detalladoScope.value === 'ANUAL') url += '&mes=TODOS'
+  else if (detalladoScope.value === 'MES') url += `&mes=${detalladoSelectedMonth.value}`
+  else url += `&fecha=${detalladoSelectedDate.value}`
+  return url
+})
+
+const detalladoCsvUrl = computed(() => {
+  let url = `${appStore.apiBase.value}/api/exportar/csv?tipo=dia`
+  if (detalladoScope.value === 'ANUAL') url += '&mes=TODOS'
+  else if (detalladoScope.value === 'MES') url += `&mes=${detalladoSelectedMonth.value}`
+  else url += `&fecha=${detalladoSelectedDate.value}`
+  return url
+})
+
+const detalladoPdfUrl = computed(() => {
+  let url = `${appStore.apiBase.value}/api/exportar/pdf?tipo=dia`
+  if (detalladoScope.value === 'ANUAL') url += '&mes=TODOS'
+  else if (detalladoScope.value === 'MES') url += `&mes=${detalladoSelectedMonth.value}`
+  else url += `&fecha=${detalladoSelectedDate.value}`
+  return url
+})
+
+// Ágil computed URLs
 const agilLabel = computed(() => {
   if (agilMode.value === 'ANUAL') return 'ANUAL COMPLETO'
   if (agilMode.value === 'MES') return agilSelectedMonth.value
@@ -384,23 +508,15 @@ const agilLabel = computed(() => {
 })
 
 const agilExcelUrl = computed(() => {
-  if (agilMode.value === 'ANUAL') {
-    return `${appStore.apiBase}/api/exportar/excel?tipo=agil&mes=TODOS`
-  } else if (agilMode.value === 'MES') {
-    return `${appStore.apiBase}/api/exportar/excel?tipo=agil&mes=${agilSelectedMonth.value}`
-  } else {
-    return `${appStore.apiBase}/api/exportar/excel?tipo=agil&fecha=${agilSelectedDate.value}`
-  }
+  if (agilMode.value === 'ANUAL') return `${appStore.apiBase.value}/api/exportar/excel?tipo=agil&mes=TODOS`
+  if (agilMode.value === 'MES') return `${appStore.apiBase.value}/api/exportar/excel?tipo=agil&mes=${agilSelectedMonth.value}`
+  return `${appStore.apiBase.value}/api/exportar/excel?tipo=agil&fecha=${agilSelectedDate.value}`
 })
 
 const agilPdfUrl = computed(() => {
-  if (agilMode.value === 'ANUAL') {
-    return `${appStore.apiBase}/api/exportar/pdf?tipo=agil&mes=TODOS`
-  } else if (agilMode.value === 'MES') {
-    return `${appStore.apiBase}/api/exportar/pdf?tipo=agil&mes=${agilSelectedMonth.value}`
-  } else {
-    return `${appStore.apiBase}/api/exportar/pdf?tipo=agil&fecha=${agilSelectedDate.value}`
-  }
+  if (agilMode.value === 'ANUAL') return `${appStore.apiBase.value}/api/exportar/pdf?tipo=agil&mes=TODOS`
+  if (agilMode.value === 'MES') return `${appStore.apiBase.value}/api/exportar/pdf?tipo=agil&mes=${agilSelectedMonth.value}`
+  return `${appStore.apiBase.value}/api/exportar/pdf?tipo=agil&fecha=${agilSelectedDate.value}`
 })
 </script>
 
