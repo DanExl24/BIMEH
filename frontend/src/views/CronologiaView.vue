@@ -157,8 +157,8 @@
           <table class="w-full text-left border-collapse min-w-[700px]">
             <thead>
               <tr class="border-b border-darkBorder text-[10px] text-slate-400 uppercase font-mono bg-darkBg/50">
-                <th class="py-2.5 px-3 sticky left-0 z-20 bg-darkCard/95 border-r border-darkBorder/60">Cédula</th>
-                <th class="py-2.5 px-3 sticky left-[85px] z-20 bg-darkCard/95 border-r border-darkBorder/60 shadow-md">Apellidos y Nombres</th>
+                <th class="py-2.5 px-3">Cédula</th>
+                <th class="py-2.5 px-3">Apellidos y Nombres</th>
                 <th class="py-2.5 px-3">Subnovedad</th>
                 <th class="py-2.5 px-3">Descripción</th>
                 <th class="py-2.5 px-3">Desde</th>
@@ -171,8 +171,8 @@
                 :key="r.cedula"
                 class="border-b border-darkBorder/40 hover:bg-darkBorder/10 transition-colors"
               >
-                <td class="py-2.5 px-3 font-mono text-slate-400 sticky left-0 z-10 bg-darkCard/95 border-r border-darkBorder/40">{{ r.cedula }}</td>
-                <td class="py-2.5 px-3 font-bold text-slate-200 hover:text-cyan-400 uppercase sticky left-[85px] z-10 bg-darkCard/95 border-r border-darkBorder/60 shadow-md">
+                <td class="py-2.5 px-3 font-mono text-slate-400">{{ r.cedula }}</td>
+                <td class="py-2.5 px-3 font-bold text-slate-200 hover:text-cyan-400 uppercase">
                   <router-link :to="`/personal/${r.cedula}`">{{ r.nombre }}</router-link>
                 </td>
                 <td class="py-2.5 px-3">
@@ -244,7 +244,7 @@
           <table class="w-full text-left border-collapse table-fixed">
             <thead>
               <tr class="border-b border-darkBorder text-[9px] text-slate-400 font-mono bg-darkBg/60">
-                <th class="py-2 px-3 w-48 text-left sticky left-0 z-20 bg-darkCard/95 border-r border-darkBorder/60 shadow-md">Integrante</th>
+                <th class="py-2 px-3 w-48 text-left">Integrante</th>
                 <!-- Day Columns -->
                 <th 
                   v-for="d in heatmapData.fechas" 
@@ -263,12 +263,13 @@
                 class="border-b border-darkBorder/25 hover:bg-darkBorder/5 transition-colors"
               >
                 <!-- Name and CC -->
-                <td class="py-2 px-3 truncate font-semibold text-slate-300 uppercase sticky left-0 z-10 bg-darkCard/95 border-r border-darkBorder/60 shadow-md" :title="p.nombre">
+                <td class="py-2 px-3 truncate font-semibold text-slate-300 uppercase" :title="p.nombre">
                   <router-link :to="`/personal/${p.cedula}`" class="hover:text-cyan-400">
                     {{ p.nombre }}
                   </router-link>
                   <span class="text-[8px] text-slate-500 block font-mono">CC {{ p.cedula }}</span>
                 </td>
+
 
                 <td 
                   v-for="(est, i) in p.estados" 
