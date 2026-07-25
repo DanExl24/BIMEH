@@ -158,6 +158,7 @@ def generar_oauth_url(redirect_uri: str) -> str:
     """Genera la URL de autorización de Google OAuth."""
     creds_path = _asegurar_credentials()
     flow = Flow.from_client_secrets_file(creds_path, scopes=SCOPES, redirect_uri=redirect_uri)
+    flow.autogenerate_code_verifier = False
     auth_url, _ = flow.authorization_url(
         access_type='offline',
         include_granted_scopes='true',
@@ -172,6 +173,7 @@ def intercambiar_codigo_oauth(code: str, redirect_uri: str):
     """
     creds_path = _asegurar_credentials()
     flow = Flow.from_client_secrets_file(creds_path, scopes=SCOPES, redirect_uri=redirect_uri)
+    flow.autogenerate_code_verifier = False
     flow.fetch_token(code=code)
     creds = flow.credentials
 
