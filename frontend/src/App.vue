@@ -186,24 +186,24 @@ onMounted(async () => {
     <!-- Global Background Sync Floating Status -->
     <div 
       v-if="appStore.syncStatus !== 'idle'" 
-      class="fixed bottom-6 right-6 z-50 glass-panel p-4 rounded-xl border max-w-sm flex items-center gap-3 transition-all duration-300 shadow-2xl animate-fade-in"
+      class="fixed bottom-[calc(1rem+env(safe-area-inset-bottom,0px))] left-3 right-3 md:left-auto md:right-6 z-50 glass-panel p-3 sm:p-4 rounded-xl border max-w-full md:max-w-sm flex items-center justify-between gap-2.5 transition-all duration-300 shadow-2xl animate-fade-in"
       :class="appStore.syncStatus === 'running' ? 'border-cyan-500/30 shadow-cyan-500/5' : 
               appStore.syncStatus === 'success' ? 'border-emerald-500/30 shadow-emerald-500/5' : 'border-red-500/30 shadow-red-500/5'"
     >
       <!-- Icon/Spinner -->
       <div class="flex-shrink-0">
-        <div v-if="appStore.syncStatus === 'running'" class="w-8 h-8 rounded-full bg-cyan-500/10 flex items-center justify-center text-cyan-400">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-4.5 w-4.5 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <div v-if="appStore.syncStatus === 'running'" class="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-cyan-500/10 flex items-center justify-center text-cyan-400">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 7.89" />
           </svg>
         </div>
-        <div v-else-if="appStore.syncStatus === 'success'" class="w-8 h-8 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-400">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+        <div v-else-if="appStore.syncStatus === 'success'" class="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-400">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
             <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4" />
           </svg>
         </div>
-        <div v-else class="w-8 h-8 rounded-full bg-red-500/10 flex items-center justify-center text-red-400">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+        <div v-else class="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-red-500/10 flex items-center justify-center text-red-400">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
             <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
           </svg>
         </div>
@@ -211,29 +211,29 @@ onMounted(async () => {
       
       <!-- Text details -->
       <div class="flex-1 min-w-0 font-sans">
-        <p class="text-xs font-bold text-slate-200">
-          {{ appStore.syncStatus === 'running' ? 'Sincronizando Google Drive...' : 
-             appStore.syncStatus === 'success' ? 'Sincronización Completada' : 'Error de Sincronización' }}
+        <p class="text-[11px] sm:text-xs font-bold text-slate-200 truncate">
+          {{ appStore.syncStatus === 'running' ? 'Sincronizando Drive...' : 
+             appStore.syncStatus === 'success' ? 'Sincronización Exitosa' : 'Error de Sincronización' }}
         </p>
-        <p class="text-[10px] text-slate-500 truncate mt-0.5 font-medium">
+        <p class="text-[9px] sm:text-[10px] text-slate-400 truncate mt-0.5 font-medium" :title="appStore.syncMessage">
           {{ appStore.syncMessage }}
         </p>
       </div>
 
       <!-- Timer overlay and Cancel button if running -->
-      <div v-if="appStore.syncStatus === 'running'" class="flex items-center gap-2 shrink-0">
-        <div class="text-[10px] font-mono text-cyan-400 bg-cyan-500/10 px-2 py-1 rounded-md font-bold">
+      <div v-if="appStore.syncStatus === 'running'" class="flex items-center gap-1.5 shrink-0">
+        <div class="text-[9px] sm:text-[10px] font-mono text-cyan-400 bg-cyan-500/10 px-1.5 py-0.5 rounded font-bold">
           {{ Math.floor(appStore.syncSecondsElapsed / 60) }}m {{ appStore.syncSecondsElapsed % 60 }}s
         </div>
         <button 
           @click="appStore.cancelDriveSync()" 
-          class="px-2 py-1 bg-red-500/15 hover:bg-red-500/25 text-red-400 border border-red-500/30 rounded-md text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1 active:scale-95"
+          class="px-1.5 py-1 bg-red-500/15 hover:bg-red-500/25 text-red-400 border border-red-500/30 rounded-md text-[9px] sm:text-[10px] font-bold transition-all cursor-pointer flex items-center gap-0.5 active:scale-95"
           title="Detener sincronización"
         >
           <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
             <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
           </svg>
-          <span>Cancelar</span>
+          <span class="hidden sm:inline">Cancelar</span>
         </button>
       </div>
 
@@ -241,16 +241,17 @@ onMounted(async () => {
       <button 
         v-if="appStore.syncStatus !== 'running'"
         @click="appStore.clearSyncStatus()" 
-        class="text-slate-400 hover:text-slate-200 p-1 rounded-lg hover:bg-slate-700/50 transition-all cursor-pointer shrink-0 ml-1"
+        class="text-slate-400 hover:text-slate-200 p-1 rounded-lg hover:bg-slate-700/50 transition-all cursor-pointer shrink-0"
         title="Cerrar notificación"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
           <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
         </svg>
       </button>
 
     </div>
   </div>
+
 </template>
 
 
