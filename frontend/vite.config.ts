@@ -5,4 +5,11 @@ import vue from '@vitejs/plugin-vue'
 export default defineConfig({
   base: './',
   plugins: [vue()],
+  server: {
+    watch: {
+      // Excluir la carpeta android para evitar que Vite dispare HMR loops
+      // al copiar assets con "npm run mobile:sync"
+      ignored: ['**/android/**', '**/dist/**']
+    }
+  }
 })

@@ -28,16 +28,42 @@
         <span>{{ errorMessage }}</span>
       </div>
 
-      <!-- Nota informativa sobre Google OAuth -->
-      <div class="bg-cyan-500/10 border border-cyan-500/20 text-cyan-300 text-[11px] px-3.5 py-2.5 rounded-xl flex items-start gap-2">
+      <!-- Estado de Drive OAuth (aparece si falta autorización) -->
+      <div 
+        v-if="needsDriveAuth" 
+        class="bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[11px] px-3.5 py-3 rounded-xl space-y-2"
+      >
+        <p class="font-bold flex items-center gap-1.5">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          Google Drive no está autorizado en el servidor
+        </p>
+        <p class="text-slate-400">Para sincronizar reportes desde Drive, un administrador debe autorizar la cuenta de Google en el servidor.</p>
+        <button
+          @click="iniciarOAuth"
+          class="mt-1 w-full py-2 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/30 rounded-lg text-[11px] font-bold text-amber-300 transition-all"
+        >
+          🔗 Autorizar Google Drive ahora
+        </button>
+        <button
+          @click="continuarSinDrive"
+          class="w-full py-2 text-slate-500 hover:text-slate-300 text-[10px] transition-all"
+        >
+          Continuar sin Drive →
+        </button>
+      </div>
+
+      <!-- Nota informativa sobre Google OAuth (cuando Drive ya está ok o no se ha comprobado) -->
+      <div v-if="!needsDriveAuth" class="bg-cyan-500/10 border border-cyan-500/20 text-cyan-300 text-[11px] px-3.5 py-2.5 rounded-xl flex items-start gap-2">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-cyan-400 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
           <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
-        <span>En el primer inicio de sesión se abrirá tu navegador para autenticar tu cuenta con la API de Google Drive.</span>
+        <span>Para sincronizar desde Google Drive, es necesario autorizar la cuenta Google en la sección Sincronizar.</span>
       </div>
 
       <!-- Formulario -->
-      <form @submit.prevent="handleLogin" class="space-y-4">
+      <form @submit.prevent="handleLogin" class="space-y-4" v-if="!needsDriveAuth">
         <!-- Correo Electrónico -->
         <div class="space-y-1.5">
           <label class="text-[10px] uppercase font-bold text-slate-400">Correo Electrónico:</label>
@@ -80,10 +106,34 @@
         >
           <template v-if="authStore.loading">
             <div class="w-4 h-4 border-2 border-slate-100/20 border-t-slate-100 rounded-full animate-spin"></div>
-            <span>VERIFICANDO GOOGLE DRIVE...</span>
+            <span>VERIFICANDO...</span>
           </template>
           <span v-else>INGRESAR AL SISTEMA</span>
         </button>
+      </form>
+
+      <!-- Formulario (visible también cuando Drive no está autorizado, debajo del bloque de Drive) -->
+      <form @submit.prevent="handleLogin" class="space-y-4" v-if="needsDriveAuth">
+        <div class="space-y-1.5">
+          <label class="text-[10px] uppercase font-bold text-slate-400">Correo Electrónico:</label>
+          <div class="relative">
+            <input type="email" v-model="correo" required placeholder="ejemplo@bimeh.com"
+              class="w-full bg-darkBg/60 border border-darkBorder rounded-xl pl-10 pr-4 py-2.5 text-xs text-slate-100 placeholder-slate-500 outline-none focus:border-cyan-500/50 transition-all font-mono"/>
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 absolute left-3.5 top-3.5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.206" />
+            </svg>
+          </div>
+        </div>
+        <div class="space-y-1.5">
+          <label class="text-[10px] uppercase font-bold text-slate-400">Contraseña:</label>
+          <div class="relative">
+            <input type="password" v-model="password" required placeholder="••••••••••••"
+              class="w-full bg-darkBg/60 border border-darkBorder rounded-xl pl-10 pr-4 py-2.5 text-xs text-slate-100 placeholder-slate-500 outline-none focus:border-cyan-500/50 transition-all font-mono"/>
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 absolute left-3.5 top-3.5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+          </div>
+        </div>
       </form>
 
     </div>
@@ -94,23 +144,64 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/authStore'
+import { useAppStore } from '../stores/appStore'
 
 const correo = ref('')
 const password = ref('')
 const errorMessage = ref('')
+const needsDriveAuth = ref(false)
 
 const authStore = useAuthStore()
+const appStore = useAppStore()
 const router = useRouter()
 
 const handleLogin = async () => {
   errorMessage.value = ''
+  needsDriveAuth.value = false
   try {
     const success = await authStore.login(correo.value, password.value)
     if (success) {
-      router.push('/')
+      // Verificar si Drive está autorizado en el servidor
+      try {
+        const driveRes = await fetch(`${appStore.apiBase}/api/auth/drive-status`)
+        const driveData = await driveRes.json()
+        if (driveData.connected) {
+          router.push('/')
+        } else {
+          // Drive no está autorizado — mostrar opciones de OAuth
+          needsDriveAuth.value = true
+        }
+      } catch {
+        // Si no podemos verificar Drive, dejamos pasar al sistema
+        router.push('/')
+      }
     }
   } catch (error: any) {
     errorMessage.value = error.message || 'Error en las credenciales proporcionadas.'
   }
+}
+
+const iniciarOAuth = async () => {
+  try {
+    // El callback apunta a bimeh-api en Render para que Google pueda responder al servidor
+    const callbackUrl = `${appStore.apiBase}/api/sincronizar/oauth/callback`
+    const res = await fetch(`${appStore.apiBase}/api/sincronizar/oauth/url?redirect_uri=${encodeURIComponent(callbackUrl)}`)
+    const data = await res.json()
+    if (data.auth_url) {
+      // Abrir en nueva pestaña para que Google haga el redirect al servidor de Render
+      window.open(data.auth_url, '_blank')
+      // Informar al usuario que vuelva después de autorizar
+      errorMessage.value = ''
+      needsDriveAuth.value = false
+      alert('Se abrió una ventana para autorizar Google Drive. Después de autorizar en el navegador, vuelve a iniciar sesión aquí.')
+    }
+  } catch (err) {
+    errorMessage.value = 'No se pudo iniciar el flujo de autorización. Intenta de nuevo.'
+  }
+}
+
+const continuarSinDrive = () => {
+  needsDriveAuth.value = false
+  router.push('/')
 }
 </script>

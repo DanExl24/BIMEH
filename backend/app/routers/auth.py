@@ -142,3 +142,30 @@ def decode_token(token: str) -> dict:
 @router.get("/me")
 def get_me(current_user: dict = Depends(get_current_user)):
     return current_user
+
+@router.get("/drive-status")
+def drive_status():
+    """Verifica si el token de Google Drive está autorizado y activo en el servidor."""
+    import os
+    from config.auth import TOKEN_PATH
+    from google.oauth2.credentials import Credentials
+    from config.auth import SCOPES
+    from google.auth.transport.requests import Request
+
+    if not os.path.exists(TOKEN_PATH):
+        return {"connected": False, "reason": "no_token"}
+
+    try:
+        creds = Credentials.from_authorized_user_file(TOKEN_PATH, SCOPES)
+        if creds and creds.valid:
+            return {"connected": True}
+        if creds and creds.expired and creds.refresh_token:
+            try:
+                creds.refresh(Request())
+                return {"connected": True}
+            except Exception:
+                return {"connected": False, "reason": "token_expired"}
+        return {"connected": False, "reason": "token_invalid"}
+    except Exception as e:
+        return {"connected": False, "reason": str(e)}
+
