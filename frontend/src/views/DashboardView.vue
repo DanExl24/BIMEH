@@ -119,43 +119,57 @@
         </div>
 
         <!-- Cambios respecto a ayer list -->
-        <div class="glass-panel p-6 rounded-2xl lg:col-span-2 flex flex-col h-[420px]">
-          <div class="flex items-center justify-between mb-4">
-            <h3 class="text-sm font-bold text-slate-200 uppercase tracking-wider flex items-center gap-2">
+        <div class="glass-panel p-4 sm:p-6 rounded-2xl lg:col-span-2 flex flex-col h-[420px] max-w-full overflow-hidden">
+          <div class="flex items-center justify-between gap-2 mb-3">
+            <h3 class="text-xs sm:text-sm font-bold text-slate-200 uppercase tracking-wider flex items-center gap-2">
               <span class="w-2 h-4 bg-purple-500 rounded-sm"></span> Cambios de Estado {{ appStore.selectedDashboardMonth ? `(${appStore.selectedDashboardMonth})` : 'del Año' }}
             </h3>
-            <span class="text-xs bg-purple-500/10 text-purple-400 font-semibold px-2 py-1 rounded-md border border-purple-500/20">
-              {{ kpis?.cambios_vs_ayer }} Cambios detectados
+            <span class="text-[10px] sm:text-xs bg-purple-500/10 text-purple-400 font-semibold px-2 py-0.5 sm:py-1 rounded-md border border-purple-500/20 whitespace-nowrap">
+              {{ kpis?.cambios_vs_ayer }} Cambios
             </span>
           </div>
 
-          <!-- Tabs for changes -->
-          <div class="flex border-b border-darkBorder mb-4">
+          <!-- Tabs for changes (horizontally scrollable on mobile) -->
+          <div class="flex border-b border-darkBorder mb-2 overflow-x-auto no-scrollbar whitespace-nowrap gap-1 pb-0.5 max-w-full">
             <button 
               @click="activeChangeTab = 'entraron'"
-              class="px-4 py-2 text-xs font-semibold uppercase tracking-wider transition-colors border-b-2"
-              :class="activeChangeTab === 'entraron' ? 'border-cyan-500 text-cyan-400' : 'border-transparent text-slate-400 hover:text-slate-200'"
+              class="px-3 sm:px-4 py-2 text-[11px] sm:text-xs font-semibold uppercase tracking-wider transition-colors border-b-2 whitespace-nowrap flex-shrink-0"
+              :class="activeChangeTab === 'entraron' ? 'border-cyan-500 text-cyan-400 font-bold' : 'border-transparent text-slate-400 hover:text-slate-200'"
             >
               Entraron Novedades ({{ cambios?.entraron_novedades.length || 0 }})
             </button>
             <button 
               @click="activeChangeTab = 'volvieron'"
-              class="px-4 py-2 text-xs font-semibold uppercase tracking-wider transition-colors border-b-2"
-              :class="activeChangeTab === 'volvieron' ? 'border-cyan-500 text-cyan-400' : 'border-transparent text-slate-400 hover:text-slate-200'"
+              class="px-3 sm:px-4 py-2 text-[11px] sm:text-xs font-semibold uppercase tracking-wider transition-colors border-b-2 whitespace-nowrap flex-shrink-0"
+              :class="activeChangeTab === 'volvieron' ? 'border-cyan-500 text-cyan-400 font-bold' : 'border-transparent text-slate-400 hover:text-slate-200'"
             >
               Volvieron Disponibles ({{ cambios?.volvieron_disponibles.length || 0 }})
             </button>
             <button 
               @click="activeChangeTab = 'otros'"
-              class="px-4 py-2 text-xs font-semibold uppercase tracking-wider transition-colors border-b-2"
-              :class="activeChangeTab === 'otros' ? 'border-cyan-500 text-cyan-400' : 'border-transparent text-slate-400 hover:text-slate-200'"
+              class="px-3 sm:px-4 py-2 text-[11px] sm:text-xs font-semibold uppercase tracking-wider transition-colors border-b-2 whitespace-nowrap flex-shrink-0"
+              :class="activeChangeTab === 'otros' ? 'border-cyan-500 text-cyan-400 font-bold' : 'border-transparent text-slate-400 hover:text-slate-200'"
             >
               Otros Cambios ({{ cambios?.otros_cambios.length || 0 }})
             </button>
           </div>
 
-          <!-- Changes list container -->
-          <div class="flex-1 overflow-y-auto pr-2">
+          <!-- Mobile Touch Swipe Hint Indicator -->
+          <div class="text-[10px] text-slate-500 italic mb-2 flex items-center justify-between md:hidden px-1">
+            <span>Desliza &larr; &rarr; para cambiar pestaña</span>
+            <div class="flex items-center gap-1">
+              <span class="w-1.5 h-1.5 rounded-full transition-all" :class="activeChangeTab === 'entraron' ? 'bg-cyan-400 w-3' : 'bg-slate-600'"></span>
+              <span class="w-1.5 h-1.5 rounded-full transition-all" :class="activeChangeTab === 'volvieron' ? 'bg-cyan-400 w-3' : 'bg-slate-600'"></span>
+              <span class="w-1.5 h-1.5 rounded-full transition-all" :class="activeChangeTab === 'otros' ? 'bg-cyan-400 w-3' : 'bg-slate-600'"></span>
+            </div>
+          </div>
+
+          <!-- Changes list container with Touch Swipe Support -->
+          <div 
+            @touchstart="handleTouchStart"
+            @touchend="handleTouchEnd"
+            class="flex-1 overflow-y-auto pr-1 space-y-2 max-w-full select-none"
+          >
             <!-- Entraron Novedades -->
             <div v-if="activeChangeTab === 'entraron'" class="space-y-2">
               <div v-if="!cambios?.entraron_novedades.length" class="text-center py-10 text-slate-500 text-sm">
@@ -164,25 +178,25 @@
               <div 
                 v-for="c in cambios?.entraron_novedades" 
                 :key="c.cedula + '-' + c.fecha"
-                class="flex items-center justify-between p-3 rounded-xl bg-darkBg/40 border border-darkBorder/40 hover:border-darkBorder"
+                class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 sm:p-3 rounded-xl bg-darkBg/40 border border-darkBorder/40 hover:border-darkBorder max-w-full overflow-hidden"
               >
-                <div>
-                  <router-link :to="`/personal/${c.cedula}`" class="text-xs font-bold text-slate-200 hover:text-cyan-400 block uppercase">
+                <div class="min-w-0 flex-1">
+                  <router-link :to="`/personal/${c.cedula}`" class="text-xs font-bold text-slate-200 hover:text-cyan-400 block uppercase truncate">
                     {{ c.nombre }}
                   </router-link>
-                  <div class="flex items-center gap-2 mt-0.5">
+                  <div class="flex items-center gap-2 mt-0.5 flex-wrap">
                     <span class="text-[10px] text-slate-500 font-mono">C.C. {{ c.cedula }}</span>
                     <span v-if="c.fecha" class="text-[9px] font-mono font-bold text-cyan-400 bg-cyan-500/10 px-1.5 py-0.5 rounded border border-cyan-500/10">
                       {{ c.fecha }}
                     </span>
                   </div>
                 </div>
-                <div class="flex items-center gap-2 text-xs">
-                  <span class="text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/10 font-medium">
+                <div class="flex items-center gap-1.5 text-[10px] sm:text-xs flex-wrap">
+                  <span class="text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/10 font-medium truncate max-w-[130px] sm:max-w-none">
                     {{ c.novedad_anterior }}
                   </span>
                   <span class="text-slate-500">&rarr;</span>
-                  <span class="text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/10 font-medium">
+                  <span class="text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/10 font-medium truncate max-w-[130px] sm:max-w-none">
                     {{ c.novedad_nueva }}
                   </span>
                 </div>
@@ -197,25 +211,25 @@
               <div 
                 v-for="c in cambios?.volvieron_disponibles" 
                 :key="c.cedula + '-' + c.fecha"
-                class="flex items-center justify-between p-3 rounded-xl bg-darkBg/40 border border-darkBorder/40 hover:border-darkBorder"
+                class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 sm:p-3 rounded-xl bg-darkBg/40 border border-darkBorder/40 hover:border-darkBorder max-w-full overflow-hidden"
               >
-                <div>
-                  <router-link :to="`/personal/${c.cedula}`" class="text-xs font-bold text-slate-200 hover:text-cyan-400 block uppercase">
+                <div class="min-w-0 flex-1">
+                  <router-link :to="`/personal/${c.cedula}`" class="text-xs font-bold text-slate-200 hover:text-cyan-400 block uppercase truncate">
                     {{ c.nombre }}
                   </router-link>
-                  <div class="flex items-center gap-2 mt-0.5">
+                  <div class="flex items-center gap-2 mt-0.5 flex-wrap">
                     <span class="text-[10px] text-slate-500 font-mono">C.C. {{ c.cedula }}</span>
                     <span v-if="c.fecha" class="text-[9px] font-mono font-bold text-cyan-400 bg-cyan-500/10 px-1.5 py-0.5 rounded border border-cyan-500/10">
                       {{ c.fecha }}
                     </span>
                   </div>
                 </div>
-                <div class="flex items-center gap-2 text-xs">
-                  <span class="text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/10 font-medium">
+                <div class="flex items-center gap-1.5 text-[10px] sm:text-xs flex-wrap">
+                  <span class="text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/10 font-medium truncate max-w-[130px] sm:max-w-none">
                     {{ c.novedad_anterior }}
                   </span>
                   <span class="text-slate-500">&rarr;</span>
-                  <span class="text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/10 font-medium">
+                  <span class="text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/10 font-medium truncate max-w-[130px] sm:max-w-none">
                     {{ c.novedad_nueva }}
                   </span>
                 </div>
@@ -230,25 +244,25 @@
               <div 
                 v-for="c in cambios?.otros_cambios" 
                 :key="c.cedula + '-' + c.fecha"
-                class="flex items-center justify-between p-3 rounded-xl bg-darkBg/40 border border-darkBorder/40 hover:border-darkBorder"
+                class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 sm:p-3 rounded-xl bg-darkBg/40 border border-darkBorder/40 hover:border-darkBorder max-w-full overflow-hidden"
               >
-                <div>
-                  <router-link :to="`/personal/${c.cedula}`" class="text-xs font-bold text-slate-200 hover:text-cyan-400 block uppercase">
+                <div class="min-w-0 flex-1">
+                  <router-link :to="`/personal/${c.cedula}`" class="text-xs font-bold text-slate-200 hover:text-cyan-400 block uppercase truncate">
                     {{ c.nombre }}
                   </router-link>
-                  <div class="flex items-center gap-2 mt-0.5">
+                  <div class="flex items-center gap-2 mt-0.5 flex-wrap">
                     <span class="text-[10px] text-slate-500 font-mono">C.C. {{ c.cedula }}</span>
                     <span v-if="c.fecha" class="text-[9px] font-mono font-bold text-cyan-400 bg-cyan-500/10 px-1.5 py-0.5 rounded border border-cyan-500/10">
                       {{ c.fecha }}
                     </span>
                   </div>
                 </div>
-                <div class="flex items-center gap-2 text-xs">
-                  <span class="text-slate-400 bg-slate-500/10 px-2 py-0.5 rounded border border-slate-500/10">
+                <div class="flex items-center gap-1.5 text-[10px] sm:text-xs flex-wrap">
+                  <span class="text-slate-400 bg-slate-500/10 px-2 py-0.5 rounded border border-slate-500/10 truncate max-w-[130px] sm:max-w-none">
                     {{ c.novedad_anterior }}
                   </span>
                   <span class="text-slate-500">&rarr;</span>
-                  <span class="text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded border border-cyan-500/10 font-medium">
+                  <span class="text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded border border-cyan-500/10 font-medium truncate max-w-[130px] sm:max-w-none">
                     {{ c.novedad_nueva }}
                   </span>
                 </div>
@@ -256,6 +270,7 @@
             </div>
           </div>
         </div>
+
       </div>
     </div>
   </div>
@@ -275,6 +290,39 @@ const hasError = ref(false)
 const kpis = ref<KPIData | null>(null)
 const cambios = ref<CambiosResponse | null>(null)
 const activeChangeTab = ref<'entraron' | 'volvieron' | 'otros'>('entraron')
+
+// Touch swipe handling for mobile
+const touchStartX = ref(0)
+const touchEndX = ref(0)
+
+const handleTouchStart = (e: TouchEvent) => {
+  touchStartX.value = e.changedTouches[0].screenX
+}
+
+const handleTouchEnd = (e: TouchEvent) => {
+  touchEndX.value = e.changedTouches[0].screenX
+  handleSwipe()
+}
+
+const handleSwipe = () => {
+  const diff = touchStartX.value - touchEndX.value
+  const threshold = 40 // Minimum swipe distance in px
+  const tabs: ('entraron' | 'volvieron' | 'otros')[] = ['entraron', 'volvieron', 'otros']
+  const currentIndex = tabs.indexOf(activeChangeTab.value)
+
+  if (diff > threshold) {
+    // Swiped Left -> Go to Next Tab
+    if (currentIndex < tabs.length - 1) {
+      activeChangeTab.value = tabs[currentIndex + 1]
+    }
+  } else if (diff < -threshold) {
+    // Swiped Right -> Go to Previous Tab
+    if (currentIndex > 0) {
+      activeChangeTab.value = tabs[currentIndex - 1]
+    }
+  }
+}
+
 
 // Chart DOM elements
 const evolutionChartDom = ref<HTMLDivElement | null>(null)
