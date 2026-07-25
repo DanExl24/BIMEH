@@ -9,10 +9,13 @@
     "build": "npx vite build",
     "preview": "vite preview",
     "electron:dev": "electron electron/main.js",
-    "electron:build": "npm run build && npx electron-builder"
-
+    "electron:build": "npm run build && npx electron-builder",
+    "mobile:sync": "npm run build && npx cap sync",
+    "mobile:open": "npx cap open android"
   },
   "dependencies": {
+    "@capacitor/android": "^8.4.2",
+    "@capacitor/core": "^8.4.2",
     "@lucide/vue": "^1.23.0",
     "echarts": "^6.1.0",
     "lucide-vue-next": "^1.0.0",
@@ -21,6 +24,7 @@
     "vue-router": "^4.6.4"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.4.2",
     "@tailwindcss/postcss": "^4.3.2",
     "@types/node": "^24.13.2",
     "@vitejs/plugin-vue": "^6.0.7",

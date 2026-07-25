@@ -12,6 +12,11 @@ dist-desktop
 dist-ssr
 *.local
 
+# Capacitor Android build outputs
+android/.gradle
+android/app/build
+android/build
+
 # Binaries, Packages & Installers
 *.apk
 *.aab
