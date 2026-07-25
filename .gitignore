@@ -7,6 +7,8 @@ processing_report.json
 token.json
 **/token.json
 credentials.json
+redeploy.ps1
+
 
 # Dependencies & Build Outputs
 node_modules/
