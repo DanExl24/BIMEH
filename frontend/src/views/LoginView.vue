@@ -159,6 +159,12 @@ const iniciarOAuth = async () => {
   try {
     const callbackUrl = `${appStore.apiBase}/api/sincronizar/oauth/callback`
     const res = await fetch(`${appStore.apiBase}/api/sincronizar/oauth/url?redirect_uri=${encodeURIComponent(callbackUrl)}`)
+    
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}))
+      throw new Error(errData.detail || `Error en el servidor (${res.status})`)
+    }
+
     const data = await res.json()
     if (data.auth_url) {
       // En Electron: usar shell.openExternal para abrir en el navegador del sistema (Edge/Chrome)
@@ -171,9 +177,12 @@ const iniciarOAuth = async () => {
       }
       needsDriveAuth.value = false
       alert('Se abrió una ventana en tu navegador para autorizar Google Drive. Después de autorizar, vuelve a iniciar sesión aquí.')
+    } else {
+      throw new Error('El servidor no retornó una URL de autorización válida.')
     }
-  } catch {
-    errorMessage.value = 'No se pudo iniciar el flujo de autorización. Intenta de nuevo.'
+  } catch (err: any) {
+    console.error('Error al iniciar OAuth:', err)
+    errorMessage.value = err.message || 'No se pudo iniciar el flujo de autorización. Intenta de nuevo.'
   }
 }
 
