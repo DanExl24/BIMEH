@@ -32,48 +32,48 @@
     <div v-else class="space-y-6">
 
       <!-- 1. KPIs Section -->
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 sm:gap-6">
         <!-- Tarjeta Fecha -->
-        <div class="glass-panel p-5 rounded-2xl flex flex-col justify-between">
-          <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">📅 Fecha Reporte</span>
+        <div class="glass-panel p-4 sm:p-5 rounded-2xl flex flex-col justify-between">
+          <span class="text-[11px] sm:text-xs font-semibold text-slate-400 uppercase tracking-wider">📅 Fecha Reporte</span>
           <div class="mt-2">
-            <span class="text-2xl font-bold font-mono text-cyan-400">{{ kpis?.fecha }}</span>
+            <span class="text-xl sm:text-2xl font-bold font-mono text-cyan-400">{{ kpis?.fecha }}</span>
           </div>
           <span class="text-[10px] text-slate-500 mt-2 block">Día de operaciones</span>
         </div>
 
         <!-- Tarjeta Personal Registrado -->
-        <div class="glass-panel p-5 rounded-2xl flex flex-col justify-between">
-          <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">👥 Personal Registrado</span>
+        <div class="glass-panel p-4 sm:p-5 rounded-2xl flex flex-col justify-between">
+          <span class="text-[11px] sm:text-xs font-semibold text-slate-400 uppercase tracking-wider">👥 Personal Registrado</span>
           <div class="mt-2">
-            <span class="text-3xl font-extrabold text-slate-100">{{ kpis?.total_personal }}</span>
+            <span class="text-2xl sm:text-3xl font-extrabold text-slate-100">{{ kpis?.total_personal }}</span>
           </div>
           <span class="text-[10px] text-slate-500 mt-2 block">Total en reportes</span>
         </div>
 
         <!-- Tarjeta Disponibles -->
-        <div class="glass-panel p-5 rounded-2xl flex flex-col justify-between">
-          <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">✅ Disponibles</span>
+        <div class="glass-panel p-4 sm:p-5 rounded-2xl flex flex-col justify-between">
+          <span class="text-[11px] sm:text-xs font-semibold text-slate-400 uppercase tracking-wider">✅ Disponibles</span>
           <div class="mt-2">
-            <span class="text-3xl font-extrabold text-emerald-400">{{ kpis?.disponibles }}</span>
+            <span class="text-2xl sm:text-3xl font-extrabold text-emerald-400">{{ kpis?.disponibles }}</span>
           </div>
           <span class="text-[10px] text-emerald-400/80 mt-2 block">En servicio activo</span>
         </div>
 
         <!-- Tarjeta En Novedades -->
-        <div class="glass-panel p-5 rounded-2xl flex flex-col justify-between">
-          <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">🏥 En Novedades</span>
+        <div class="glass-panel p-4 sm:p-5 rounded-2xl flex flex-col justify-between">
+          <span class="text-[11px] sm:text-xs font-semibold text-slate-400 uppercase tracking-wider">🏥 En Novedades</span>
           <div class="mt-2">
-            <span class="text-3xl font-extrabold text-amber-500">{{ kpis?.novedades }}</span>
+            <span class="text-2xl sm:text-3xl font-extrabold text-amber-500">{{ kpis?.novedades }}</span>
           </div>
           <span class="text-[10px] text-amber-500/80 mt-2 block">Fuera de disponibilidad</span>
         </div>
 
         <!-- Tarjeta Disponibilidad % -->
-        <div class="glass-panel p-5 rounded-2xl flex flex-col justify-between">
-          <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">📈 Disponibilidad</span>
+        <div class="glass-panel p-4 sm:p-5 rounded-2xl flex flex-col justify-between">
+          <span class="text-[11px] sm:text-xs font-semibold text-slate-400 uppercase tracking-wider">📈 Disponibilidad</span>
           <div class="mt-2">
-            <span class="text-3xl font-extrabold text-cyan-400">{{ kpis?.disponibilidad }}%</span>
+            <span class="text-2xl sm:text-3xl font-extrabold text-cyan-400">{{ kpis?.disponibilidad }}%</span>
           </div>
           <!-- Bar indicator -->
           <div class="w-full bg-darkBg/60 rounded-full h-1.5 mt-2 overflow-hidden">
@@ -83,10 +83,10 @@
       </div>
 
       <!-- 2. Charts Section -->
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
         <!-- Evolución diaria Line Chart -->
-        <div class="glass-panel p-6 rounded-2xl lg:col-span-2 flex flex-col h-[400px]">
-          <h3 class="text-sm font-bold text-slate-200 mb-4 uppercase tracking-wider flex items-center gap-2">
+        <div class="glass-panel p-4 sm:p-6 rounded-2xl lg:col-span-2 flex flex-col h-[320px] sm:h-[400px]">
+          <h3 class="text-xs sm:text-sm font-bold text-slate-200 mb-3 uppercase tracking-wider flex items-center gap-2">
             <span class="w-2 h-4 bg-cyan-500 rounded-sm"></span> Evolución de Disponibilidad Diaria {{ appStore.selectedDashboardMonth ? `(${appStore.selectedDashboardMonth})` : '(Anual)' }}
           </h3>
           <div class="flex-1 min-h-0">
@@ -95,8 +95,8 @@
         </div>
 
         <!-- Novedades más frecuentes Bar Chart -->
-        <div class="glass-panel p-6 rounded-2xl flex flex-col h-[400px]">
-          <h3 class="text-sm font-bold text-slate-200 mb-4 uppercase tracking-wider flex items-center gap-2">
+        <div class="glass-panel p-4 sm:p-6 rounded-2xl flex flex-col h-[320px] sm:h-[400px]">
+          <h3 class="text-xs sm:text-sm font-bold text-slate-200 mb-3 uppercase tracking-wider flex items-center gap-2">
             <span class="w-2 h-4 bg-amber-500 rounded-sm"></span> Novedades más Frecuentes {{ appStore.selectedDashboardMonth ? `(${appStore.selectedDashboardMonth})` : '(Anual)' }}
           </h3>
           <div class="flex-1 min-h-0">
@@ -106,12 +106,13 @@
       </div>
 
       <!-- 3. Lower Section: Distribution and Changes -->
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
         <!-- Personal por estado horizontal bars -->
-        <div class="glass-panel p-6 rounded-2xl flex flex-col h-[420px]">
-          <h3 class="text-sm font-bold text-slate-200 mb-4 uppercase tracking-wider flex items-center gap-2">
+        <div class="glass-panel p-4 sm:p-6 rounded-2xl flex flex-col h-[340px] sm:h-[420px]">
+          <h3 class="text-xs sm:text-sm font-bold text-slate-200 mb-3 uppercase tracking-wider flex items-center gap-2">
             <span class="w-2 h-4 bg-teal-500 rounded-sm"></span> Distribución del Personal por Estado
           </h3>
+
           <div class="flex-1 min-h-0">
             <div ref="distribucionChartDom" class="chart-container"></div>
           </div>

@@ -1,13 +1,15 @@
 <script setup lang="ts">
-import { onMounted, computed } from 'vue'
+import { onMounted, computed, ref } from 'vue'
 import Sidebar from './components/layout/Sidebar.vue'
+import { Menu } from '@lucide/vue'
 
 import { useAppStore } from './stores/appStore'
 import { useAuthStore } from './stores/authStore'
 
-
 const appStore = useAppStore()
 const authStore = useAuthStore()
+
+const isMobileMenuOpen = ref(false)
 
 const MONTH_NUMBER_MAP: Record<string, string> = {
   'ENERO': '01', 'FEBRERO': '02', 'MARZO': '03', 'ABRIL': '04',
@@ -58,7 +60,6 @@ onMounted(async () => {
   if (authStore.isAuthenticated) {
     const isValid = await authStore.checkMe()
     if (isValid) {
-      // Auto-sync current month in background on app load
       const currentMonthIndex = new Date().getMonth()
       const monthNames = ['ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO', 'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE']
       const currentMonthName = monthNames[currentMonthIndex]
@@ -75,20 +76,46 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-darkBg text-slate-100 flex">
+  <div class="min-h-screen bg-darkBg text-slate-100 flex flex-col md:flex-row overflow-x-hidden">
+    <!-- Mobile Top Navigation Header -->
+    <header 
+      v-if="$route.name !== 'login'"
+      class="md:hidden fixed top-0 left-0 right-0 h-14 bg-darkCard/95 border-b border-darkBorder z-30 flex items-center justify-between px-4 backdrop-blur-md"
+    >
+      <div class="flex items-center gap-3">
+        <button 
+          @click="isMobileMenuOpen = true"
+          class="p-2 text-slate-300 hover:text-slate-100 rounded-lg hover:bg-darkBorder/40 transition-colors"
+          aria-label="Abrir menú"
+        >
+          <Menu class="w-6 h-6 text-cyan-400" />
+        </button>
+        <div class="flex items-center gap-2">
+          <div class="w-6 h-6 bg-cyan-500 rounded-md flex items-center justify-center text-darkBg text-xs font-bold shadow-md shadow-cyan-500/20">
+            B
+          </div>
+          <span class="font-bold tracking-wider text-sm text-slate-100 uppercase">BIMEJ 12</span>
+        </div>
+      </div>
+    </header>
+
     <!-- Navigation Sidebar -->
-    <Sidebar v-if="$route.name !== 'login'" />
+    <Sidebar 
+      v-if="$route.name !== 'login'" 
+      :isOpen="isMobileMenuOpen" 
+      @close="isMobileMenuOpen = false" 
+    />
 
     <!-- Main Content Area -->
     <main 
-      class="flex-1 min-h-screen flex flex-col"
-      :class="$route.name !== 'login' ? 'ml-64 p-8' : ''"
+      class="flex-1 min-h-screen flex flex-col w-full max-w-full transition-all duration-300"
+      :class="$route.name !== 'login' ? 'ml-0 md:ml-64 p-4 md:p-8 pt-18 md:pt-8' : ''"
     >
       <!-- Top header layout -->
-      <header v-if="$route.name !== 'login'" class="flex items-center justify-between mb-8 border-b border-darkBorder/40 pb-4">
+      <header v-if="$route.name !== 'login'" class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 md:mb-8 border-b border-darkBorder/40 pb-4">
         <div>
-          <h2 class="text-xs text-slate-400 font-semibold uppercase tracking-widest">Unidad Militar BIMEJ 12</h2>
-          <h1 class="text-xl font-bold tracking-tight text-slate-100">
+          <h2 class="text-[10px] sm:text-xs text-slate-400 font-semibold uppercase tracking-widest">Unidad Militar BIMEJ 12</h2>
+          <h1 class="text-lg sm:text-xl font-bold tracking-tight text-slate-100">
             {{ $route.name === 'dashboard' ? 'Módulo de Dashboard Operacional' : 
                $route.name === 'personal' ? 'Buscador y Perfiles de Personal' :
                $route.name === 'personal-detalle' ? 'Detalle Histórico de Integrante' :
@@ -98,36 +125,36 @@ onMounted(async () => {
         </div>
 
         <!-- Global controls for selecting date/month -->
-        <div class="flex items-center gap-4">
+        <div class="flex flex-wrap items-center gap-3">
           <!-- Show Month picker only on Cronologia or Estadisticas -->
-          <div v-if="$route.name === 'cronologia' || $route.name === 'estadisticas'" class="flex items-center gap-2">
-            <span class="text-xs text-slate-400 font-medium">Mes:</span>
+          <div v-if="$route.name === 'cronologia' || $route.name === 'estadisticas'" class="flex items-center gap-2 w-full sm:w-auto">
+            <span class="text-xs text-slate-400 font-medium whitespace-nowrap">Mes:</span>
             <select 
               v-model="appStore.selectedMonth"
-              class="bg-darkCard border border-darkBorder rounded-lg px-3 py-1.5 text-sm text-slate-200 outline-none focus:border-cyan-500/50"
+              class="w-full sm:w-auto bg-darkCard border border-darkBorder rounded-lg px-3 py-1.5 text-sm text-slate-200 outline-none focus:border-cyan-500/50"
             >
               <option v-for="m in appStore.months" :key="m" :value="m">{{ m }}</option>
             </select>
           </div>
 
           <!-- Show Month and Day pickers on Dashboard -->
-          <div v-if="$route.name === 'dashboard'" class="flex items-center gap-3">
-            <div class="flex items-center gap-2">
-              <span class="text-xs text-slate-400 font-medium">Mes:</span>
+          <div v-if="$route.name === 'dashboard'" class="flex flex-wrap sm:flex-nowrap items-center gap-3 w-full sm:w-auto">
+            <div class="flex items-center gap-2 flex-1 sm:flex-none">
+              <span class="text-xs text-slate-400 font-medium whitespace-nowrap">Mes:</span>
               <select 
                 v-model="appStore.selectedDashboardMonth"
-                class="bg-darkCard border border-darkBorder rounded-lg px-3 py-1.5 text-sm text-slate-200 outline-none focus:border-cyan-500/50"
+                class="w-full bg-darkCard border border-darkBorder rounded-lg px-3 py-1.5 text-sm text-slate-200 outline-none focus:border-cyan-500/50"
               >
                 <option value="">Todos los Meses</option>
                 <option v-for="m in appStore.months" :key="m" :value="m">{{ m }}</option>
               </select>
             </div>
             
-            <div class="flex items-center gap-2">
-              <span class="text-xs text-slate-400 font-medium">Día:</span>
+            <div class="flex items-center gap-2 flex-1 sm:flex-none">
+              <span class="text-xs text-slate-400 font-medium whitespace-nowrap">Día:</span>
               <select 
                 v-model="appStore.selectedDashboardDay"
-                class="bg-darkCard border border-darkBorder rounded-lg px-3 py-1.5 text-sm text-slate-200 outline-none focus:border-cyan-500/50"
+                class="w-full bg-darkCard border border-darkBorder rounded-lg px-3 py-1.5 text-sm text-slate-200 outline-none focus:border-cyan-500/50"
               >
                 <option value="">Todos los Días</option>
                 <option 
@@ -143,6 +170,7 @@ onMounted(async () => {
           </div>
         </div>
       </header>
+
 
       <!-- View Wrapper -->
       <div class="flex-1 flex flex-col">
