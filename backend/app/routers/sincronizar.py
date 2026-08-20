@@ -664,11 +664,13 @@ def sincronizar_desde_drive(
             db_write.close()
             print("Conexión dedicada cerrada exitosamente.")
 
+        from config.config import SYNC_STATUS_AUTO_DISMISS_SECONDS
         return {
             "status": "success",
             "message": "Sincronización con Google Drive completada exitosamente. Se actualizaron los datos en la nube.",
             "errors": errors,
-            "logs": sync_log
+            "logs": sync_log,
+            "auto_dismiss_seconds": SYNC_STATUS_AUTO_DISMISS_SECONDS
         }
     except Exception as e:
         import traceback

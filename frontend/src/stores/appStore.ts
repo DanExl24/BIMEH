@@ -142,7 +142,9 @@ export const useAppStore = defineStore('app', () => {
     syncStatus.value = 'idle'
   }
 
-  const autoDismissSyncStatus = (delayMs = 5000) => {
+  const DEFAULT_AUTO_DISMISS_MS = 20000 // 20 segundos para revisar los logs
+
+  const autoDismissSyncStatus = (delayMs = DEFAULT_AUTO_DISMISS_MS) => {
     if (dismissTimeout) clearTimeout(dismissTimeout)
     dismissTimeout = setTimeout(() => {
       syncStatus.value = 'idle'
@@ -194,7 +196,7 @@ export const useAppStore = defineStore('app', () => {
         window.location.hash = '/login'
         syncStatus.value = 'error'
         syncMessage.value = 'Sesión expirada. Redirigiendo...'
-        autoDismissSyncStatus(4000)
+        autoDismissSyncStatus(DEFAULT_AUTO_DISMISS_MS)
         return
       }
 
@@ -207,6 +209,8 @@ export const useAppStore = defineStore('app', () => {
 
       const data = await res.json()
 
+      const dismissMs = data.auto_dismiss_seconds ? (data.auto_dismiss_seconds * 1000) : DEFAULT_AUTO_DISMISS_MS
+
       if (res.ok && data.status === 'success') {
         syncStatus.value = 'success'
         syncErrors.value = data.errors || []
@@ -217,17 +221,17 @@ export const useAppStore = defineStore('app', () => {
           syncMessage.value = data.message || 'Sincronización completada con éxito.'
         }
         await fetchAvailableDates()
-        autoDismissSyncStatus(5000)
+        autoDismissSyncStatus(dismissMs)
       } else {
         syncStatus.value = 'error'
         syncMessage.value = data.detail || 'Ocurrió un error al sincronizar con Google Drive.'
-        autoDismissSyncStatus(6000)
+        autoDismissSyncStatus(dismissMs)
       }
     } catch (error) {
       console.error('Error in background drive sync:', error)
       syncStatus.value = 'error'
       syncMessage.value = 'Error de conexión con el servidor.'
-      autoDismissSyncStatus(6000)
+      autoDismissSyncStatus(DEFAULT_AUTO_DISMISS_MS)
     } finally {
       isSyncingDrive.value = false
       if (syncTimer.value) {
