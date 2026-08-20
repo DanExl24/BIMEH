@@ -20,7 +20,10 @@ services:
       - DB_NAME=${DB_NAME:-bimeh}
       - DB_USER=${DB_USER:-postgres}
       - DB_PASSWORD=${DB_PASSWORD:-postgres}
-      - ALLOW_ORIGINS=${ALLOW_ORIGINS:-http://localhost:5173,http://localhost:80}
+      - ALLOW_ORIGINS=${ALLOW_ORIGINS:-https://bimeh.adsoproject.dev,https://api-bimeh.adsoproject.dev,http://localhost:5173,http://localhost:80}
+      - GOOGLE_CREDENTIALS_JSON=${GOOGLE_CREDENTIALS_JSON:-}
+    volumes:
+      - ./backend/config:/app/config
     depends_on:
       postgres:
         condition: service_healthy
