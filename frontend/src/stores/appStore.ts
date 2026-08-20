@@ -27,6 +27,9 @@ export const useAppStore = defineStore('app', () => {
   const MONTH_NAME_TO_NUMBER: Record<string, string> = {
     'ENERO': '01', 'FEBRERO': '02', 'MARZO': '03', 'ABRIL': '04',
     'MAYO': '05', 'JUNIO': '06', 'JULIO': '07', 'AGOSTO': '08',
+    'SEPTIEMBRE': '09', 'OCTUBRE': '10', 'NOVIEMBRE': '11', 'DICIEMBRE': '12'
+  }
+
   // Lista de todos los meses con su estado de disponibilidad en la base de datos
   const monthsWithAvailability = computed(() => {
     const loadedMonthNumbers = new Set<string>()
