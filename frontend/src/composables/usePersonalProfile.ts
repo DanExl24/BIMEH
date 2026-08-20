@@ -1,7 +1,8 @@
 import { ref, computed } from 'vue'
 import { fetchPersonalDetalle, fetchPersonalHistorial } from '../services/api'
 import type { PersonalDetalle, HistorialRegistro } from '../types'
-import { MONTHS_LIST } from '../utils/date'
+import { useDateStore } from '../stores/dateStore'
+
 
 export function usePersonalProfile() {
   const loading = ref(true)
@@ -24,19 +25,12 @@ export function usePersonalProfile() {
     }
   }
 
+  const dateStore = useDateStore()
+
   const activeMonths = computed<string[]>(() => {
-    if (!profile.value || !profile.value.fecha_retiro) {
-      return [...MONTHS_LIST]
-    }
-    try {
-      const parts = profile.value.fecha_retiro.split('-')
-      const retirementMonthNum = parseInt(parts[1], 10)
-      return MONTHS_LIST.slice(0, retirementMonthNum)
-    } catch (e) {
-      console.error('Error calculando meses activos:', e)
-      return [...MONTHS_LIST]
-    }
+    return dateStore.getPersonnelActiveMonths(historial.value)
   })
+
 
   const currentYear = computed(() => {
     if (profile.value && profile.value.primer_registro_fecha) {

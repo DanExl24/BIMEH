@@ -110,11 +110,26 @@ const detalladoFilteredDates = computed(() => {
   return filtered.length > 0 ? filtered : props.sortedDates
 })
 
+watch(() => props.activeMonths, (newMonths) => {
+  if (newMonths && newMonths.length > 0) {
+    if (!newMonths.includes(detalladoSelectedMonth.value)) {
+      detalladoSelectedMonth.value = newMonths[newMonths.length - 1]
+    }
+  }
+}, { immediate: true })
+
+watch(() => props.defaultMonth, (newMonth) => {
+  if (newMonth && props.activeMonths.includes(newMonth)) {
+    detalladoSelectedMonth.value = newMonth
+  }
+})
+
 watch(detalladoFilteredDates, (newDates) => {
   if (newDates.length > 0) detalladoSelectedDate.value = newDates[0]
 }, { immediate: true })
 
 const detalladoLabel = computed(() => {
+
   if (detalladoScope.value === 'ANUAL') return 'ANUAL'
   if (detalladoScope.value === 'MES') return detalladoSelectedMonth.value
   return formatDate(detalladoSelectedDate.value)

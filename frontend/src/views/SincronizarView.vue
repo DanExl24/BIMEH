@@ -197,6 +197,7 @@ import {
   AlertCircle 
 } from 'lucide-vue-next'
 import { useAppStore } from '../stores/appStore'
+import { useDateStore } from '../stores/dateStore'
 import { useMultiDaySelection } from '../composables/useMultiDaySelection'
 import { useLocalFileUpload } from '../composables/useLocalFileUpload'
 import { generateSyncLogText } from '../utils/logFormatter'
@@ -209,11 +210,13 @@ import SyncConflictAlert from '../components/sincronizar/SyncConflictAlert.vue'
 import SyncDriveProgress from '../components/sincronizar/SyncDriveProgress.vue'
 
 const appStore = useAppStore()
+const dateStore = useDateStore()
+
 
 // State variables
 const source = ref<'local' | 'drive'>('local')
 const mode = ref<'dias' | 'mes'>('dias')
-const mes = ref('MAYO')
+const mes = ref(dateStore.selectedMonth || dateStore.latestMonth || 'MAYO')
 const overwrite = ref(false)
 
 // Multi-day calendar composable
@@ -225,7 +228,8 @@ const {
   toggleDay,
   selectAllDays,
   clearAllDays
-} = useMultiDaySelection('JULIO')
+} = useMultiDaySelection()
+
 
 // Local file upload composable
 const {

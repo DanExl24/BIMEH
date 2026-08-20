@@ -7,8 +7,41 @@ export function usePersonalTimelineFilters(historial: Ref<HistorialRegistro[]>) 
   const filtroDia = ref('')
   const filtroSubnovedad = ref('')
 
-  const diasDelMes = computed(() => getMonthDaysArray(filtroMes.value))
+  // Meses únicos presentes en el historial del integrante
+  const mesesDisponibles = computed(() => {
+    const map = new Map<string, string>()
+    historial.value.forEach(h => {
+      if (h.fecha) {
+        const parts = h.fecha.split('-')
+        if (parts.length === 3) {
+          const num = parts[1]
+          const name = MONTH_SPANISH_NAMES[num] || `Mes ${num}`
+          map.set(num, name)
+        }
+      }
+    })
+    return Array.from(map.entries())
+      .map(([num, name]) => ({ num, name }))
+      .sort((a, b) => a.num.localeCompare(b.num))
+  })
 
+  // Días únicos presentes en el historial para el mes seleccionado
+  const diasDelMes = computed(() => {
+    const daySet = new Set<string>()
+    historial.value.forEach(h => {
+      if (h.fecha) {
+        const parts = h.fecha.split('-')
+        if (parts.length === 3) {
+          if (!filtroMes.value || parts[1] === filtroMes.value) {
+            daySet.add(parts[2])
+          }
+        }
+      }
+    })
+    return Array.from(daySet).sort((a, b) => a.localeCompare(b))
+  })
+
+  // Subnovedades presentes en el historial
   const subnovedadesList = computed(() => {
     const set = new Set<string>()
     historial.value.forEach(h => {
@@ -20,6 +53,7 @@ export function usePersonalTimelineFilters(historial: Ref<HistorialRegistro[]>) 
   })
 
   const filteredHistorial = computed(() => {
+
     return historial.value.filter(h => {
       const parts = h.fecha.split('-')
       const month = parts[1]
@@ -51,9 +85,11 @@ export function usePersonalTimelineFilters(historial: Ref<HistorialRegistro[]>) 
     filtroMes,
     filtroDia,
     filtroSubnovedad,
+    mesesDisponibles,
     diasDelMes,
     subnovedadesList,
     filteredHistorial,
     filterSubtitle
   }
 }
+

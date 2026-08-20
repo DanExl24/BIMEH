@@ -77,8 +77,9 @@
             class="w-full bg-darkBg border border-darkBorder rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-100 outline-none focus:border-cyan-500/60 cursor-pointer shadow-sm"
           >
             <option value="">Todos los Meses (Consolidado Anual)</option>
-            <option v-for="m in availableMonths" :key="m" :value="m">{{ m }}</option>
+            <option v-for="m in effectiveAvailableMonths" :key="m" :value="m">{{ m }}</option>
           </select>
+
         </div>
 
         <!-- Modo selector (solo para consolidado_mensual) -->
@@ -142,7 +143,7 @@ import {
   FileCode, 
   FileText 
 } from 'lucide-vue-next'
-import { useAppStore } from '../../stores/appStore'
+import { useDateStore } from '../../stores/dateStore'
 
 const props = withDefaults(
   defineProps<{
@@ -157,7 +158,7 @@ const props = withDefaults(
   {
     title: 'Generar Reporte Oficial',
     defaultReportType: 'personal',
-    defaultMonth: 'JULIO',
+    defaultMonth: '',
     availableMonths: () => [],
     subnovedades: () => []
   }
@@ -168,12 +169,20 @@ defineEmits<{
 }>()
 
 const appStore = useAppStore()
+const dateStore = useDateStore()
 
 const format = ref<'excel' | 'csv' | 'pdf'>('excel')
 const reportType = ref<'personal' | 'consolidado_mensual' | 'agil'>(props.defaultReportType)
-const selectedMonth = ref(props.defaultMonth)
+const selectedMonth = ref(props.defaultMonth || dateStore.selectedMonth || dateStore.latestMonth || '')
 const selectedSubnovedad = ref('')
 const mode = ref<'letras' | 'detalle'>('letras')
+
+const effectiveAvailableMonths = computed(() => {
+  if (props.availableMonths && props.availableMonths.length > 0) {
+    return props.availableMonths
+  }
+  return dateStore.availableMonths
+})
 
 watch(
   () => props.defaultReportType,
@@ -188,6 +197,17 @@ watch(
     if (newMonth) selectedMonth.value = newMonth
   }
 )
+
+watch(
+  effectiveAvailableMonths,
+  (newMonths) => {
+    if (newMonths && newMonths.length > 0 && selectedMonth.value && !newMonths.includes(selectedMonth.value)) {
+      selectedMonth.value = newMonths[newMonths.length - 1]
+    }
+  },
+  { immediate: true }
+)
+
 
 const downloadUrl = computed(() => {
   const cedulaParam = props.cedula ? `&cedula=${props.cedula}` : ''

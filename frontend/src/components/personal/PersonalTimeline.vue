@@ -24,19 +24,9 @@
           class="bg-darkBg border border-darkBorder rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-200 outline-none focus:border-cyan-500/60 cursor-pointer shadow-sm flex-1 sm:flex-none"
         >
           <option value="">Todos los Meses</option>
-          <option value="01">Enero</option>
-          <option value="02">Febrero</option>
-          <option value="03">Marzo</option>
-          <option value="04">Abril</option>
-          <option value="05">Mayo</option>
-          <option value="06">Junio</option>
-          <option value="07">Julio</option>
-          <option value="08">Agosto</option>
-          <option value="09">Septiembre</option>
-          <option value="10">Octubre</option>
-          <option value="11">Noviembre</option>
-          <option value="12">Diciembre</option>
+          <option v-for="m in mesesDisponibles" :key="m.num" :value="m.num">{{ m.name }}</option>
         </select>
+
         <select 
           :value="filtroDia"
           @change="$emit('update:filtroDia', ($event.target as HTMLSelectElement).value)"
@@ -96,10 +86,12 @@ defineProps<{
   filtroMes: string
   filtroDia: string
   filtroSubnovedad: string
+  mesesDisponibles: Array<{ num: string; name: string }>
   subnovedadesList: string[]
   diasDelMes: string[]
   filteredHistorial: HistorialRegistro[]
 }>()
+
 
 
 defineEmits<{

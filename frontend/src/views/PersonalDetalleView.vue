@@ -43,11 +43,13 @@
           v-model:filtro-mes="filtroMes"
           v-model:filtro-dia="filtroDia"
           v-model:filtro-subnovedad="filtroSubnovedad"
+          :meses-disponibles="mesesDisponibles"
           :subnovedades-list="subnovedadesList"
           :dias-del-mes="diasDelMes"
           :filtered-historial="filteredHistorial"
         />
       </div>
+
 
       <!-- 4. Individual Heatmap and Daily Detail Card -->
       <PersonalHeatmapMatrix 
@@ -97,11 +99,13 @@ const {
   filtroMes,
   filtroDia,
   filtroSubnovedad,
+  mesesDisponibles,
   diasDelMes,
   subnovedadesList,
   filteredHistorial,
   filterSubtitle
 } = usePersonalTimelineFilters(historial)
+
 
 // Modal de exportación
 const openExportModal = ref(false)

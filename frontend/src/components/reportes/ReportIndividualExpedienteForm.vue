@@ -109,11 +109,26 @@ const agilFilteredDates = computed(() => {
   return filtered.length > 0 ? filtered : props.sortedDates
 })
 
+watch(() => props.activeMonths, (newMonths) => {
+  if (newMonths && newMonths.length > 0) {
+    if (!newMonths.includes(agilSelectedMonth.value)) {
+      agilSelectedMonth.value = newMonths[newMonths.length - 1]
+    }
+  }
+}, { immediate: true })
+
+watch(() => props.defaultMonth, (newMonth) => {
+  if (newMonth && props.activeMonths.includes(newMonth)) {
+    agilSelectedMonth.value = newMonth
+  }
+})
+
 watch(agilFilteredDates, (newDates) => {
   if (newDates.length > 0) agilSelectedDate.value = newDates[0]
 }, { immediate: true })
 
 const agilLabel = computed(() => {
+
   if (agilMode.value === 'ANUAL') return 'ANUAL COMPLETO'
   if (agilMode.value === 'MES') return agilSelectedMonth.value
   return formatDate(agilSelectedDate.value)

@@ -124,11 +124,26 @@ const heatmapFilteredDates = computed(() => {
   return filtered.length > 0 ? filtered : props.sortedDates
 })
 
+watch(() => props.activeMonths, (newMonths) => {
+  if (newMonths && newMonths.length > 0) {
+    if (!newMonths.includes(heatmapSelectedMonth.value)) {
+      heatmapSelectedMonth.value = newMonths[newMonths.length - 1]
+    }
+  }
+}, { immediate: true })
+
+watch(() => props.defaultMonth, (newMonth) => {
+  if (newMonth && props.activeMonths.includes(newMonth)) {
+    heatmapSelectedMonth.value = newMonth
+  }
+})
+
 watch(heatmapFilteredDates, (newDates) => {
   if (newDates.length > 0) heatmapSelectedDate.value = newDates[0]
 }, { immediate: true })
 
 const heatmapLabel = computed(() => {
+
   if (heatmapScope.value === 'ANUAL') return 'ANUAL'
   if (heatmapScope.value === 'MES') return heatmapSelectedMonth.value
   return formatDate(heatmapSelectedDate.value)

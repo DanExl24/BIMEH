@@ -1,14 +1,17 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import { useAppStore } from '../stores/appStore'
+import { useDateStore } from '../stores/dateStore'
 import { fetchCalendario, fetchReporteDia, fetchStatsHeatmap } from '../services/api'
 import type { CalendarioItem, PersonalDia, HeatmapResponse } from '../types'
 
 export function useCronologiaData() {
   const appStore = useAppStore()
+  const dateStore = useDateStore()
 
   // Control de sub-vistas y fechas
   const activeSubView = ref<'reporte' | 'heatmap'>('reporte')
-  const activeDate = ref('2026-07-05')
+  const activeDate = ref<string>(dateStore.latestDate || dateStore.selectedDate || '')
+
 
   // Filtros de búsqueda
   const dailySearch = ref('')

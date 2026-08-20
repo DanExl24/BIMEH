@@ -1,9 +1,13 @@
 import { ref, computed } from 'vue'
 import { MONTH_TO_NUMBER, getDaysInMonth } from '../utils/date'
+import { useDateStore } from '../stores/dateStore'
 
-export function useMultiDaySelection(defaultMonth: string = 'JULIO') {
-  const multiDayMonth = ref(defaultMonth)
+export function useMultiDaySelection(defaultMonth?: string) {
+  const dateStore = useDateStore()
+  const initialMonth = defaultMonth || dateStore.selectedMonth || dateStore.latestMonth || 'MAYO'
+  const multiDayMonth = ref(initialMonth)
   const selectedDates = ref<string[]>([])
+
 
   // Días del calendario para el mes seleccionado
   const calendarDays = computed(() => {

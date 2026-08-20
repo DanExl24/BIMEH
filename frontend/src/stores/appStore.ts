@@ -1,6 +1,8 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { fetchFechas } from '../services/api'
+import { useDateStore } from './dateStore'
+import { MONTHS_LIST } from '../utils/date'
+
 
 export const useAppStore = defineStore('app', () => {
   const defaultApiBase = import.meta.env.VITE_API_BASE ?? ''
@@ -13,135 +15,38 @@ export const useAppStore = defineStore('app', () => {
     localStorage.setItem('bimej12_custom_api_url', cleanUrl)
   }
   
-  const selectedDate = ref('2026-07-05') // Keep for fallback/reference
-  const selectedMonth = ref('JULIO')
-  const availableDates = ref<string[]>([])
+  const dateStore = useDateStore()
 
-  
-  // Dashboard month/day filters
-  const selectedDashboardMonth = ref('JULIO')
-  const selectedDashboardDay = ref('05')
-  
-  const months = ['ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO', 'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE']
-
-  const MONTH_NAME_TO_NUMBER: Record<string, string> = {
-    'ENERO': '01', 'FEBRERO': '02', 'MARZO': '03', 'ABRIL': '04',
-    'MAYO': '05', 'JUNIO': '06', 'JULIO': '07', 'AGOSTO': '08',
-    'SEPTIEMBRE': '09', 'OCTUBRE': '10', 'NOVIEMBRE': '11', 'DICIEMBRE': '12'
-  }
-
-  // Lista de todos los meses con su estado de disponibilidad en la base de datos
-  const monthsWithAvailability = computed(() => {
-    const loadedMonthNumbers = new Set<string>()
-    availableDates.value.forEach(d => {
-      const parts = d.split('-')
-      if (parts.length === 3) loadedMonthNumbers.add(parts[1])
-    })
-
-    return months.map(m => {
-      const num = MONTH_NAME_TO_NUMBER[m]
-      const isAvailable = loadedMonthNumbers.has(num)
-      return {
-        name: m,
-        num,
-        isAvailable,
-        label: isAvailable ? m : `${m} - (SIN REGISTRO)`
-      }
-    })
+  // Forwarded date state from unified dateStore
+  const selectedDate = computed({
+    get: () => dateStore.selectedDate,
+    set: (val: string) => dateStore.setSelectedDate(val)
   })
 
-  // Obtener los 31 días de un mes con su disponibilidad exacta (o todos si no hay mes)
-  const getFormattedDaysForMonth = (monthName?: string) => {
-    if (!monthName) {
-      const availableDays = new Set(
-        availableDates.value.map(d => d.split('-')[2]).filter(Boolean)
-      )
-      return Array.from({ length: 31 }, (_, i) => {
-        const d = String(i + 1).padStart(2, '0')
-        const isAvailable = availableDays.has(d)
-        return {
-          val: d,
-          isAvailable,
-          label: isAvailable ? d : `${d} - (SIN REGISTRO)`
-        }
-      })
-    }
-
-    const mNum = MONTH_NAME_TO_NUMBER[monthName.toUpperCase()]
-    if (!mNum) {
-      return Array.from({ length: 31 }, (_, i) => {
-        const d = String(i + 1).padStart(2, '0')
-        return { val: d, isAvailable: false, label: `${d} - (SIN REGISTRO)` }
-      })
-    }
-
-    const availableDaysInMonth = new Set(
-      availableDates.value
-        .filter(d => {
-          const parts = d.split('-')
-          return parts.length === 3 && parts[1] === mNum
-        })
-        .map(d => d.split('-')[2])
-    )
-
-    return Array.from({ length: 31 }, (_, i) => {
-      const d = String(i + 1).padStart(2, '0')
-      const isAvailable = availableDaysInMonth.has(d)
-      return {
-        val: d,
-        isAvailable,
-        label: isAvailable ? d : `${d} - (SIN REGISTRO)`
-      }
-    })
-  }
-
-  // Días del mes del Dashboard calculados reactivamente
-  const dashboardDaysFormatted = computed(() => {
-    return getFormattedDaysForMonth(selectedDashboardMonth.value)
+  const selectedMonth = computed({
+    get: () => dateStore.selectedMonth,
+    set: (val: string) => dateStore.setSelectedMonth(val)
   })
 
-  // Filter months to only those that actually exist in availableDates
-  const availableMonths = computed<string[]>(() => {
-    if (!availableDates.value || availableDates.value.length === 0) {
-      return months
-    }
-    const monthSet = new Set<string>()
-    availableDates.value.forEach(d => {
-      const parts = d.split('-')
-      if (parts.length === 3) monthSet.add(parts[1])
-    })
-
-    const result = months.filter(m => {
-      const num = MONTH_NAME_TO_NUMBER[m]
-      return monthSet.has(num)
-    })
-    return result.length > 0 ? result : months
+  const selectedDashboardMonth = computed({
+    get: () => dateStore.selectedMonth,
+    set: (val: string) => dateStore.setSelectedMonth(val)
   })
 
-  // Get days that actually have records for a given month
-  const getAvailableDaysForMonth = (monthName: string): string[] => {
-    if (!monthName) {
-      const daySet = new Set<string>()
-      availableDates.value.forEach(d => {
-        const parts = d.split('-')
-        if (parts.length === 3) daySet.add(parts[2])
-      })
-      return Array.from(daySet).sort()
-    }
+  const selectedDashboardDay = computed({
+    get: () => dateStore.selectedDay,
+    set: (val: string) => dateStore.setSelectedDay(val)
+  })
 
-    const mNum = MONTH_NAME_TO_NUMBER[monthName.toUpperCase()]
-    if (!mNum) return []
+  const availableDates = computed(() => dateStore.availableDates)
+  const availableMonths = computed(() => dateStore.availableMonths)
+  const months = MONTHS_LIST
+  const monthsWithAvailability = computed(() => dateStore.monthsWithAvailability)
+  const dashboardDaysFormatted = computed(() => dateStore.selectedMonthDaysFormatted)
 
-    const daySet = new Set<string>()
-    availableDates.value.forEach(d => {
-      const parts = d.split('-')
-      if (parts.length === 3 && parts[1] === mNum) {
-        daySet.add(parts[2])
-      }
-    })
+  const getFormattedDaysForMonth = (monthName?: string) => dateStore.getFormattedDaysForMonth(monthName)
+  const getAvailableDaysForMonth = (monthName: string) => dateStore.getAvailableDaysForMonth(monthName)
 
-    return Array.from(daySet).sort()
-  }
 
   
   const isSyncingDrive = ref(false)
@@ -168,38 +73,10 @@ export const useAppStore = defineStore('app', () => {
     autoDismissSyncStatus(4000)
   }
 
-  const MONTH_MAP_REVERSE: Record<number, string> = {
-    1: 'ENERO', 2: 'FEBRERO', 3: 'MARZO', 4: 'ABRIL',
-    5: 'MAYO', 6: 'JUNIO', 7: 'JULIO', 8: 'AGOSTO',
-    9: 'SEPTIEMBRE', 10: 'OCTUBRE', 11: 'NOVIEMBRE', 12: 'DICIEMBRE'
+  const fetchAvailableDates = async () => {
+    await dateStore.fetchAvailableDates(true)
   }
 
-  const fetchAvailableDates = async () => {
-    try {
-      const data = await fetchFechas()
-      availableDates.value = data
-      if (data && data.length > 0) {
-        const sorted = [...data].sort()
-        const latestDate = sorted[sorted.length - 1]
-        selectedDate.value = latestDate
-        
-        const parts = latestDate.split('-')
-        if (parts.length === 3) {
-          const mNum = parseInt(parts[1], 10)
-          const mName = MONTH_MAP_REVERSE[mNum]
-          const dayStr = parts[2]
-          
-          if (mName) {
-            selectedMonth.value = mName
-            selectedDashboardMonth.value = mName
-            selectedDashboardDay.value = dayStr
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Error fetching available dates:', error)
-    }
-  }
 
 
   let dismissTimeout: any = null

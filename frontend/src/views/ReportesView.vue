@@ -55,7 +55,7 @@
         :active-months="activeMonths"
         :sorted-dates="sortedDates"
         :month-to-number="MONTH_TO_NUMBER"
-        :default-month="appStore.selectedMonth || 'JULIO'"
+        :default-month="defaultMonth"
       />
 
       <!-- Card 4: Reporte Detallado de Personal -->
@@ -64,7 +64,7 @@
         :active-months="activeMonths"
         :sorted-dates="sortedDates"
         :month-to-number="MONTH_TO_NUMBER"
-        :default-month="appStore.selectedMonth || 'JULIO'"
+        :default-month="defaultMonth"
       />
 
       <!-- Card 5: Exportación Ágil de Novedades -->
@@ -73,7 +73,7 @@
         :active-months="activeMonths"
         :sorted-dates="sortedDates"
         :month-to-number="MONTH_TO_NUMBER"
-        :default-month="appStore.selectedMonth || 'JULIO'"
+        :default-month="defaultMonth"
       />
     </div>
   </div>
@@ -83,6 +83,7 @@
 import { computed, onMounted } from 'vue'
 import { Users, BookOpen } from 'lucide-vue-next'
 import { useAppStore } from '../stores/appStore'
+import { useDateStore } from '../stores/dateStore'
 import { MONTH_TO_NUMBER } from '../utils/date'
 
 import ReportDirectDownloadCard from '../components/reportes/ReportDirectDownloadCard.vue'
@@ -91,17 +92,17 @@ import ReportResumenAnualForm from '../components/reportes/ReportResumenAnualFor
 import ReportIndividualExpedienteForm from '../components/reportes/ReportIndividualExpedienteForm.vue'
 
 const appStore = useAppStore()
+const dateStore = useDateStore()
 
-const activeMonths = computed(() => appStore.availableMonths)
-
-const sortedDates = computed(() => {
-  return [...appStore.availableDates].sort((a, b) => b.localeCompare(a))
-})
+const activeMonths = computed(() => dateStore.availableMonths)
+const defaultMonth = computed(() => dateStore.selectedMonth || dateStore.latestMonth || '')
+const sortedDates = computed(() => dateStore.sortedDatesDesc)
 
 onMounted(() => {
-  if (appStore.availableDates.length === 0) {
-    appStore.fetchAvailableDates()
+  if (dateStore.availableDates.length === 0) {
+    dateStore.fetchAvailableDates()
   }
 })
 </script>
+
 
