@@ -18,13 +18,13 @@ graph TD
     end
 
     subgraph Feature_Modules [Módulos de Negocio Aislados - src/features/]
-        Auth[features/auth]
-        Dash[features/dashboard]
-        Pers[features/personal]
-        Crono[features/cronologia]
-        Sync[features/sincronizar]
-        Rep[features/reportes]
-        Stats[features/estadisticas]
+        Auth[features/auth: comp, compo, serv, stores, types, views]
+        Dash[features/dashboard: comp, compo, serv, types, views]
+        Pers[features/personal: comp, compo, serv, types, views]
+        Crono[features/cronologia: comp, compo, serv, types, views]
+        Sync[features/sincronizar: comp, compo, serv, types, views]
+        Rep[features/reportes: comp, serv, views]
+        Stats[features/estadisticas: serv, types, views]
     end
 
     subgraph Shared_Kernel [Capas Compartidas Transversales]
@@ -56,11 +56,12 @@ graph TD
   - `composables/`: Lógica reactiva de orquestación propia del módulo (ej. `useDashboardData.ts`, `usePersonalProfile.ts`).
   - `services/`: Peticiones HTTP especializadas al backend (ej. `dashboard.service.ts`, `personal.service.ts`).
   - `stores/`: Estado local del módulo si lo requiere (ej. `authStore.ts`).
+  - `types/`: Interfaces y tipos de datos exclusivos del dominio de la feature (ej. `dashboard.types.ts`, `personal.types.ts`).
   - `views/`: Vista principal o páginas que se montan en el Router (ej. `DashboardView.vue`, `PersonalDetalleView.vue`).
 * **¿Por qué es una buena práctica?**
-  - **Alta Cohesión:** Modificar una vista (ej. agregar un filtro en el Dashboard) se hace en un único directorio sin tener que saltar entre carpetas en extremos opuestos del proyecto.
+  - **Alta Cohesión:** Modificar una vista o sus contratos de datos se hace en un único directorio sin tener que saltar entre carpetas en extremos opuestos del proyecto.
   - **Bajo Acoplamiento (*Isolation*):** Las features son autónomas y **nunca deben importarse directamente entre sí**.
-  - **Eliminación Segura de Código:** Eliminar o reemplazar un módulo completo solo requiere borrar su carpeta sin dejar componentes o composables huérfanos.
+  - **Eliminación Segura de Código:** Eliminar o reemplazar un módulo completo solo requiere borrar su carpeta sin dejar componentes, tipos o composables huérfanos.
 
 ### 2.2. `src/components/` (Componentes Compartidos)
 * **Propósito:** Aloja exclusivamente componentes reutilizables a nivel global o estructural.
@@ -92,9 +93,9 @@ graph TD
   - `logFormatter.ts`: Exportación de bitácoras de depuración a texto plano.
 * **¿Por qué es una buena práctica?** Las funciones puras son 100% deterministas, fáciles de probar con pruebas unitarias y no producen efectos secundarios.
 
-### 2.7. `src/types/` (Tipos e Interfaces TypeScript)
-* **Propósito:** Declaración de modelos de datos, DTOs de respuesta de la API y tipos compartidos (`index.ts`).
-* **¿Por qué es una buena práctica?** Garantiza tipado estático estricto (*Type Safety*) en tiempo de compilación con `vue-tsc`, eliminando errores de tiempo de ejecución.
+### 2.7. `src/types/` (Tipos e Interfaces TypeScript Globales)
+* **Propósito:** Declaración de tipos y DTOs globales compartidos y re-exportación centralizada de todos los tipos modulares desde `@features/<modulo>/types/`.
+* **¿Por qué es una buena práctica?** Garantiza tipado estático estricto (*Type Safety*) en tiempo de compilación con `vue-tsc`, eliminando errores de tiempo de ejecución mientras mantiene la propiedad modular de cada tipo.
 
 ### 2.8. `src/router/` (Enrutador Centralizado)
 * **Propósito:** Define las rutas de la SPA con *Code Splitting* dinámico (`import('@features/...')`), títulos dinámicos y *Navigation Guards* para proteger vistas autenticadas.
@@ -105,7 +106,7 @@ graph TD
 ## 3. Principios de Ingeniería de Software Aplicados
 
 1. **Principio de Responsabilidad Única (SRP):** Cada archivo tiene un único motivo para cambiar.
-2. **Contextos Delimitados (*Bounded Contexts - DDD*):** Cada funcionalidad del sistema militar encapsula sus reglas de presentación y consumo de datos.
+2. **Contextos Delimitados (*Bounded Contexts - DDD*):** Cada funcionalidad del sistema militar encapsula sus reglas de presentación, consumo de datos y tipado.
 3. **Inversión de Dependencias (DIP):** Las vistas consumen composables y servicios abstractos en lugar de hacer llamadas fetch directas.
 4. **DRY (*Don't Repeat Yourself*):** Reutilización transversal de gráficos (`useECharts`), paginadores (`usePagination`) y formatos de fecha (`utils/date.ts`).
 
@@ -145,6 +146,8 @@ frontend/src/
 │   │   │   └── 📄 auth.service.ts      # Llamadas a /api/auth/login, /me, drive-status, oauth
 │   │   ├── 📂 stores/
 │   │   │   └── 📄 authStore.ts         # Estado de sesión JWT, usuario logueado y expiración 24h
+│   │   ├── 📂 types/
+│   │   │   └── 📄 auth.types.ts        # Interfaces: User, LoginCredentials, LoginResponse, OAuth, DriveStatus
 │   │   └── 📂 views/
 │   │       └── 📄 LoginView.vue        # Pantalla de inicio de sesión y vinculación OAuth Drive
 │   │
@@ -159,6 +162,8 @@ frontend/src/
 │   │   │   └── 📄 useDashboardData.ts  # Carga concurrente de KPIs y transiciones
 │   │   ├── 📂 services/
 │   │   │   └── 📄 dashboard.service.ts # Endpoints /api/dashboard/kpis, /cambios, /evolucion, /distribucion
+│   │   ├── 📂 types/
+│   │   │   └── 📄 dashboard.types.ts   # Interfaces: KPIData, CambioEstado, CambiosResponse, EvolucionItem, etc.
 │   │   └── 📂 views/
 │   │       └── 📄 DashboardView.vue    # Vista principal orquestadora del dashboard
 │   │
@@ -175,6 +180,8 @@ frontend/src/
 │   │   │   └── 📄 usePersonalAutocomplete.ts # Búsqueda con debounce para cédula o apellidos
 │   │   ├── 📂 services/
 │   │   │   └── 📄 personal.service.ts  # Endpoints /api/personal/buscar, /{cedula}, /historial, /acumulado
+│   │   ├── 📂 types/
+│   │   │   └── 📄 personal.types.ts    # Interfaces: PersonalSearchResult, PersonalDetalle, HistorialRegistro, etc.
 │   │   └── 📂 views/
 │   │       ├── 📄 PersonalView.vue     # Buscador interactivo (cuadrícula de tarjetas o tabla)
 │   │       └── 📄 PersonalDetalleView.vue # Vista de expediente militar completo
@@ -189,6 +196,8 @@ frontend/src/
 │   │   │   └── 📄 useCronologiaData.ts # Orquestación de datos de calendario, reporte diario y heatmap mensual
 │   │   ├── 📂 services/
 │   │   │   └── 📄 cronologia.service.ts# Endpoints /api/reportes/calendario, /dia, /api/stats/heatmap
+│   │   ├── 📂 types/
+│   │   │   └── 📄 cronologia.types.ts  # Interfaces: CalendarioItem, PersonalDia, HeatmapRow, HeatmapResponse
 │   │   └── 📂 views/
 │   │       └── 📄 CronologiaView.vue   # Vista de bitácora y conmutador reporte/matriz
 │   │
@@ -205,6 +214,8 @@ frontend/src/
 │   │   │   └── 📄 useLocalFileUpload.ts # Manejo de carga de archivos FormData y conflictos
 │   │   ├── 📂 services/
 │   │   │   └── 📄 sync.service.ts      # Endpoint /api/sincronizar/cargar
+│   │   ├── 📂 types/
+│   │   │   └── 📄 sync.types.ts        # Interfaces: SyncLog, SyncResponse
 │   │   └── 📂 views/
 │   │       └── 📄 SincronizarView.vue  # Vista principal de sincronización e ingesta
 │   │
@@ -222,6 +233,8 @@ frontend/src/
 │   └── 📂 estadisticas/                # DOMINIO: Análisis y Rankings
 │       ├── 📂 services/
 │       │   └── 📄 estadisticas.service.ts # Endpoint /api/stats/ranking
+│       ├── 📂 types/
+│       │   └── 📄 estadisticas.types.ts # Interfaces: RankingItem, PersonnelRankingItem, RankingsData
 │       └── 📂 views/
 │           └── 📄 EstadisticasView.vue # Vista de rankings de novedades y miembros destacados
 │
@@ -239,7 +252,7 @@ frontend/src/
 │   └── 📄 authStore.ts                 # Puente de re-exportación de authStore
 │
 ├── 📂 types/
-│   └── 📄 index.ts                     # Definiciones e interfaces globales de TypeScript
+│   └── 📄 index.ts                     # Definiciones e interfaces globales y re-exportación modular
 │
 └── 📂 utils/                            # FUNCIONES PURAS
     ├── 📄 date.ts                      # Conversión y manipulación de fechas en español
@@ -254,8 +267,8 @@ frontend/src/
 Cuando necesites agregar una nueva pantalla o funcionalidad al frontend:
 
 1. **Identificar si pertenece a una Feature existente o a una nueva:**
-   - Si pertenece a un módulo existente (ej. una nueva gráfica en el Dashboard), crea el componente en `src/features/dashboard/components/MiNuevaGrafica.vue`.
-   - Si es un dominio de negocio nuevo (ej. `mantenimiento` o `inventario`), crea la carpeta `src/features/inventario/` con sus subcarpetas `components/`, `services/`, `views/`.
+   - Si pertenece a un módulo existente (ej. una nueva gráfica en el Dashboard), crea el componente en `src/features/dashboard/components/MiNuevaGrafica.vue` y sus tipos en `src/features/dashboard/types/dashboard.types.ts`.
+   - Si es un dominio de negocio nuevo (ej. `mantenimiento` o `inventario`), crea la carpeta `src/features/inventario/` con sus subcarpetas `components/`, `services/`, `types/`, `views/`.
 2. **Definir el servicio de API:** En `src/features/<modulo>/services/<modulo>.service.ts`, importando el cliente base `@services/http`.
 3. **Definir la vista:** En `src/features/<modulo>/views/<Modulo>View.vue`.
 4. **Registrar la ruta en el Router:** En [`src/router/index.ts`](file:///c:/Users/alejo/Downloads/automPYdrive/frontend/src/router/index.ts) usando carga perezosa (`component: () => import('@features/<modulo>/views/<Modulo>View.vue')`).
