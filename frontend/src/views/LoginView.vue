@@ -157,8 +157,9 @@ const handleLogin = async () => {
 
 const iniciarOAuth = async () => {
   try {
-    const callbackUrl = `${window.location.origin}/api/sincronizar/oauth/callback`
-    const res = await fetch(`${appStore.apiBase}/api/sincronizar/oauth/url?redirect_uri=${encodeURIComponent(callbackUrl)}`)
+    const base = appStore.apiBase ? appStore.apiBase.replace(/\/$/, '') : window.location.origin
+    const callbackUrl = `${base}/api/sincronizar/oauth/callback`
+    const res = await fetch(`${base}/api/sincronizar/oauth/url?redirect_uri=${encodeURIComponent(callbackUrl)}`)
     
     if (!res.ok) {
       const errData = await res.json().catch(() => ({}))
