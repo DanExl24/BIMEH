@@ -1,5 +1,5 @@
 <template>
-  <div class="glass-panel p-5 sm:p-7 rounded-3xl flex flex-col justify-between hover:border-cyan-500/40 transition-all duration-300 group border border-darkBorder shadow-xl">
+  <div class="glass-panel p-5 sm:p-7 rounded-3xl h-full flex flex-col justify-between hover:border-cyan-500/40 transition-all duration-300 group border border-darkBorder shadow-xl">
     <div class="space-y-3.5">
       <div class="flex items-center gap-3">
         <div class="w-12 h-12 rounded-2xl bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-cyan-400 group-hover:scale-105 transition-transform duration-200 shadow-sm">
@@ -9,13 +9,15 @@
           <h3 class="text-sm font-bold text-slate-100 uppercase tracking-wide">
             Consolidado Mensual (Matriz Heatmap)
           </h3>
-          <p class="text-xs text-slate-400 mt-1 leading-relaxed">
-            Matriz completa de la unidad día a día. Refleja la operatividad de cada militar en el mes con codificación de colores o letras.
-          </p>
+          <span class="text-xs text-slate-400">Matriz completa de novedades por mes</span>
         </div>
       </div>
 
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 bg-darkBg/60 p-3.5 rounded-2xl border border-darkBorder/60">
+      <p class="text-xs text-slate-400 leading-relaxed">
+        Matriz integral de la unidad día a día. Refleja la operatividad de cada militar en el mes con codificación de colores o letras.
+      </p>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 bg-darkBg/60 p-3.5 rounded-2xl border border-darkBorder/60">
         <div class="space-y-1">
           <label class="text-[11px] uppercase font-bold text-slate-300 tracking-wider">Mes Operacional:</label>
           <select 
@@ -45,7 +47,7 @@
       <button 
         type="button"
         @click="reportStore.downloadReport(`${apiBase}/api/exportar/excel?tipo=consolidado_mensual&mes=${selectedMonth}&modo=${selectedMode}`, `Consolidado (${selectedMonth}) - Excel`, 'excel')" 
-        class="py-2.5 px-3 bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 rounded-xl text-xs font-bold text-emerald-300 flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-sm active:scale-95 select-none"
+        class="py-2.5 px-2 bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 rounded-xl text-xs font-bold text-emerald-300 flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-sm active:scale-95 select-none"
       >
         <FileSpreadsheet class="w-4 h-4" />
         <span>Excel</span>
@@ -53,7 +55,7 @@
       <button 
         type="button"
         @click="reportStore.downloadReport(`${apiBase}/api/exportar/pdf?tipo=consolidado_mensual&mes=${selectedMonth}&modo=${selectedMode}`, `Consolidado (${selectedMonth}) - PDF`, 'pdf')" 
-        class="py-2.5 px-3 bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-500/30 rounded-xl text-xs font-bold text-cyan-300 flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-sm active:scale-95 select-none"
+        class="py-2.5 px-2 bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-500/30 rounded-xl text-xs font-bold text-cyan-300 flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-sm active:scale-95 select-none"
       >
         <FileText class="w-4 h-4" />
         <span>PDF</span>
@@ -61,7 +63,7 @@
       <button 
         type="button"
         @click="reportStore.downloadReport(`${apiBase}/api/exportar/csv?tipo=consolidado_mensual&mes=${selectedMonth}&modo=${selectedMode}`, `Consolidado (${selectedMonth}) - CSV`, 'csv')" 
-        class="py-2.5 px-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 hover:text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-sm active:scale-95 select-none"
+        class="py-2.5 px-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 hover:text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-sm active:scale-95 select-none"
       >
         <FileCode class="w-4 h-4" />
         <span>CSV</span>

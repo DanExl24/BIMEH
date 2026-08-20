@@ -89,10 +89,11 @@
         <!-- 5. Base de Datos de Personal de la Unidad -->
         <ReportCatalogoCard 
           title="Base de Datos de Personal"
-          description="Listado maestro de todo el personal de la unidad (cédulas, nombres, estado y fecha de retiro)."
+          description="Listado maestro completo de todo el personal registrado en la unidad con su estado de fuerza."
           :excel-url="`${appStore.apiBase}/api/exportar/excel?tipo=personal_db`"
           :pdf-url="`${appStore.apiBase}/api/exportar/pdf?tipo=personal_db`"
           :csv-url="`${appStore.apiBase}/api/exportar/csv?tipo=personal_db`"
+          :tags="['Cédula', 'Nombres y Apellidos', 'Estado Activo/Retirado', 'Fecha de Retiro']"
           icon-bg-class="bg-cyan-500/15 border border-cyan-500/30 text-cyan-400"
         >
           <template #icon>
@@ -103,10 +104,11 @@
         <!-- 6. Catálogo General de Novedades -->
         <ReportCatalogoCard 
           title="Catálogo de Novedades"
-          description="Diccionario oficial de subnovedades y clasificaciones configuradas en el sistema para auditoría."
+          description="Diccionario oficial de subnovedades, códigos y nomenclaturas operacionales configuradas."
           :excel-url="`${appStore.apiBase}/api/exportar/excel?tipo=subnovedades`"
           :pdf-url="`${appStore.apiBase}/api/exportar/pdf?tipo=subnovedades`"
           :csv-url="`${appStore.apiBase}/api/exportar/csv?tipo=subnovedades`"
+          :tags="['ID Novedad', 'Código Nomenclatura', 'Clasificación Operacional', 'Auditoría']"
           icon-bg-class="bg-purple-500/15 border border-purple-500/30 text-purple-400"
         >
           <template #icon>
