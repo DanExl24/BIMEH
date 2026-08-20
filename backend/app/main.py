@@ -16,6 +16,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.get("/")
+def read_root():
+    return {"status": "ok", "message": "BIMEH API Online", "docs": "/docs"}
+
+@app.get("/health")
+def health_check():
+    return {"status": "healthy"}
+
 @app.middleware("http")
 async def log_requests(request, call_next):
     start_time = datetime.now()
