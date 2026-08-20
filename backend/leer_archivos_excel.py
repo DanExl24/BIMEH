@@ -24,8 +24,12 @@ MESES_MAP = {
 def parse_date_from_filename(name):
     """
     Intenta extraer la fecha en formato YYYY-MM-DD a partir del nombre del archivo en Drive.
-    Soporta formatos con y sin año explícito.
+    Soporta:
+    - '01 DE AGOSTO 2026', '1 AGOSTO 2026', '1 AGOSTO'
+    - '2026-08-01', '2026_08_01'
+    - '01-08-2026', '01_08_2026', '01.08.2026'
     """
+    # 1. Formato con texto de mes y año: '01 de Agosto 2026' o '1 Agosto 2026'
     pattern = r"(\d{1,2})\s+(?:de\s+)?(ENERO|FEBRERO|MARZO|ABRIL|MAYO|JUNIO|JULIO|AGOSTO|SEPTIEMBRE|OCTUBRE|NOVIEMBRE|DICIEMBRE)\s+(\d{4})"
     match = re.search(pattern, name, re.IGNORECASE)
     if match:
@@ -37,7 +41,8 @@ def parse_date_from_filename(name):
             return datetime.date(year, month, day).isoformat()
         except ValueError:
             pass
-            
+
+    # 2. Formato con texto de mes sin año: '01 de Agosto' o '1 Agosto' (asume año 2026)
     pattern_no_year = r"(\d{1,2})\s+(?:de\s+)?(ENERO|FEBRERO|MARZO|ABRIL|MAYO|JUNIO|JULIO|AGOSTO|SEPTIEMBRE|OCTUBRE|NOVIEMBRE|DICIEMBRE)"
     match_ny = re.search(pattern_no_year, name, re.IGNORECASE)
     if match_ny:
@@ -48,7 +53,27 @@ def parse_date_from_filename(name):
             return datetime.date(2026, month, day).isoformat()
         except ValueError:
             pass
-            
+
+    # 3. Formato numérico ISO: '2026-08-01' o '2026_08_01'
+    iso_pattern = r"(202\d)[-_](\d{1,2})[-_](\d{1,2})"
+    match_iso = re.search(iso_pattern, name)
+    if match_iso:
+        y, m, d = int(match_iso.group(1)), int(match_iso.group(2)), int(match_iso.group(3))
+        try:
+            return datetime.date(y, m, d).isoformat()
+        except ValueError:
+            pass
+
+    # 4. Formato numérico latino: '01-08-2026' o '01_08_2026' o '01.08.2026'
+    lat_pattern = r"(\d{1,2})[-_./](\d{1,2})[-_./](202\d)"
+    match_lat = re.search(lat_pattern, name)
+    if match_lat:
+        d, m, y = int(match_lat.group(1)), int(match_lat.group(2)), int(match_lat.group(3))
+        try:
+            return datetime.date(y, m, d).isoformat()
+        except ValueError:
+            pass
+
     return None
 
 def excel_to_csv_in_memory(file_item, drive=None):
