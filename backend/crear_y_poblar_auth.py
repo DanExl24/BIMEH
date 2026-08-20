@@ -2,21 +2,18 @@ import psycopg2
 import bcrypt
 from datetime import datetime
 
+from app.database import ConnectionWrapper, DB_CONN_PARAMS
+
 def main():
     try:
-        conn = psycopg2.connect(
-            dbname="neondb",
-            user="neondb_owner",
-            password="npg_pPVueS4skO8j",
-            host="ep-snowy-glade-aty6j16z-pooler.c-9.us-east-1.aws.neon.tech",
-            sslmode="require"
-        )
+        conn = ConnectionWrapper(conn_params=DB_CONN_PARAMS)
         cursor = conn.cursor()
-        print("Conexión exitosa a PostgreSQL.")
+        print(f"Conexión exitosa a PostgreSQL local ({DB_CONN_PARAMS.get('dbname')}).")
     except Exception as e:
         print(f"Error al conectar con PostgreSQL: {e}")
-        print("Por favor asegúrese de que PostgreSQL esté iniciado y de que los datos de acceso sean correctos.")
+        print("Por favor asegúrese de que PostgreSQL y pgAdmin estén ejecutándose y la base de datos exista.")
         return
+
 
     print("Creando tablas de autenticación si no existen...")
     

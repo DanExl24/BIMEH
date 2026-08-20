@@ -2,6 +2,8 @@ import sqlite3
 import psycopg2
 from psycopg2.extras import execute_values
 
+from app.database import ConnectionWrapper, DB_CONN_PARAMS
+
 def migrate():
     # Connect to SQLite
     sqlite_conn = sqlite3.connect("bimej12.db")
@@ -9,18 +11,14 @@ def migrate():
     
     # Connect to PostgreSQL
     try:
-        pg_conn = psycopg2.connect(
-            dbname="neondb",
-            user="neondb_owner",
-            password="npg_pPVueS4skO8j",
-            host="ep-snowy-glade-aty6j16z-pooler.c-9.us-east-1.aws.neon.tech",
-            sslmode="require"
-        )
+        pg_conn_wrapper = ConnectionWrapper(conn_params=DB_CONN_PARAMS)
+        pg_conn = pg_conn_wrapper._conn
         pg_cursor = pg_conn.cursor()
     except Exception as e:
         print(f"Error connecting to PostgreSQL: {e}")
-        print("Please make sure PostgreSQL is running, the database 'BIMEH' exists, and the password is 'postgres'.")
+        print("Please make sure PostgreSQL is running, the database 'bimeh' exists, and the password is correct in backend/.env.")
         return
+
         
     print("Connected to databases. Dropping existing tables in PostgreSQL...")
     pg_cursor.execute("DROP TABLE IF EXISTS REGISTRO_PERSONAL;")

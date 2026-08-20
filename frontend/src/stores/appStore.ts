@@ -3,8 +3,9 @@ import { ref, computed } from 'vue'
 import { fetchFechas } from '../services/api'
 
 export const useAppStore = defineStore('app', () => {
-  const defaultApiBase = import.meta.env.VITE_API_BASE || 'http://127.0.0.1:8000'
-  const apiBase = ref(localStorage.getItem('bimej12_custom_api_url') || defaultApiBase)
+  const defaultApiBase = import.meta.env.VITE_API_BASE ?? ''
+  const savedApiBase = localStorage.getItem('bimej12_custom_api_url')
+  const apiBase = ref(savedApiBase !== null ? savedApiBase : defaultApiBase)
 
   const setCustomApiBase = (url: string) => {
     const cleanUrl = url.trim().replace(/\/$/, '')

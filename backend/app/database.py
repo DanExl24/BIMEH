@@ -3,13 +3,35 @@ import psycopg2.extras
 from datetime import datetime
 from typing import List
 
-NEON_CONN_PARAMS = {
-    "dbname": "neondb",
-    "user": "neondb_owner",
-    "password": "npg_pPVueS4skO8j",
-    "host": "ep-snowy-glade-aty6j16z-pooler.c-9.us-east-1.aws.neon.tech",
-    "sslmode": "require"
+import os
+
+# Cargar variables del archivo .env si existe en la carpeta backend o raiz
+env_paths = [
+    os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env"),
+    os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), ".env")
+]
+
+for env_path in env_paths:
+    if os.path.exists(env_path):
+        with open(env_path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    k, v = line.split("=", 1)
+                    os.environ.setdefault(k.strip(), v.strip().strip('"').strip("'"))
+        break
+
+DB_CONN_PARAMS = {
+    "dbname": os.getenv("DB_NAME", "bimeh"),
+    "user": os.getenv("DB_USER", "postgres"),
+    "password": os.getenv("DB_PASSWORD", "postgres"),
+    "host": os.getenv("DB_HOST", "localhost"),
+    "port": os.getenv("DB_PORT", "5432")
 }
+if os.getenv("DB_SSLMODE"):
+    DB_CONN_PARAMS["sslmode"] = os.getenv("DB_SSLMODE")
+
+
 
 class CursorWrapper:
     def __init__(self, cursor, conn_wrapper=None):
@@ -57,7 +79,7 @@ class CursorWrapper:
 
 class ConnectionWrapper:
     def __init__(self, conn=None, conn_params=None):
-        self._conn_params = conn_params or NEON_CONN_PARAMS
+        self._conn_params = conn_params or DB_CONN_PARAMS
         self._conn = conn if conn else psycopg2.connect(**self._conn_params)
         self._conn.cursor_factory = psycopg2.extras.DictCursor
         
@@ -112,7 +134,7 @@ class ConnectionWrapper:
 DATABASE_NAME = "bimeh"
 
 def get_db():
-    conn = ConnectionWrapper(conn_params=NEON_CONN_PARAMS)
+    conn = ConnectionWrapper(conn_params=DB_CONN_PARAMS)
     try:
         yield conn
     finally:
@@ -126,7 +148,7 @@ def get_month_dates(month_name: str) -> List[str]:
     }
     month_num = month_order.get(month_name.upper(), 1)
     
-    conn = ConnectionWrapper(conn_params=NEON_CONN_PARAMS)
+    conn = ConnectionWrapper(conn_params=DB_CONN_PARAMS)
     cursor = conn.cursor()
     cursor.execute("SELECT fecha FROM REPORTES ORDER BY fecha ASC;")
     all_dates = [row[0] for row in cursor.fetchall()]

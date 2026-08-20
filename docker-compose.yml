@@ -1,0 +1,59 @@
+services:
+  frontend:
+    container_name: bimeh-frontend
+    build:
+      context: ./frontend
+      args:
+        - VITE_API_BASE=
+    ports:
+      - 8085:80
+    networks:
+      - bimeh-internal
+    restart: always
+  backend:
+    container_name: bimeh-backend
+    build:
+      context: ./backend
+    environment:
+      - TZ=America/Bogota
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=bimeh
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+    expose:
+      - 8000
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - bimeh-internal
+
+  postgres:
+    container_name: bimeh-postgres
+    image: postgres:16
+    environment:
+      - TZ=America/Bogota
+      - PGTZ=America/Bogota
+      - POSTGRES_DB=bimeh
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init_scripts:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d bimeh"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - bimeh-internal
+
+volumes:
+  postgres_data:
+
+networks:
+  bimeh-internal:
+    driver: bridge
+  proxy-network:
+    external: true

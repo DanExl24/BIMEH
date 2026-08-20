@@ -1,5 +1,5 @@
 import bcrypt
-from app.database import ConnectionWrapper, NEON_CONN_PARAMS
+from app.database import ConnectionWrapper, DB_CONN_PARAMS
 
 def crear_usuario():
     print("\n=============================================")
@@ -22,7 +22,7 @@ def crear_usuario():
         return
 
     try:
-        conn = ConnectionWrapper(conn_params=NEON_CONN_PARAMS)
+        conn = ConnectionWrapper(conn_params=DB_CONN_PARAMS)
         cursor = conn.cursor()
 
         # Verificar si el usuario ya existe

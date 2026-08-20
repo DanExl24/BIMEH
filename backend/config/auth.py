@@ -7,7 +7,7 @@ from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow, Flow
 from googleapiclient.discovery import build
-from app.database import ConnectionWrapper, NEON_CONN_PARAMS
+from app.database import ConnectionWrapper, DB_CONN_PARAMS
 
 # ---------------------------------------------------------------------------
 # Rutas según entorno
@@ -58,7 +58,7 @@ def _asegurar_credentials():
 # ---------------------------------------------------------------------------
 def _get_db_conn():
     try:
-        conn = ConnectionWrapper(conn_params=NEON_CONN_PARAMS)
+        conn = ConnectionWrapper(conn_params=DB_CONN_PARAMS)
         cursor = conn.cursor()
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS google_oauth_tokens (

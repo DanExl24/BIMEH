@@ -192,19 +192,13 @@ def extraer_datos_csv(csv_content):
 def consultar_fechas_db():
     """
     Abre una conexión temporal rápida a base de datos para traer las fechas ya sincronizadas,
-    y la cierra de inmediato para evitar que quede inactiva (idle) y sea desconectada por Neon.
+    y la cierra de inmediato para evitar que quede inactiva.
     """
     dates_in_db = set()
     try:
-        import psycopg2
-        print("Consultando fechas existentes en Neon (conexión temporal)...")
-        temp_conn = psycopg2.connect(
-            dbname="neondb",
-            user="neondb_owner",
-            password="npg_pPVueS4skO8j",
-            host="ep-snowy-glade-aty6j16z-pooler.c-9.us-east-1.aws.neon.tech",
-            sslmode="require"
-        )
+        from app.database import ConnectionWrapper, DB_CONN_PARAMS
+        print(f"Consultando fechas existentes en PostgreSQL local ({DB_CONN_PARAMS.get('dbname')})...")
+        temp_conn = ConnectionWrapper(conn_params=DB_CONN_PARAMS)
         temp_cursor = temp_conn.cursor()
         temp_cursor.execute("SELECT fecha FROM REPORTES;")
         dates_in_db = {row[0] for row in temp_cursor.fetchall()}
@@ -295,7 +289,7 @@ def descargar_y_procesar_fallback(archivo, still_missing, datos_archivo, drive=N
 def obtener_hojas(db=None, target_month=None, target_date=None, target_dates=None, force_overwrite=False):
     """
     Función orquestadora principal que gestiona el flujo de descargas de reportes desde Google Drive.
-    Filtra los meses/días solicitados, verifica fechas ausentes en la base de datos de Neon y
+    Filtra los meses/días solicitados, verifica fechas ausentes en la base de datos de PostgreSQL local y
     escribe/actualiza los archivos JSON de listado local en caché.
     """
     import time
@@ -310,7 +304,7 @@ def obtener_hojas(db=None, target_month=None, target_date=None, target_dates=Non
     errors = []
     sync_log = [] # Registro amigable para el usuario final sin detalles técnicos
     
-    # Obtener fechas cargadas en Neon
+    # Obtener fechas cargadas en la base de datos local
     dates_in_db = consultar_fechas_db()
 
     # Mapa inverso de número de mes a nombre

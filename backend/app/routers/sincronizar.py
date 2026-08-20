@@ -393,8 +393,8 @@ def sync_local_jsons_to_db(db, target_month=None, target_date=None, target_dates
     cursor.execute("SELECT fecha FROM REPORTES;")
     existing_dates = {row[0] for row in cursor.fetchall()}
     
-    # Pre-cargar tablas maestras en cache local de memoria para evitar consultas N+1 a Neon
-    print("Pre-cargando tablas maestras de Neon en memoria para optimización...")
+    # Pre-cargar tablas maestras en cache local de memoria para evitar consultas N+1 a PostgreSQL
+    print("Pre-cargando tablas maestras en memoria para optimización...")
     cursor.execute("SELECT cedula, id FROM PERSONAL;")
     personal_cache = {int(row[0]): int(row[1]) for row in cursor.fetchall()}
     
@@ -466,7 +466,7 @@ def sync_local_jsons_to_db(db, target_month=None, target_date=None, target_dates
             if date_str in existing_dates:
                 continue
                 
-            print(f"Importando reporte de fecha {date_str} a la base de datos de Neon (modo optimizado)...")
+            print(f"Importando reporte de fecha {date_str} a la base de datos local (modo optimizado)...")
             
             # Insertar reporte
             cursor.execute("INSERT INTO REPORTES (fecha, archivo) VALUES (?, ?);", (date_str, filename))
@@ -561,7 +561,7 @@ def sincronizar_desde_drive(
     """
     Ejecuta el script leer_carpetas.py y leer_archivos_excel.py 
     para descargar y procesar nuevos archivos desde Google Drive,
-    e inserta los nuevos datos en la base de datos de Neon.
+    e inserta los nuevos datos en la base de datos local PostgreSQL.
     """
     try:
         # 1. Obtener filtros de la consulta
@@ -641,21 +641,12 @@ def sincronizar_desde_drive(
             force_overwrite=req.overwrite
         )
 
-        # 4. Sincronizar todos los JSONs locales nuevos a la base de datos (PostgreSQL Neon)
-        # Para evitar InterfaceError: cursor already closed debido a timeouts idle de Neon en descargas largas,
-        # abrimos una conexion dedicada y fresca de corta duracion únicamente para la insercion.
-        from app.database import ConnectionWrapper
-        import psycopg2
+        # 4. Sincronizar todos los JSONs locales nuevos a la base de datos (PostgreSQL local)
+        # Abrimos una conexion dedicada y fresca de corta duracion únicamente para la insercion.
+        from app.database import ConnectionWrapper, DB_CONN_PARAMS
         
-        print("Abriendo conexion dedicada de escritura a Neon...")
-        raw_conn = psycopg2.connect(
-            dbname="neondb",
-            user="neondb_owner",
-            password="npg_pPVueS4skO8j",
-            host="ep-snowy-glade-aty6j16z-pooler.c-9.us-east-1.aws.neon.tech",
-            sslmode="require"
-        )
-        db_write = ConnectionWrapper(raw_conn)
+        print("Abriendo conexión dedicada de escritura local...")
+        db_write = ConnectionWrapper(conn_params=DB_CONN_PARAMS)
         try:
             sync_local_jsons_to_db(
                 db=db_write,
@@ -666,7 +657,7 @@ def sincronizar_desde_drive(
             )
         finally:
             db_write.close()
-            print("Conexion dedicada cerrada exitosamente.")
+            print("Conexión dedicada cerrada exitosamente.")
 
         return {
             "status": "success",
