@@ -470,25 +470,44 @@ def obtener_hojas(db=None, target_month=None, target_date=None, target_dates=Non
             if m_date in drive_files_by_date:
                 files_to_download.append((m_date, drive_files_by_date[m_date]))
                 
-        # Iniciar descargas y procesamiento
+        # Iniciar descargas y procesamiento en paralelo ultra rápido
         nuevos_datos_cargados = False
-        for f_date, archivo in files_to_download:
-            try:
-                success = descargar_y_procesar_fecha(archivo, f_date, datos_archivo, drive=drive)
-                if success:
-                    nuevos_datos_cargados = True
-                    sync_log.append({
-                        "file": archivo['name'],
-                        "status": "success",
-                        "detail": f"Sincronizado con éxito como reporte del día {f_date}."
-                    })
-            except Exception as e:
-                errors.append({"file": archivo['name'], "error": f"Error descargando/procesando: {str(e)}"})
-                sync_log.append({
-                    "file": archivo['name'],
-                    "status": "error",
-                    "detail": f"Error al procesar: {str(e)}"
-                })
+        if files_to_download:
+            print(f"🚀 Iniciando descarga concurrente de {len(files_to_download)} reportes en paralelo...")
+            from concurrent.futures import ThreadPoolExecutor, as_completed
+            
+            def _worker(f_date, archivo):
+                local_drive = obtener_servicio_drive()
+                try:
+                    csv_content = excel_to_csv_in_memory(archivo, drive=local_drive)
+                    extracted = extraer_datos_csv(csv_content)
+                    return (f_date, archivo, extracted, None)
+                except Exception as exc:
+                    return (f_date, archivo, None, str(exc))
+
+            max_workers = min(8, len(files_to_download))
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                future_to_file = {
+                    executor.submit(_worker, f_date, archivo): (f_date, archivo)
+                    for f_date, archivo in files_to_download
+                }
+                for future in as_completed(future_to_file):
+                    f_date, archivo, data, err = future.result()
+                    if err:
+                        errors.append({"file": archivo['name'], "error": f"Error descargando/procesando: {err}"})
+                        sync_log.append({
+                            "file": archivo['name'],
+                            "status": "error",
+                            "detail": f"Error al procesar: {err}"
+                        })
+                    elif data:
+                        datos_archivo[f_date] = data
+                        nuevos_datos_cargados = True
+                        sync_log.append({
+                            "file": archivo['name'],
+                            "status": "success",
+                            "detail": f"Sincronizado con éxito como reporte del día {f_date}."
+                        })
                 
         # Búsqueda fallback
         still_missing = [d for d in missing_dates if d not in datos_archivo]
