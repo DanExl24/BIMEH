@@ -1,13 +1,13 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { fetchFechas } from '../services/api'
+import { http } from '@services/http'
 import { 
   MONTHS_LIST, 
   MONTH_TO_NUMBER, 
   NUMBER_TO_MONTH,
   getDaysInMonth 
 } from '../utils/date'
-import type { HistorialRegistro } from '../types'
+import type { HistorialRegistro } from '@/types'
 
 export interface MonthAvailabilityItem {
   name: string
@@ -194,7 +194,7 @@ export const useDateStore = defineStore('date', () => {
 
     isLoadingDates.value = true
     try {
-      const data = await fetchFechas()
+      const data = await http.get<string[]>('/api/fechas')
       availableDates.value = Array.isArray(data) ? data : []
       isInitialized.value = true
 

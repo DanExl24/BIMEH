@@ -14,25 +14,25 @@ export async function fetchFechas(): Promise<string[]> {
 }
 
 // Re-exports delegating to specialized domain services
-export const fetchKPIs = dashboardService.getKPIs
-export const fetchCambios = dashboardService.getCambios
-export const fetchEvolucion = dashboardService.getEvolucion
-export const fetchNovedadesFrecuentes = dashboardService.getNovedadesFrecuentes
-export const fetchDistribucion = dashboardService.getDistribucion
+export const fetchKPIs = (mes?: string, dia?: string, fecha?: string) => dashboardService.getKPIs(mes, dia, fecha)
+export const fetchCambios = (mes?: string, dia?: string, fecha?: string) => dashboardService.getCambios(mes, dia, fecha)
+export const fetchEvolucion = (mes?: string, dia?: string) => dashboardService.getEvolucion(mes, dia)
+export const fetchNovedadesFrecuentes = (mes?: string, dia?: string, fecha?: string) => dashboardService.getNovedadesFrecuentes(mes, dia, fecha)
+export const fetchDistribucion = (mes?: string, dia?: string, fecha?: string) => dashboardService.getDistribucion(mes, dia, fecha)
 
-export const buscarPersonal = personalService.buscar
-export const fetchPersonalDetalle = personalService.getDetalle
-export const fetchPersonalHistorial = personalService.getHistorial
-export const fetchPersonalAcumulado = personalService.getAcumulado
+export const buscarPersonal = (q: string) => personalService.buscar(q)
+export const fetchPersonalDetalle = (cedula: number) => personalService.getDetalle(cedula)
+export const fetchPersonalHistorial = (cedula: number) => personalService.getHistorial(cedula)
+export const fetchPersonalAcumulado = (cedula: number) => personalService.getAcumulado(cedula)
 
-export const fetchCalendario = cronologiaService.getCalendario
-export const fetchReporteDia = cronologiaService.getReporteDia
-export const fetchStatsHeatmap = cronologiaService.getHeatmapMensual
+export const fetchCalendario = (mes: string) => cronologiaService.getCalendario(mes)
+export const fetchReporteDia = (fecha: string) => cronologiaService.getReporteDia(fecha)
+export const fetchStatsHeatmap = (mes: string) => cronologiaService.getHeatmapMensual(mes)
 
-export const fetchStatsRanking = estadisticasService.getRankings
+export const fetchStatsRanking = () => estadisticasService.getRankings()
 
-export const fetchDriveStatus = authService.getDriveStatus
-export const fetchOAuthUrl = authService.getOAuthUrl
+export const fetchDriveStatus = () => authService.getDriveStatus()
+export const fetchOAuthUrl = (redirectUri: string) => authService.getOAuthUrl(redirectUri)
 
-export const uploadReportFile = syncService.uploadReportFile
-export const getExportUrl = reportesService.getExportUrl
+export const uploadReportFile = (formData: FormData) => syncService.uploadReportFile(formData)
+export const getExportUrl = (tipo: string, format: 'excel' | 'pdf' | 'csv', params: Record<string, string>) => reportesService.getExportUrl(tipo, format, params)

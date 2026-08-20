@@ -1,12 +1,7 @@
-import { useAppStore } from '@stores/appStore'
-
 export const getApiBase = (): string => {
-  try {
-    const store = useAppStore()
-    return store.apiBase || ''
-  } catch {
-    return ''
-  }
+  const custom = localStorage.getItem('bimej12_custom_api_url')
+  if (custom) return custom.trim().replace(/\/$/, '')
+  return (import.meta.env.VITE_API_BASE || '').trim().replace(/\/$/, '')
 }
 
 export const fetchWithAuth = async (url: string, options: RequestInit = {}): Promise<Response> => {
