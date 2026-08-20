@@ -68,11 +68,12 @@
 <script setup lang="ts">
 defineProps<{
   multiDayMonth: string
-  months: string[]
+  months: string[] | readonly string[]
   selectedDates: string[]
   calendarDays: { num: number; date: string }[]
   calendarPadding: number
 }>()
+
 
 defineEmits<{
   (e: 'update:multiDayMonth', val: string): void

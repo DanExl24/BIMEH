@@ -143,7 +143,9 @@ import {
   FileCode, 
   FileText 
 } from 'lucide-vue-next'
+import { useAppStore } from '../../stores/appStore'
 import { useDateStore } from '../../stores/dateStore'
+
 
 const props = withDefaults(
   defineProps<{

@@ -132,9 +132,10 @@ export const useDateStore = defineStore('date', () => {
       })
     }
 
-    const mNum = MONTH_TO_NUMBER[targetMonth.toUpperCase()]
     const totalDays = getDaysInMonth(targetMonth)
     const availableDaysInMonth = new Set(getAvailableDaysForMonth(targetMonth))
+
+
 
     return Array.from({ length: totalDays }, (_, i) => {
       const d = String(i + 1).padStart(2, '0')

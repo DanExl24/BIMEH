@@ -40,8 +40,9 @@ export const useAppStore = defineStore('app', () => {
 
   const availableDates = computed(() => dateStore.availableDates)
   const availableMonths = computed(() => dateStore.availableMonths)
-  const months = MONTHS_LIST
+  const months = [...MONTHS_LIST]
   const monthsWithAvailability = computed(() => dateStore.monthsWithAvailability)
+
   const dashboardDaysFormatted = computed(() => dateStore.selectedMonthDaysFormatted)
 
   const getFormattedDaysForMonth = (monthName?: string) => dateStore.getFormattedDaysForMonth(monthName)

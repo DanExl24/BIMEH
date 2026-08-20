@@ -1,6 +1,7 @@
 import { ref, computed, type Ref } from 'vue'
 import type { HistorialRegistro } from '../types'
-import { MONTH_SPANISH_NAMES, getMonthDaysArray } from '../utils/date'
+import { MONTH_SPANISH_NAMES } from '../utils/date'
+
 
 export function usePersonalTimelineFilters(historial: Ref<HistorialRegistro[]>) {
   const filtroMes = ref('')
