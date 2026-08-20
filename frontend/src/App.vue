@@ -85,7 +85,7 @@ onMounted(async () => {
     <!-- Main Content Area -->
     <main 
       class="min-h-screen flex flex-col min-w-0 transition-all duration-300"
-      :class="$route.name !== 'login' ? 'ml-0 lg:ml-64 p-4 sm:p-6 lg:p-8 pt-20 lg:pt-8 pb-12' : ''"
+      :class="$route.name !== 'login' ? 'ml-0 lg:ml-64 px-4 sm:px-6 lg:px-8 pt-20 sm:pt-24 lg:pt-8 pb-12' : ''"
     >
       <div class="max-w-7xl mx-auto w-full flex-1 flex flex-col space-y-6 min-w-0">
 
