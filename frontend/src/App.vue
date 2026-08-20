@@ -11,48 +11,7 @@ const authStore = useAuthStore()
 
 const isMobileMenuOpen = ref(false)
 
-const MONTH_NUMBER_MAP: Record<string, string> = {
-  'ENERO': '01', 'FEBRERO': '02', 'MARZO': '03', 'ABRIL': '04',
-  'MAYO': '05', 'JUNIO': '06', 'JULIO': '07', 'AGOSTO': '08',
-  'SEPTIEMBRE': '09', 'OCTUBRE': '10', 'NOVIEMBRE': '11', 'DICIEMBRE': '12'
-}
 
-const diasDelMesFormatted = computed(() => {
-  const selectedMonth = appStore.selectedDashboardMonth
-  if (!selectedMonth) {
-    return Array.from({ length: 31 }, (_, i) => {
-      const d = String(i + 1).padStart(2, '0')
-      return { val: d, label: d, isAvailable: true }
-    })
-  }
-
-  const mNum = MONTH_NUMBER_MAP[selectedMonth.toUpperCase()]
-  if (!mNum) {
-    return Array.from({ length: 31 }, (_, i) => {
-      const d = String(i + 1).padStart(2, '0')
-      return { val: d, label: d, isAvailable: true }
-    })
-  }
-
-  const availableDaysInMonth = new Set(
-    appStore.availableDates
-      .filter(dateStr => {
-        const parts = dateStr.split('-')
-        return parts.length === 3 && parts[1] === mNum
-      })
-      .map(dateStr => dateStr.split('-')[2])
-  )
-
-  return Array.from({ length: 31 }, (_, i) => {
-    const d = String(i + 1).padStart(2, '0')
-    const hasData = availableDaysInMonth.has(d)
-    return {
-      val: d,
-      label: hasData ? d : `${d} - (SIN REGISTRO)`,
-      isAvailable: hasData
-    }
-  })
-})
 
 onMounted(async () => {
   await appStore.fetchAvailableDates()
@@ -134,7 +93,15 @@ onMounted(async () => {
               v-model="appStore.selectedMonth"
               class="w-full sm:w-auto bg-darkCard border border-darkBorder rounded-lg px-3 py-1.5 text-sm text-slate-200 outline-none focus:border-cyan-500/50"
             >
-              <option v-for="m in appStore.months" :key="m" :value="m">{{ m }}</option>
+              <option 
+                v-for="m in appStore.monthsWithAvailability" 
+                :key="m.name" 
+                :value="m.name"
+                :disabled="!m.isAvailable"
+                :class="!m.isAvailable ? 'text-slate-500 italic bg-darkBg' : 'text-slate-100 font-medium'"
+              >
+                {{ m.label }}
+              </option>
             </select>
           </div>
 
@@ -147,7 +114,15 @@ onMounted(async () => {
                 class="w-full bg-darkCard border border-darkBorder rounded-lg px-3 py-1.5 text-sm text-slate-200 outline-none focus:border-cyan-500/50"
               >
                 <option value="">Todos los Meses</option>
-                <option v-for="m in appStore.months" :key="m" :value="m">{{ m }}</option>
+                <option 
+                  v-for="m in appStore.monthsWithAvailability" 
+                  :key="m.name" 
+                  :value="m.name"
+                  :disabled="!m.isAvailable"
+                  :class="!m.isAvailable ? 'text-slate-500 italic bg-darkBg' : 'text-slate-100 font-medium'"
+                >
+                  {{ m.label }}
+                </option>
               </select>
             </div>
             
@@ -159,10 +134,11 @@ onMounted(async () => {
               >
                 <option value="">Todos los Días</option>
                 <option 
-                  v-for="d in diasDelMesFormatted" 
+                  v-for="d in appStore.dashboardDaysFormatted" 
                   :key="d.val" 
                   :value="d.val"
-                  :class="!d.isAvailable ? 'text-slate-500 italic' : 'text-slate-100 font-medium'"
+                  :disabled="!d.isAvailable"
+                  :class="!d.isAvailable ? 'text-slate-500 italic bg-darkBg' : 'text-slate-100 font-medium'"
                 >
                   {{ d.label }}
                 </option>

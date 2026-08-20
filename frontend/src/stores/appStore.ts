@@ -27,8 +27,75 @@ export const useAppStore = defineStore('app', () => {
   const MONTH_NAME_TO_NUMBER: Record<string, string> = {
     'ENERO': '01', 'FEBRERO': '02', 'MARZO': '03', 'ABRIL': '04',
     'MAYO': '05', 'JUNIO': '06', 'JULIO': '07', 'AGOSTO': '08',
-    'SEPTIEMBRE': '09', 'OCTUBRE': '10', 'NOVIEMBRE': '11', 'DICIEMBRE': '12'
+  // Lista de todos los meses con su estado de disponibilidad en la base de datos
+  const monthsWithAvailability = computed(() => {
+    const loadedMonthNumbers = new Set<string>()
+    availableDates.value.forEach(d => {
+      const parts = d.split('-')
+      if (parts.length === 3) loadedMonthNumbers.add(parts[1])
+    })
+
+    return months.map(m => {
+      const num = MONTH_NAME_TO_NUMBER[m]
+      const isAvailable = loadedMonthNumbers.has(num)
+      return {
+        name: m,
+        num,
+        isAvailable,
+        label: isAvailable ? m : `${m} - (SIN REGISTRO)`
+      }
+    })
+  })
+
+  // Obtener los 31 días de un mes con su disponibilidad exacta (o todos si no hay mes)
+  const getFormattedDaysForMonth = (monthName?: string) => {
+    if (!monthName) {
+      const availableDays = new Set(
+        availableDates.value.map(d => d.split('-')[2]).filter(Boolean)
+      )
+      return Array.from({ length: 31 }, (_, i) => {
+        const d = String(i + 1).padStart(2, '0')
+        const isAvailable = availableDays.has(d)
+        return {
+          val: d,
+          isAvailable,
+          label: isAvailable ? d : `${d} - (SIN REGISTRO)`
+        }
+      })
+    }
+
+    const mNum = MONTH_NAME_TO_NUMBER[monthName.toUpperCase()]
+    if (!mNum) {
+      return Array.from({ length: 31 }, (_, i) => {
+        const d = String(i + 1).padStart(2, '0')
+        return { val: d, isAvailable: false, label: `${d} - (SIN REGISTRO)` }
+      })
+    }
+
+    const availableDaysInMonth = new Set(
+      availableDates.value
+        .filter(d => {
+          const parts = d.split('-')
+          return parts.length === 3 && parts[1] === mNum
+        })
+        .map(d => d.split('-')[2])
+    )
+
+    return Array.from({ length: 31 }, (_, i) => {
+      const d = String(i + 1).padStart(2, '0')
+      const isAvailable = availableDaysInMonth.has(d)
+      return {
+        val: d,
+        isAvailable,
+        label: isAvailable ? d : `${d} - (SIN REGISTRO)`
+      }
+    })
   }
+
+  // Días del mes del Dashboard calculados reactivamente
+  const dashboardDaysFormatted = computed(() => {
+    return getFormattedDaysForMonth(selectedDashboardMonth.value)
+  })
 
   // Filter months to only those that actually exist in availableDates
   const availableMonths = computed<string[]>(() => {
@@ -251,8 +318,11 @@ export const useAppStore = defineStore('app', () => {
     selectedDashboardDay,
     availableDates,
     months,
+    monthsWithAvailability,
     availableMonths,
     getAvailableDaysForMonth,
+    getFormattedDaysForMonth,
+    dashboardDaysFormatted,
     isSyncingDrive,
 
     syncSecondsElapsed,
