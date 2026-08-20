@@ -1,5 +1,5 @@
 <template>
-  <div class="space-y-6">
+  <div class="space-y-6 min-w-0 max-w-full">
     <!-- Loader -->
     <div v-if="loading" class="flex flex-col items-center justify-center py-24 space-y-3">
       <Loader2 class="w-10 h-10 text-cyan-400 animate-spin" />
@@ -166,6 +166,7 @@ const loadStats = async () => {
 }
 
 const initMonthlyChart = async () => {
+  if (!monthlyNovedadesDom.value) return
   try {
     const data = await fetchNovedadesFrecuentes(appStore.selectedMonth)
     
@@ -181,12 +182,12 @@ const initMonthlyChart = async () => {
         borderColor: '#1e293b',
         textStyle: { color: '#f8fafc', fontSize: 12 }
       },
-      grid: { top: 30, right: 30, bottom: 50, left: 60, containLabel: true },
+      grid: { top: 30, right: 20, bottom: 60, left: 20, containLabel: true },
       xAxis: {
         type: 'category',
         data: names,
         axisLine: { lineStyle: { color: '#1e293b' } },
-        axisLabel: { color: '#94a3b8', rotate: 20, fontSize: 11, interval: 0 },
+        axisLabel: { color: '#94a3b8', rotate: 25, fontSize: 10, interval: 0 },
         splitLine: { show: false }
       },
       yAxis: {

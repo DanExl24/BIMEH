@@ -4,7 +4,7 @@
     <div class="absolute -top-40 -left-40 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none"></div>
     <div class="absolute -bottom-40 -right-40 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl pointer-events-none"></div>
 
-    <div class="glass-panel max-w-md w-full p-6 sm:p-8 rounded-3xl space-y-6 shadow-2xl border border-darkBorder relative z-10">
+    <div class="glass-panel max-w-md w-full p-5 sm:p-8 rounded-3xl space-y-6 shadow-2xl border border-darkBorder relative z-10">
       <!-- Header -->
       <div class="text-center space-y-2">
         <div class="inline-flex p-3.5 bg-gradient-to-br from-cyan-500/15 to-blue-500/10 border border-cyan-500/30 rounded-2xl text-cyan-400 mb-1 shadow-lg shadow-cyan-500/10">

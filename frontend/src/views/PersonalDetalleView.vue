@@ -1,5 +1,5 @@
 <template>
-  <div class="space-y-6">
+  <div class="space-y-6 min-w-0 max-w-full">
     <!-- Back Button -->
     <div>
       <router-link 
@@ -18,7 +18,7 @@
     </div>
 
     <!-- Profile content -->
-    <div v-else-if="profile" class="space-y-6">
+    <div v-else-if="profile" class="space-y-6 min-w-0 max-w-full">
       <!-- 1. Header Info Card -->
       <PersonalHeaderCard 
         :profile="profile" 
@@ -29,9 +29,10 @@
       <PersonalKpiGrid :profile="profile" />
 
       <!-- 3. Chart and Details -->
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 sm:gap-6">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 sm:gap-6 min-w-0">
         <!-- Tiempo acumulado subnovedad chart -->
         <PersonalNovedadesChart 
+          class="min-w-0"
           :filtered-historial="filteredHistorial"
           :filter-subtitle="filterSubtitle"
           v-model:selected-subnovedad="filtroSubnovedad"
@@ -39,7 +40,7 @@
 
         <!-- Línea de tiempo individual -->
         <PersonalTimeline 
-          class="lg:col-span-2"
+          class="lg:col-span-2 min-w-0"
           v-model:filtro-mes="filtroMes"
           v-model:filtro-dia="filtroDia"
           v-model:filtro-subnovedad="filtroSubnovedad"
@@ -49,7 +50,6 @@
           :filtered-historial="filteredHistorial"
         />
       </div>
-
 
       <!-- 4. Individual Heatmap and Daily Detail Card -->
       <PersonalHeatmapMatrix 

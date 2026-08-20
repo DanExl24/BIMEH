@@ -12,7 +12,7 @@
 
     <!-- Navigation Sidebar / Drawer -->
     <aside 
-      class="w-64 bg-darkCard/95 border-r border-darkBorder flex flex-col h-screen fixed left-0 top-0 z-50 transition-transform duration-300 lg:translate-x-0 shadow-2xl lg:shadow-none"
+      class="w-64 max-w-[85vw] sm:w-64 bg-darkCard/95 border-r border-darkBorder flex flex-col h-screen fixed left-0 top-0 z-50 transition-transform duration-300 lg:translate-x-0 shadow-2xl lg:shadow-none"
       :class="isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'"
     >
       <!-- Brand / Title -->

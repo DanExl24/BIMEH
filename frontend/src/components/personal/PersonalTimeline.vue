@@ -1,5 +1,5 @@
 <template>
-  <div class="glass-panel p-5 sm:p-7 rounded-3xl flex flex-col h-[460px] border border-darkBorder shadow-xl">
+  <div class="glass-panel p-5 sm:p-7 rounded-3xl flex flex-col h-[460px] border border-darkBorder shadow-xl min-w-0 max-w-full overflow-hidden">
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 border-b border-darkBorder/60 pb-3.5">
       <div class="flex items-center gap-2">
         <Clock class="w-4 h-4 text-cyan-400" />

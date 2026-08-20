@@ -1,5 +1,5 @@
 <template>
-  <div class="space-y-6">
+  <div class="space-y-6 min-w-0 max-w-full">
     <!-- Header Card con descarga de plantillas -->
     <SyncTemplateDownload :api-base="appStore.apiBase" />
 

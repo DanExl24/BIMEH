@@ -1,5 +1,5 @@
 <template>
-  <div class="space-y-6">
+  <div class="space-y-6 min-w-0 max-w-full">
     <!-- Header -->
     <div class="glass-panel p-5 sm:p-7 rounded-3xl flex flex-col md:flex-row md:items-center justify-between gap-4 border border-darkBorder shadow-xl">
       <div>

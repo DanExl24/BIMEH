@@ -1,5 +1,5 @@
 <template>
-  <div class="glass-panel p-5 sm:p-7 rounded-3xl space-y-6 border border-darkBorder shadow-xl">
+  <div class="glass-panel p-5 sm:p-7 rounded-3xl space-y-6 border border-darkBorder shadow-xl min-w-0 max-w-full overflow-hidden">
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-darkBorder/60 pb-5">
       <div>
         <div class="flex items-center gap-2.5">
@@ -212,8 +212,8 @@
         </div>
 
         <!-- Table Pagination Controls -->
-        <div v-if="tableFilteredHistory.length > 0" class="flex justify-between items-center text-xs p-3.5 bg-darkBg/60 border-t border-darkBorder/40">
-          <span class="text-slate-400 font-medium">
+        <div v-if="tableFilteredHistory.length > 0" class="flex flex-col sm:flex-row justify-between items-center gap-3 text-xs p-3.5 bg-darkBg/60 border-t border-darkBorder/40">
+          <span class="text-slate-400 font-medium text-center sm:text-left">
             Mostrando <strong class="text-slate-200">{{ pagination.rangeStart }} - {{ pagination.rangeEnd }}</strong> de <strong class="text-slate-200">{{ pagination.totalCount }}</strong> registros
           </span>
           <div class="flex items-center gap-2">

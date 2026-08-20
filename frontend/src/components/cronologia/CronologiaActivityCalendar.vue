@@ -23,7 +23,7 @@
         :key="day.fecha"
         type="button"
         @click="$emit('select-date', day.fecha)"
-        class="w-13 h-13 min-w-[50px] min-h-[50px] rounded-2xl flex flex-col items-center justify-center border transition-all duration-200 relative group cursor-pointer shadow-sm select-none"
+        class="w-11 h-11 sm:w-13 sm:h-13 min-w-[42px] min-h-[42px] sm:min-w-[50px] sm:min-h-[50px] rounded-xl sm:rounded-2xl flex flex-col items-center justify-center border transition-all duration-200 relative group cursor-pointer shadow-sm select-none"
         :class="[
           getDayColorClass(day.disponibilidad),
           day.fecha === activeDate ? 'ring-2 ring-cyan-400 scale-105 border-slate-100 z-10 shadow-lg shadow-cyan-500/20' : 'hover:scale-105'

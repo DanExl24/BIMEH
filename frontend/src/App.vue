@@ -43,7 +43,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-darkBg text-slate-100 flex flex-col lg:flex-row overflow-x-hidden">
+  <div class="min-h-screen bg-darkBg text-slate-100 overflow-x-hidden">
     <!-- Mobile/Tablet Top Navigation Header (visible under 1024px) -->
     <header 
       v-if="$route.name !== 'login'"
@@ -84,10 +84,10 @@ onMounted(async () => {
 
     <!-- Main Content Area -->
     <main 
-      class="flex-1 min-h-screen flex flex-col w-full max-w-full transition-all duration-300"
-      :class="$route.name !== 'login' ? 'ml-0 lg:ml-64 p-4 sm:p-6 lg:p-8 pt-20 lg:pt-8 pb-12' : ''"
+      class="flex-1 min-h-screen flex flex-col min-w-0 transition-all duration-300"
+      :class="$route.name !== 'login' ? 'lg:pl-64 p-4 sm:p-6 lg:p-8 pt-20 lg:pt-8 pb-12' : ''"
     >
-      <div class="max-w-7xl mx-auto w-full flex-1 flex flex-col space-y-6">
+      <div class="max-w-7xl mx-auto w-full flex-1 flex flex-col space-y-6 min-w-0">
 
         <!-- Top Header & Global Context Bar -->
         <header v-if="$route.name !== 'login'" class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-darkBorder/60 pb-5">
@@ -192,7 +192,7 @@ onMounted(async () => {
     <!-- Global Background Sync Floating Notification (Non-blocking pill) -->
     <div 
       v-if="appStore.syncStatus !== 'idle'" 
-      class="fixed bottom-4 right-4 z-40 glass-panel p-3 sm:p-4 rounded-2xl border flex items-center justify-between gap-3 transition-all duration-300 shadow-2xl max-w-xs sm:max-w-sm"
+      class="fixed bottom-4 right-4 left-4 sm:left-auto z-40 glass-panel p-3 sm:p-4 rounded-2xl border flex items-center justify-between gap-3 transition-all duration-300 shadow-2xl max-w-[calc(100vw-2rem)] sm:max-w-sm"
       :class="appStore.syncStatus === 'running' ? 'border-cyan-500/40 shadow-cyan-500/10' : 
               appStore.syncStatus === 'success' ? 'border-emerald-500/40 shadow-emerald-500/10' : 'border-red-500/40 shadow-red-500/10'"
     >

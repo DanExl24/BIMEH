@@ -1,15 +1,15 @@
 <template>
-  <div class="glass-panel p-5 sm:p-7 rounded-3xl flex flex-col md:flex-row justify-between items-start md:items-center gap-5 border border-darkBorder shadow-xl">
-    <div class="flex items-start gap-4">
+  <div class="glass-panel p-4 sm:p-7 rounded-3xl flex flex-col md:flex-row justify-between items-start md:items-center gap-5 border border-darkBorder shadow-xl min-w-0 max-w-full overflow-hidden">
+    <div class="flex items-start gap-3 sm:gap-4 min-w-0 flex-1">
       <!-- Profile Badge Icon -->
-      <div class="w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-br from-cyan-500/20 to-blue-600/10 border border-cyan-500/30 rounded-2xl flex items-center justify-center text-cyan-400 shadow-md shadow-cyan-500/10 shrink-0">
-        <User class="w-7 h-7 sm:w-8 sm:h-8 stroke-[2]" />
+      <div class="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-cyan-500/20 to-blue-600/10 border border-cyan-500/30 rounded-2xl flex items-center justify-center text-cyan-400 shadow-md shadow-cyan-500/10 shrink-0">
+        <User class="w-6 h-6 sm:w-8 sm:h-8 stroke-[2]" />
       </div>
-      <div>
-        <div class="flex items-center gap-3 flex-wrap">
-          <h2 class="text-base sm:text-lg font-black text-slate-100 uppercase tracking-tight">{{ profile.nombre }}</h2>
+      <div class="min-w-0 flex-1">
+        <div class="flex items-center gap-2.5 sm:gap-3 flex-wrap">
+          <h2 class="text-base sm:text-lg font-black text-slate-100 uppercase tracking-tight break-words">{{ profile.nombre }}</h2>
           <span 
-            class="text-xs font-bold tracking-wider px-2.5 py-0.5 rounded-md border uppercase inline-flex items-center gap-1.5"
+            class="text-xs font-bold tracking-wider px-2.5 py-0.5 rounded-md border uppercase inline-flex items-center gap-1.5 shrink-0"
             :class="getStatusBadgeClass(profile.estado)"
           >
             <span class="w-1.5 h-1.5 rounded-full" :class="profile.estado === 'ACTIVO' ? 'bg-emerald-400 animate-pulse' : 'bg-red-400'"></span>

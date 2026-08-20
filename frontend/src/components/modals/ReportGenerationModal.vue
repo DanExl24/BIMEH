@@ -5,7 +5,7 @@
       class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md transition-all duration-300 animate-in fade-in"
     >
       <div 
-        class="glass-panel max-w-md w-full p-6 sm:p-7 rounded-3xl space-y-6 shadow-2xl border border-darkBorder font-sans relative overflow-hidden"
+        class="glass-panel max-w-md w-full p-5 sm:p-7 rounded-3xl space-y-5 sm:space-y-6 shadow-2xl border border-darkBorder font-sans relative max-h-[calc(100dvh-2rem)] overflow-y-auto"
         :class="{
           'border-cyan-500/40 shadow-cyan-500/10': reportStore.status === 'generating',
           'border-emerald-500/40 shadow-emerald-500/10': reportStore.status === 'success',

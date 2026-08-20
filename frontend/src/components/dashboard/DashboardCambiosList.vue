@@ -70,12 +70,12 @@
               </span>
             </div>
           </div>
-          <div class="flex items-center gap-2 text-xs flex-wrap">
-            <span class="text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-lg border border-emerald-500/20 font-medium">
+          <div class="flex items-center gap-1.5 sm:gap-2 text-[11px] sm:text-xs flex-wrap">
+            <span class="text-emerald-400 bg-emerald-500/10 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-lg border border-emerald-500/20 font-medium">
               {{ c.novedad_anterior }}
             </span>
             <ArrowRight class="w-3.5 h-3.5 text-slate-500 shrink-0" />
-            <span class="text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-lg border border-amber-500/20 font-semibold">
+            <span class="text-amber-400 bg-amber-500/10 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-lg border border-amber-500/20 font-semibold">
               {{ c.novedad_nueva }}
             </span>
           </div>
@@ -103,12 +103,12 @@
               </span>
             </div>
           </div>
-          <div class="flex items-center gap-2 text-xs flex-wrap">
-            <span class="text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-lg border border-amber-500/20 font-medium">
+          <div class="flex items-center gap-1.5 sm:gap-2 text-[11px] sm:text-xs flex-wrap">
+            <span class="text-amber-400 bg-amber-500/10 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-lg border border-amber-500/20 font-medium">
               {{ c.novedad_anterior }}
             </span>
             <ArrowRight class="w-3.5 h-3.5 text-slate-500 shrink-0" />
-            <span class="text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-lg border border-emerald-500/20 font-semibold">
+            <span class="text-emerald-400 bg-emerald-500/10 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-lg border border-emerald-500/20 font-semibold">
               {{ c.novedad_nueva }}
             </span>
           </div>
@@ -136,12 +136,12 @@
               </span>
             </div>
           </div>
-          <div class="flex items-center gap-2 text-xs flex-wrap">
-            <span class="text-slate-300 bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-700 font-medium">
+          <div class="flex items-center gap-1.5 sm:gap-2 text-[11px] sm:text-xs flex-wrap">
+            <span class="text-slate-300 bg-slate-800 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-lg border border-slate-700 font-medium">
               {{ c.novedad_anterior }}
             </span>
             <ArrowRight class="w-3.5 h-3.5 text-slate-500 shrink-0" />
-            <span class="text-cyan-400 bg-cyan-500/10 px-2.5 py-1 rounded-lg border border-cyan-500/20 font-semibold">
+            <span class="text-cyan-400 bg-cyan-500/10 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-lg border border-cyan-500/20 font-semibold">
               {{ c.novedad_nueva }}
             </span>
           </div>

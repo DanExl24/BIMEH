@@ -1,5 +1,5 @@
 <template>
-  <div class="glass-panel p-6 rounded-2xl flex flex-col h-[400px]">
+  <div class="glass-panel p-6 rounded-2xl flex flex-col h-[400px] min-w-0 max-w-full overflow-hidden">
     <h3 class="text-sm font-bold text-slate-200 mb-4 uppercase tracking-wider flex items-center gap-2">
       <span class="w-2 h-4 bg-cyan-500 rounded-sm"></span> Distribución de Novedades {{ filterSubtitle }}
     </h3>

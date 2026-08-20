@@ -1,5 +1,5 @@
 <template>
-  <div class="space-y-6">
+  <div class="space-y-6 min-w-0 max-w-full">
     <!-- Search Bar & Controls Card -->
     <div class="glass-panel p-5 sm:p-6 rounded-3xl space-y-4">
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">

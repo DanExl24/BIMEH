@@ -30,18 +30,18 @@
       </div>
 
       <!-- File Details if selected -->
-      <div v-else class="flex items-center gap-3 bg-darkCard border border-darkBorder px-5 py-3 rounded-2xl text-left shadow-md" @click.stop>
-        <div class="w-10 h-10 rounded-xl bg-cyan-500/15 border border-cyan-500/30 text-cyan-300 flex items-center justify-center font-bold text-xs">
-          <FileSpreadsheet class="w-5 h-5" />
+      <div v-else class="flex items-center gap-2.5 sm:gap-3 bg-darkCard border border-darkBorder px-3 sm:px-5 py-2.5 sm:py-3 rounded-2xl text-left shadow-md max-w-full" @click.stop>
+        <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-cyan-500/15 border border-cyan-500/30 text-cyan-300 flex items-center justify-center font-bold text-xs shrink-0">
+          <FileSpreadsheet class="w-4 h-4 sm:w-5 sm:h-5" />
         </div>
-        <div>
-          <h5 class="text-xs font-bold text-slate-100 max-w-[200px] sm:max-w-xs truncate">{{ selectedFile.name }}</h5>
-          <span class="text-xs text-slate-400 font-mono">{{ formattedFileSize }} • {{ fileExtension.toUpperCase() }}</span>
+        <div class="min-w-0 flex-1">
+          <h5 class="text-xs font-bold text-slate-100 max-w-[130px] sm:max-w-xs truncate">{{ selectedFile.name }}</h5>
+          <span class="text-[11px] sm:text-xs text-slate-400 font-mono block">{{ formattedFileSize }} • {{ fileExtension.toUpperCase() }}</span>
         </div>
         <button 
           type="button" 
           @click.stop="$emit('clear-file')" 
-          class="ml-3 text-slate-400 hover:text-red-400 p-1.5 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
+          class="ml-1 sm:ml-3 text-slate-400 hover:text-red-400 p-1.5 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer shrink-0"
           title="Eliminar archivo seleccionado"
         >
           <X class="w-4 h-4" />

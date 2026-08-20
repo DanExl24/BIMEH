@@ -1,5 +1,5 @@
 <template>
-  <div class="space-y-6">
+  <div class="space-y-6 min-w-0 max-w-full">
     <!-- Row 1: Calendar and Monthly Quick Metrics -->
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 sm:gap-6">
       <CronologiaActivityCalendar 

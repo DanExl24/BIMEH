@@ -1,6 +1,6 @@
 <template>
   <div v-if="isOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
-    <div class="glass-panel max-w-md w-full p-6 sm:p-7 rounded-3xl space-y-6 shadow-2xl border border-darkBorder max-h-[90vh] overflow-y-auto">
+    <div class="glass-panel max-w-md w-full p-5 sm:p-7 rounded-3xl space-y-5 sm:space-y-6 shadow-2xl border border-darkBorder max-h-[calc(100dvh-2rem)] overflow-y-auto">
       <!-- Modal Header -->
       <div class="flex items-center justify-between border-b border-darkBorder/60 pb-4">
         <div class="flex items-center gap-2.5">

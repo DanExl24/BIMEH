@@ -56,7 +56,7 @@
           <thead>
             <tr class="border-b border-darkBorder text-xs text-slate-300 font-mono bg-darkBg/90 backdrop-blur-md">
               <!-- Sticky Integrante Header Column -->
-              <th class="py-3 px-4 w-56 text-left font-bold sticky left-0 bg-darkCard/95 z-20 sticky-col-shadow text-slate-100 uppercase tracking-wider">
+              <th class="py-3 px-3 sm:px-4 w-36 sm:w-48 md:w-56 text-left font-bold sticky left-0 bg-darkCard/95 z-20 sticky-col-shadow text-slate-100 uppercase tracking-wider text-xs">
                 Integrante
               </th>
               <!-- Day Columns -->
@@ -77,7 +77,7 @@
               class="border-b border-darkBorder/30 hover:bg-slate-800/30 transition-colors group"
             >
               <!-- Sticky Integrante Name and CC -->
-              <td class="py-2.5 px-4 truncate font-bold text-slate-200 uppercase sticky left-0 bg-darkCard/95 z-10 sticky-col-shadow group-hover:bg-slate-900 transition-colors" :title="p.nombre">
+              <td class="py-2.5 px-3 sm:px-4 truncate font-bold text-slate-200 uppercase sticky left-0 bg-darkCard/95 z-10 sticky-col-shadow group-hover:bg-slate-900 transition-colors w-36 sm:w-48 md:w-56" :title="p.nombre">
                 <router-link :to="`/personal/${p.cedula}`" class="hover:text-cyan-300 block truncate">
                   {{ p.nombre }}
                 </router-link>
