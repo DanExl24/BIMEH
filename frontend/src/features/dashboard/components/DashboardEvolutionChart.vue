@@ -60,12 +60,13 @@ const renderChart = async () => {
         borderWidth: 1.5,
         padding: [10, 14],
         textStyle: { color: '#f1f5f9', fontFamily: 'monospace' },
-        formatter: (params: any[]) => {
-          if (!params || !params.length) return ''
-          const axisVal = params[0].axisValue
-          const dispoItem = params.find(p => p.seriesName === 'Disponibilidad %')
+        formatter: (params: any) => {
+          const arr = Array.isArray(params) ? params : [params]
+          if (!arr || !arr.length) return ''
+          const axisVal = arr[0]?.axisValue || ''
+          const dispoItem = arr.find((p: any) => p.seriesName === 'Disponibilidad %')
           const dispoVal = dispoItem ? dispoItem.value : 0
-          const persItem = params.find(p => p.seriesName === 'Personal Disponible')
+          const persItem = arr.find((p: any) => p.seriesName === 'Personal Disponible')
           const persVal = persItem ? persItem.value : 0
 
           const statusColor = dispoVal >= 80 ? '#34d399' : (dispoVal >= 60 ? '#fbbf24' : '#f87171')
