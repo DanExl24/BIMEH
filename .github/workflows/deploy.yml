@@ -1,0 +1,42 @@
+name: Deploy to VPS
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Deploy Application via SSH
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Conectar por SSH y desplegar en VPS
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          password: ${{ secrets.VPS_PASSWORD }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          script_stop: true
+          script: |
+            echo "🚀 Iniciando proceso de despliegue en VPS..."
+            
+            # Navegar al directorio del proyecto
+            cd ~/BIMEH || exit 1
+            echo "📂 Directorio actual: $(pwd)"
+            
+            # Descargar ultimos cambios del repositorio
+            echo "📥 Descargando ultimos cambios de Git (main)..."
+            git pull origin main
+            
+            # Reconstruir y levantar los contenedores de Docker
+            echo "🐳 Reconstruyendo y levantando contenedores con Docker Compose..."
+            docker compose up --build -d
+            
+            # Limpiar imagenes Docker intermedias huérfanas (ahorro de disco)
+            echo "🧹 Limpiando imágenes temporales no utilizadas..."
+            docker image prune -f
+            
+            echo "✅ ¡Despliegue completado con éxito!"
