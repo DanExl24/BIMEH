@@ -176,10 +176,34 @@ def intercambiar_codigo_oauth(code: str, redirect_uri: str):
     Returns creds.
     """
     creds_path = _asegurar_credentials()
-    flow = Flow.from_client_secrets_file(creds_path, scopes=SCOPES, redirect_uri=redirect_uri)
-    flow.autogenerate_code_verifier = False
-    flow.fetch_token(code=code)
-    creds = flow.credentials
+
+    # Lista de URIs candidatas para tolerar variaciones http/https tras proxies inversos
+    candidate_uris = [redirect_uri]
+    if redirect_uri.startswith("http://"):
+        candidate_uris.append(redirect_uri.replace("http://", "https://"))
+    elif redirect_uri.startswith("https://"):
+        candidate_uris.append(redirect_uri.replace("https://", "http://"))
+
+    creds = None
+    last_error = None
+
+    for uri in candidate_uris:
+        try:
+            flow = Flow.from_client_secrets_file(creds_path, scopes=SCOPES, redirect_uri=uri)
+            flow.autogenerate_code_verifier = False
+            flow.fetch_token(code=code)
+            creds = flow.credentials
+            print(f"[AUTH] Token intercambiado con éxito usando redirect_uri: '{uri}'")
+            break
+        except Exception as e:
+            last_error = e
+            if "redirect_uri_mismatch" in str(e):
+                print(f"[AUTH] Intento con '{uri}' falló con mismatch. Probando siguiente candidata...")
+                continue
+            raise e
+
+    if not creds:
+        raise last_error or Exception("No se pudieron intercambiar las credenciales OAuth.")
 
     correo_google = "desconocido"
     try:

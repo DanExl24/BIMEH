@@ -29,8 +29,13 @@ def callback_oauth(request: Request, code: str = Query(...), redirect_uri: Optio
     """
     try:
         if not redirect_uri:
-            # Reconstruir la redirect_uri exacta recibida en la peticion (sin parametros de query)
-            redirect_uri = str(request.url).split('?')[0]
+            # Reconstruir respetando headers de reverse proxy (X-Forwarded-Proto y Host)
+            proto = request.headers.get("x-forwarded-proto", request.url.scheme)
+            host = request.headers.get("x-forwarded-host", request.headers.get("host", request.url.netloc))
+            path = request.url.path
+            if "adsoproject.dev" in host:
+                proto = "https"
+            redirect_uri = f"{proto}://{host}{path}"
 
         intercambiar_codigo_oauth(code, redirect_uri)
         html_content = """
