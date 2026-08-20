@@ -4,7 +4,7 @@ import type {
   PersonalDetalle, 
   HistorialRegistro, 
   AcumuladoNovedad 
-} from '@types'
+} from '@/types'
 
 export const personalService = {
   buscar: async (q: string): Promise<PersonalSearchResult[]> => {

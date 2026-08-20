@@ -6,7 +6,6 @@ import { cronologiaService } from '@features/cronologia/services/cronologia.serv
 import { syncService } from '@features/sincronizar/services/sync.service'
 import { estadisticasService } from '@features/estadisticas/services/estadisticas.service'
 import { reportesService } from '@features/reportes/services/reportes.service'
-import * as Types from '../types'
 
 export { fetchWithAuth }
 

@@ -86,7 +86,7 @@ import {
   AlertTriangle, 
   Activity 
 } from 'lucide-vue-next'
-import type { KPIData } from '@types'
+import type { KPIData } from '@/types'
 
 defineProps<{
   kpis: KPIData | null

@@ -62,7 +62,7 @@
 
 <script setup lang="ts">
 import { CalendarDays, Loader2 } from 'lucide-vue-next'
-import type { CalendarioItem } from '@types'
+import type { CalendarioItem } from '@/types'
 
 defineProps<{
   selectedMonth: string

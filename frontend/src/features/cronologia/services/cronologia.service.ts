@@ -1,5 +1,5 @@
 import { http } from '@services/http'
-import type { CalendarioItem, PersonalDia, HeatmapResponse } from '@types'
+import type { CalendarioItem, PersonalDia, HeatmapResponse } from '@/types'
 
 export const cronologiaService = {
   getCalendario: async (mes: string): Promise<CalendarioItem[]> => {

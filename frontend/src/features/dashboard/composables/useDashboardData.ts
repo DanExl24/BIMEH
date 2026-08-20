@@ -1,7 +1,7 @@
 import { ref } from 'vue'
 import { useAppStore } from '@stores/appStore'
 import { dashboardService } from '../services/dashboard.service'
-import type { KPIData, CambiosResponse } from '@types'
+import type { KPIData, CambiosResponse } from '@/types'
 
 export function useDashboardData() {
   const appStore = useAppStore()

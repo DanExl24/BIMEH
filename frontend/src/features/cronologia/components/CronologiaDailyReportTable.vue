@@ -114,7 +114,7 @@ import {
   Search, 
   Loader2 
 } from 'lucide-vue-next'
-import type { PersonalDia } from '@types'
+import type { PersonalDia } from '@/types'
 import { isAvailable } from '@utils/personal.utils'
 import { useReportDownloadStore } from '@stores/reportDownloadStore'
 

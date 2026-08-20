@@ -79,7 +79,7 @@
 
 <script setup lang="ts">
 import { Clock } from 'lucide-vue-next'
-import type { HistorialRegistro } from '@types'
+import type { HistorialRegistro } from '@/types'
 import { isAvailable } from '@utils/personal.utils'
 
 defineProps<{

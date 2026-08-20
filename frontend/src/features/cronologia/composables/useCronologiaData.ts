@@ -2,7 +2,7 @@ import { ref, computed, watch, onMounted } from 'vue'
 import { useAppStore } from '@stores/appStore'
 import { useDateStore } from '@stores/dateStore'
 import { cronologiaService } from '../services/cronologia.service'
-import type { CalendarioItem, PersonalDia, HeatmapResponse } from '@types'
+import type { CalendarioItem, PersonalDia, HeatmapResponse } from '@/types'
 
 export function useCronologiaData() {
   const appStore = useAppStore()

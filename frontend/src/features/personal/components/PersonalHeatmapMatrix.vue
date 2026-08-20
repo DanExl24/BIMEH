@@ -255,7 +255,7 @@ import {
   ChevronRight 
 } from 'lucide-vue-next'
 
-import type { PersonalDetalle, HistorialRegistro } from '@types'
+import type { PersonalDetalle, HistorialRegistro } from '@/types'
 import { isAvailable } from '@utils/personal.utils'
 import { MONTH_TO_NUMBER } from '@utils/date'
 import { usePagination } from '@composables/usePagination'

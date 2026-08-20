@@ -42,7 +42,7 @@
 
 <script setup lang="ts">
 import { User, Download, CalendarX } from 'lucide-vue-next'
-import type { PersonalDetalle } from '@types'
+import type { PersonalDetalle } from '@/types'
 import { getStatusBadgeClass } from '@utils/personal.utils'
 
 defineProps<{

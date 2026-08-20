@@ -1,6 +1,6 @@
 import { ref, computed } from 'vue'
 import { personalService } from '../services/personal.service'
-import type { PersonalDetalle, HistorialRegistro } from '@types'
+import type { PersonalDetalle, HistorialRegistro } from '@/types'
 import { useDateStore } from '@stores/dateStore'
 
 export function usePersonalProfile() {

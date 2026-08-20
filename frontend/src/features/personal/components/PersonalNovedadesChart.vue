@@ -12,7 +12,7 @@
 <script setup lang="ts">
 import { onMounted, watch } from 'vue'
 import { useECharts } from '@composables/useECharts'
-import type { HistorialRegistro } from '@types'
+import type { HistorialRegistro } from '@/types'
 
 const props = defineProps<{
   filteredHistorial: HistorialRegistro[]

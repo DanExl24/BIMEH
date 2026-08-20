@@ -1,5 +1,5 @@
 import { ref, computed, type Ref } from 'vue'
-import type { HistorialRegistro } from '@types'
+import type { HistorialRegistro } from '@/types'
 import { MONTH_SPANISH_NAMES } from '@utils/date'
 
 export function usePersonalTimelineFilters(historial: Ref<HistorialRegistro[]>) {

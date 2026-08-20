@@ -1,5 +1,5 @@
 import { http, getApiBase } from '@services/http'
-import type { DriveStatusResponse, OAuthUrlResponse } from '@types'
+import type { DriveStatusResponse, OAuthUrlResponse } from '@/types'
 
 export interface LoginCredentials {
   correo: string

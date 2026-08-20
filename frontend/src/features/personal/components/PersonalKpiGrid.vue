@@ -67,7 +67,7 @@ import {
   ClipboardList, 
   Timer 
 } from 'lucide-vue-next'
-import type { PersonalDetalle } from '@types'
+import type { PersonalDetalle } from '@/types'
 
 defineProps<{
   profile: PersonalDetalle

@@ -1,5 +1,5 @@
 import { http } from '@services/http'
-import type { SyncResponse } from '@types'
+import type { SyncResponse } from '@/types'
 
 export const syncService = {
   uploadReportFile: async (formData: FormData): Promise<SyncResponse> => {

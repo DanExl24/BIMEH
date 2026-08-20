@@ -1,5 +1,5 @@
 import { http } from '@services/http'
-import type { RankingsData } from '@types'
+import type { RankingsData } from '@/types'
 
 export const estadisticasService = {
   getRankings: async (): Promise<RankingsData> => {

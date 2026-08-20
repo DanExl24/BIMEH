@@ -144,7 +144,7 @@ import {
   ChevronRight, 
   Loader2 
 } from 'lucide-vue-next'
-import type { HeatmapResponse, HeatmapRow } from '@types'
+import type { HeatmapResponse, HeatmapRow } from '@/types'
 import { isAvailable } from '@utils/personal.utils'
 
 defineProps<{

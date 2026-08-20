@@ -141,7 +141,7 @@ import * as echarts from 'echarts'
 import { useAppStore } from '@stores/appStore'
 import { estadisticasService } from '../services/estadisticas.service'
 import { dashboardService } from '@features/dashboard/services/dashboard.service'
-import type { RankingsData } from '@types'
+import type { RankingsData } from '@/types'
 import { useECharts } from '@composables/useECharts'
 
 const appStore = useAppStore()

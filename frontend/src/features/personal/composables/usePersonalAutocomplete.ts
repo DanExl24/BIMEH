@@ -1,6 +1,6 @@
 import { ref } from 'vue'
 import { personalService } from '../services/personal.service'
-import type { PersonalSearchResult } from '@types'
+import type { PersonalSearchResult } from '@/types'
 
 export function usePersonalAutocomplete() {
   const searchQuery = ref('')

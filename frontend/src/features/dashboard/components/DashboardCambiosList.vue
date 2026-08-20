@@ -159,7 +159,7 @@ import {
   RefreshCw, 
   ArrowRight 
 } from 'lucide-vue-next'
-import type { CambiosResponse } from '@types'
+import type { CambiosResponse } from '@/types'
 import { useTouchSwipe } from '@composables/useTouchSwipe'
 
 defineProps<{

@@ -5,7 +5,7 @@ import type {
   EvolucionItem, 
   NovedadFrecuente, 
   DistribucionItem 
-} from '@types'
+} from '@/types'
 
 export const dashboardService = {
   getKPIs: async (mes?: string, dia?: string, fecha?: string): Promise<KPIData> => {

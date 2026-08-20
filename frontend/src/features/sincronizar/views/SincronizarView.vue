@@ -66,7 +66,7 @@
           :disabled="isSubmitDisabled"
           class="w-full py-3.5 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 disabled:opacity-40 disabled:cursor-not-allowed rounded-2xl text-xs sm:text-sm font-bold text-white flex items-center justify-center gap-2 transition-all cursor-pointer shadow-lg shadow-cyan-950/40 active:scale-98 select-none"
         >
-          <Loader2 v-if="loadingSubmit || appStore.syncStatus === 'syncing'" class="w-4 h-4 animate-spin" />
+          <Loader2 v-if="loadingSubmit || appStore.syncStatus === 'running'" class="w-4 h-4 animate-spin" />
           <CloudSync v-else class="w-4 h-4" />
           <span>{{ getSubmitButtonText() }}</span>
         </button>
@@ -155,14 +155,14 @@ const {
 })
 
 const isSubmitDisabled = computed(() => {
-  if (loadingSubmit.value || appStore.syncStatus === 'syncing') return true
+  if (loadingSubmit.value || appStore.syncStatus === 'running') return true
   if (syncSource.value === 'local' && !selectedFile.value) return true
   if (syncMode.value === 'dias' && selectedDates.value.length === 0) return true
   return false
 })
 
 const getSubmitButtonText = () => {
-  if (loadingSubmit.value || appStore.syncStatus === 'syncing') return 'PROCESANDO SINCRONIZACIÓN...'
+  if (loadingSubmit.value || appStore.syncStatus === 'running') return 'PROCESANDO SINCRONIZACIÓN...'
   if (syncSource.value === 'drive') {
     return syncMode.value === 'mes'
       ? `SINCRONIZAR MES (${syncMonth.value}) DESDE GOOGLE DRIVE`
