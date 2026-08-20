@@ -13,9 +13,11 @@ Resulta fundamental para la planeación estratégica de vacaciones, comisiones d
 - **Router**: [`backend/app/routers/stats.py`](file:///c:/Users/alejo/Downloads/automPYdrive/backend/app/routers/stats.py)
 - **Dependencias**: [`backend/app/dependencies.py`](file:///c:/Users/alejo/Downloads/automPYdrive/backend/app/dependencies.py) (`DISPONIBLE_STATUSES`)
 
-### Frontend
-- **Vista Principal**: `frontend/src/views/EstadisticasView.vue`
-- **Integración de Gráficos**: Apache ECharts y Matrices CSS Grid / Flexbox personalizadas.
+### Frontend (Feature `src/features/estadisticas/` + Capas Compartidas)
+- **Vista Principal**: `frontend/src/features/estadisticas/views/EstadisticasView.vue`
+- **Servicio de Feature**: `frontend/src/features/estadisticas/services/estadisticas.service.ts`
+- **Tipos de Feature**: `frontend/src/features/estadisticas/types/estadisticas.types.ts`
+- **Integración de Gráficos**: Apache ECharts (`src/composables/useECharts.ts`) y Matrices CSS Grid / Flexbox personalizadas.
 
 ---
 

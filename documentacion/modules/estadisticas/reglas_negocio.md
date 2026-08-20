@@ -9,7 +9,7 @@
 - **Descripción**: En el cálculo del Top 15 de personal con más novedades acumuladas, se deben filtrar y excluir obligatoriamente las subnovedades de disponibilidad regular (`sn.nombre NOT IN ('CDO UNIDAD', 'AREA OPERACIONES')`).
 - **Motivo**: Evitar que los días de servicio activo ordinario sean contabilizados erróneamente como novedades o ausencias operativas.
 - **Módulos afectados**: `estadisticas`.
-- **Archivos donde se implementa**: [`backend/app/routers/stats.py`](file:///c:/Users/alejo/Downloads/automPYdrive/backend/app/routers/stats.py) (Líneas 24–35).
+- **Archivos donde se implementa**: [`backend/app/routers/stats.py`](file:///c:/Users/alejo/Downloads/automPYdrive/backend/app/routers/stats.py) (Líneas 24–35), `frontend/src/utils/personal.utils.ts`.
 - **Endpoints relacionados**: `GET /api/stats/ranking`
 - **Historias de usuario relacionadas**: [HU-STAT-001](file:///c:/Users/alejo/Downloads/automPYdrive/documentacion/modules/estadisticas/historias_usuario.md#hu-stat-001)
 
@@ -20,7 +20,7 @@
 - **Descripción**: La agrupación por subnovedad en `global_rank` realiza un conteo absoluto de filas en `REGISTRO_PERSONAL` agrupado por `id_sub_novedad`, ordenado de mayor a menor frecuencia (`ORDER BY total_dias DESC`).
 - **Motivo**: Identificar la volumetría histórica total de cada contingencia en la historia de la unidad.
 - **Módulos afectados**: `estadisticas`.
-- **Archivos donde se implementa**: [`backend/app/routers/stats.py`](file:///c:/Users/alejo/Downloads/automPYdrive/backend/app/routers/stats.py) (Líneas 14–21).
+- **Archivos donde se implementa**: [`backend/app/routers/stats.py`](file:///c:/Users/alejo/Downloads/automPYdrive/backend/app/routers/stats.py) (Líneas 14–21), `frontend/src/features/estadisticas/views/EstadisticasView.vue`.
 - **Endpoints relacionados**: `GET /api/stats/ranking`
 - **Historias de usuario relacionadas**: [HU-STAT-001](file:///c:/Users/alejo/Downloads/automPYdrive/documentacion/modules/estadisticas/historias_usuario.md#hu-stat-001)
 

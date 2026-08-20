@@ -10,21 +10,21 @@
 **Para** cargar reportes diarios o mensuales en la base de datos sin depender de conexiones a servicios externos.
 
 ## Descripción
-El usuario accede a `/sincronizar` y selecciona la pestaña "Archivo Local". Arrastra un archivo `.xlsx` o `.json` al área de carga (`SyncFileDropzone.vue`). El sistema valida que el archivo contenga las columnas mandatorias (`CEDULA`, `APELLIDOS Y NOMBRES`, `SUBNOVEDAD`), detecta si ya existen reportes previos para las fechas incluidas y, de no existir conflictos (o si se marca sobrescritura), inserta los registros en la base de datos.
+El usuario accede a `/sincronizar` (`SincronizarView.vue`) y selecciona la pestaña "Archivo Local". Arrastra un archivo `.xlsx` o `.json` al área de carga (`SyncFileDropzone.vue`). El composable `useLocalFileUpload.ts` valida el archivo y envía la solicitud a través de `sync.service.ts`. El backend valida que el archivo contenga las columnas mandatorias (`CEDULA`, `APELLIDOS Y NOMBRES`, `SUBNOVEDAD`), detecta si ya existen reportes previos para las fechas incluidas y, de no existir conflictos (o si se marca sobrescritura), inserta los registros en la base de datos.
 
 ## Criterios de Aceptación
 - Solo se aceptan extensiones `.xlsx`, `.xls` y `.json`. Cualquier otro formato es rechazado con `HTTP 400 Bad Request`.
 - Debe validar la presencia de las cabeceras requeridas en las primeras 15 filas del archivo.
 - Los números de cédula deben limpiarse de comas, espacios y decimales flotantes (`int(float(str(val)))`), ignorando valores menores o iguales a cero.
 - Si no existe el integrante en la tabla `PERSONAL` o la subnovedad en `SUB_NOVEDADES`, el sistema los crea automáticamente sobre la marcha (*get or create*).
-- Si la fecha ya existe en la base de datos y `overwrite=False`, el endpoint retorna `status="conflict"` con la lista de fechas duplicadas para confirmación del usuario.
+- Si la fecha ya existe en la base de datos y `overwrite=False`, el endpoint retorna `status="conflict"` y se abre el componente `SyncConflictAlert.vue` para confirmación del usuario.
 
 ## Metadata
 - **Prioridad**: Alta
 - **Roles involucrados**: `ADMINISTRATIVO`
 - **Reglas de negocio relacionadas**: [RN-SYNC-001](file:///c:/Users/alejo/Downloads/automPYdrive/documentacion/modules/sincronizar/reglas_negocio.md#rn-sync-001), [RN-SYNC-002](file:///c:/Users/alejo/Downloads/automPYdrive/documentacion/modules/sincronizar/reglas_negocio.md#rn-sync-002), [RN-SYNC-003](file:///c:/Users/alejo/Downloads/automPYdrive/documentacion/modules/sincronizar/reglas_negocio.md#rn-sync-003)
 - **Endpoints relacionados**: `POST /api/sincronizar/cargar`
-- **Componentes frontend relacionados**: `frontend/src/views/SincronizarView.vue`, `frontend/src/components/sincronizar/SyncFileDropzone.vue`, `frontend/src/components/sincronizar/SyncConflictAlert.vue`
+- **Componentes frontend relacionados**: `frontend/src/features/sincronizar/views/SincronizarView.vue`, `frontend/src/features/sincronizar/components/SyncFileDropzone.vue`, `frontend/src/features/sincronizar/components/SyncConflictAlert.vue`, `frontend/src/features/sincronizar/composables/useLocalFileUpload.ts`, `frontend/src/features/sincronizar/services/sync.service.ts`
 - **Controllers/Services relacionados**: `backend/app/routers/sincronizar.py` (`cargar_reporte`)
 
 ---
@@ -37,9 +37,9 @@ El usuario accede a `/sincronizar` y selecciona la pestaña "Archivo Local". Arr
 **Para** incorporar las últimas modificaciones y novedades operacionales registradas por las subunidades en la nube.
 
 ## Descripción
-En la pestaña "Google Drive", el usuario selecciona el alcance de sincronización:
+En la pestaña "Google Drive", el usuario selecciona el alcance de sincronización mediante `SyncSourceSelector.vue`:
 - **Día Único**: Sincroniza únicamente la fecha seleccionada.
-- **Multi-día**: Selecciona múltiples fechas en el calendario interactivo (`SyncMultiDayCalendar.vue`).
+- **Multi-día**: Selecciona múltiples fechas en el calendario interactivo (`SyncMultiDayCalendar.vue`) orquestado por `useMultiDaySelection.ts`.
 - **Mes Completo**: Sincroniza todas las carpetas del mes seleccionado.
 - **Todo el Histórico**: Procesa la totalidad de carpetas de la nube.
 
@@ -56,7 +56,7 @@ El sistema ejecuta el pipeline ETL, descarga los libros correspondientes, realiz
 - **Roles involucrados**: `ADMINISTRATIVO`
 - **Reglas de negocio relacionadas**: [RN-SYNC-004](file:///c:/Users/alejo/Downloads/automPYdrive/documentacion/modules/sincronizar/reglas_negocio.md#rn-sync-004), [RN-SYNC-005](file:///c:/Users/alejo/Downloads/automPYdrive/documentacion/modules/sincronizar/reglas_negocio.md#rn-sync-005)
 - **Endpoints relacionados**: `POST /api/sincronizar/drive`
-- **Componentes frontend relacionados**: `frontend/src/components/sincronizar/SyncMultiDayCalendar.vue`, `frontend/src/components/sincronizar/SyncDriveProgress.vue`
+- **Componentes frontend relacionados**: `frontend/src/features/sincronizar/components/SyncMultiDayCalendar.vue`, `frontend/src/features/sincronizar/components/SyncDriveProgress.vue`, `frontend/src/features/sincronizar/composables/useMultiDaySelection.ts`, `frontend/src/stores/appStore.ts`
 - **Controllers/Services relacionados**: `backend/app/routers/sincronizar.py` (`sincronizar_desde_drive`, `sync_local_jsons_to_db`)
 
 ---
@@ -80,5 +80,5 @@ El componente `SyncTemplateDownload.vue` ofrece botones directos para descargar 
 - **Roles involucrados**: `ADMINISTRATIVO`, `CONSULTA`
 - **Reglas de negocio relacionadas**: [RN-SYNC-001](file:///c:/Users/alejo/Downloads/automPYdrive/documentacion/modules/sincronizar/reglas_negocio.md#rn-sync-001)
 - **Endpoints relacionados**: `GET /api/sincronizar/plantilla/{format}`
-- **Componentes frontend relacionados**: `frontend/src/components/sincronizar/SyncTemplateDownload.vue`
+- **Componentes frontend relacionados**: `frontend/src/features/sincronizar/components/SyncTemplateDownload.vue`
 - **Controllers/Services relacionados**: `backend/app/routers/sincronizar.py` (`descargar_plantilla`)

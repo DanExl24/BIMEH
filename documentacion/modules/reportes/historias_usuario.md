@@ -10,7 +10,7 @@
 **Para** presentar la relación oficial del personal de servicio y novedades a los mandos superiores en reuniones operacionales.
 
 ## Descripción
-En la vista `/reportes`, el usuario selecciona una fecha específica en el calendario y hace clic en el botón de exportación deseado (**Excel**, **CSV** o **PDF**). El backend consulta todos los registros de la fecha, genera el documento con diseño estandarizado (título, cabeceras en negrita con fondo oscuro, cédula, nombres, subnovedad, descripción y vigencia) y lo envía para su descarga inmediata.
+En la vista `/reportes` (`ReportesView.vue`), el usuario selecciona una fecha específica en el calendario y hace clic en el botón de exportación deseado (**Excel**, **CSV** o **PDF**) dentro de `ReportDirectDownloadCard.vue`. El frontend utiliza `reportes.service.ts` y `reportDownloadStore.ts` para solicitar el archivo. El backend consulta todos los registros de la fecha, genera el documento con diseño estandarizado (título, cabeceras en negrita con fondo oscuro, cédula, nombres, subnovedad, descripción y vigencia) y lo envía para su descarga inmediata.
 
 ## Criterios de Aceptación
 - Para `tipo=dia`, el archivo incluye las columnas: `CÉDULA`, `APELLIDOS Y NOMBRES`, `SUBNOVEDAD`, `DESCRIPCIÓN`, `DESDE`, `HASTA`, `FECHA REPORTE`.
@@ -23,7 +23,7 @@ En la vista `/reportes`, el usuario selecciona una fecha específica en el calen
 - **Roles involucrados**: `ADMINISTRATIVO`, `CONSULTA`
 - **Reglas de negocio relacionadas**: [RN-REP-001](file:///c:/Users/alejo/Downloads/automPYdrive/documentacion/modules/reportes/reglas_negocio.md#rn-rep-001), [RN-REP-002](file:///c:/Users/alejo/Downloads/automPYdrive/documentacion/modules/reportes/reglas_negocio.md#rn-rep-002), [RN-REP-003](file:///c:/Users/alejo/Downloads/automPYdrive/documentacion/modules/reportes/reglas_negocio.md#rn-rep-003)
 - **Endpoints relacionados**: `GET /api/exportar/excel`, `GET /api/exportar/csv`, `GET /api/exportar/pdf`
-- **Componentes frontend relacionados**: `frontend/src/views/ReportesView.vue`, `frontend/src/components/reportes/ReportDirectDownloadCard.vue`
+- **Componentes frontend relacionados**: `frontend/src/features/reportes/views/ReportesView.vue`, `frontend/src/features/reportes/components/ReportDirectDownloadCard.vue`, `frontend/src/features/reportes/services/reportes.service.ts`, `frontend/src/stores/reportDownloadStore.ts`
 - **Controllers/Services relacionados**: `backend/app/routers/exportar.py`
 
 ---
@@ -54,7 +54,7 @@ El formulario de Consolidado Mensual (`ReportConsolidadoMensualForm.vue`) permit
 - **Roles involucrados**: `ADMINISTRATIVO`, `CONSULTA`
 - **Reglas de negocio relacionadas**: [RN-REP-004](file:///c:/Users/alejo/Downloads/automPYdrive/documentacion/modules/reportes/reglas_negocio.md#rn-rep-004)
 - **Endpoints relacionados**: `GET /api/exportar/excel`, `GET /api/exportar/csv`, `GET /api/exportar/pdf`
-- **Componentes frontend relacionados**: `frontend/src/components/reportes/ReportConsolidadoMensualForm.vue`
+- **Componentes frontend relacionados**: `frontend/src/features/reportes/components/ReportConsolidadoMensualForm.vue`, `frontend/src/features/reportes/services/reportes.service.ts`
 - **Controllers/Services relacionados**: `backend/app/routers/exportar.py`
 
 ---
@@ -80,5 +80,5 @@ La modalidad `tipo="agil"` filtra exclusivamente a los integrantes que registrar
 - **Roles involucrados**: `ADMINISTRATIVO`, `CONSULTA`
 - **Reglas de negocio relacionadas**: [RN-REP-005](file:///c:/Users/alejo/Downloads/automPYdrive/documentacion/modules/reportes/reglas_negocio.md#rn-rep-005)
 - **Endpoints relacionados**: `GET /api/exportar/excel`, `GET /api/exportar/pdf`
-- **Componentes frontend relacionados**: `frontend/src/views/ReportesView.vue`
+- **Componentes frontend relacionados**: `frontend/src/features/reportes/views/ReportesView.vue`, `frontend/src/features/reportes/services/reportes.service.ts`
 - **Controllers/Services relacionados**: `backend/app/routers/exportar.py` (`format_agil_month_ranges`, `exportar_excel`)

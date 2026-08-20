@@ -29,7 +29,7 @@ El usuario ingresa al sistema a través de la pantalla de inicio de sesión (`/l
 - **Roles involucrados**: `ADMINISTRATIVO`, `CONSULTA`
 - **Reglas de negocio relacionadas**: [RN-AUTH-001](file:///c:/Users/alejo/Downloads/automPYdrive/documentacion/modules/auth/reglas_negocio.md#rn-auth-001), [RN-AUTH-002](file:///c:/Users/alejo/Downloads/automPYdrive/documentacion/modules/auth/reglas_negocio.md#rn-auth-002), [RN-AUTH-003](file:///c:/Users/alejo/Downloads/automPYdrive/documentacion/modules/auth/reglas_negocio.md#rn-auth-003), [RN-AUTH-004](file:///c:/Users/alejo/Downloads/automPYdrive/documentacion/modules/auth/reglas_negocio.md#rn-auth-004)
 - **Endpoints relacionados**: `POST /api/auth/login`
-- **Componentes frontend relacionados**: `frontend/src/views/LoginView.vue`, `frontend/src/stores/authStore.ts`
+- **Componentes frontend relacionados**: `frontend/src/features/auth/views/LoginView.vue`, `frontend/src/features/auth/stores/authStore.ts`, `frontend/src/features/auth/services/auth.service.ts`
 - **Controllers/Services relacionados**: `backend/app/routers/auth.py` (`login`), `backend/app/dependencies.py`
 
 ---
@@ -55,7 +55,7 @@ El usuario presiona el botón de cierre de sesión en la barra lateral o barra d
 - **Roles involucrados**: `ADMINISTRATIVO`, `CONSULTA`
 - **Reglas de negocio relacionadas**: [RN-AUTH-005](file:///c:/Users/alejo/Downloads/automPYdrive/documentacion/modules/auth/reglas_negocio.md#rn-auth-005)
 - **Endpoints relacionados**: `POST /api/auth/logout`
-- **Componentes frontend relacionados**: `frontend/src/components/layout/Sidebar.vue`, `frontend/src/stores/authStore.ts`
+- **Componentes frontend relacionados**: `frontend/src/components/layout/Sidebar.vue`, `frontend/src/components/layout/Navbar.vue`, `frontend/src/features/auth/stores/authStore.ts`
 - **Controllers/Services relacionados**: `backend/app/routers/auth.py` (`logout`)
 
 ---
@@ -68,21 +68,21 @@ El usuario presiona el botón de cierre de sesión en la barra lateral o barra d
 **Para** garantizar que únicamente usuarios con una sesión válida puedan consultar y sincronizar datos.
 
 ## Descripción
-Todas las vistas del sistema (excepto `/login`) poseen el metadato `requiresAuth: true`. El interceptor de Vue Router verifica la existencia del token antes de cargar cualquier vista. Asimismo, el interceptor HTTP `fetchWithAuth` inyecta la cabecera `Authorization: Bearer <token>` en cada solicitud hacia los endpoints protegidos del backend. Si el backend retorna HTTP 401 por token expirado o inválido, el frontend purga automáticamente las credenciales y traslada al usuario al login.
+Todas las vistas del sistema (excepto `/login`) poseen el metadato `requiresAuth: true`. El interceptor de Vue Router verifica la existencia del token antes de cargar cualquier vista con *code splitting*. Asimismo, el interceptor HTTP `fetchWithAuth` en `src/services/http.ts` inyecta la cabecera `Authorization: Bearer <token>` en cada solicitud hacia los endpoints protegidos del backend. Si el backend retorna HTTP 401 por token expirado o inválido, el frontend purga automáticamente las credenciales y traslada al usuario al login.
 
 ## Criterios de Aceptación
 - Las rutas con `meta.requiresAuth = true` bloquean la navegación si `authStore.isAuthenticated` es falso.
 - Si un usuario ya autenticado navega voluntariamente hacia `/login`, el router lo redirige a la vista raíz `/`.
 - Si el token JWT ha expirado (más de 24 horas transcurridas desde su emisión), el backend debe responder `HTTP 401 Unauthorized` con el mensaje `"El token de sesión ha expirado"`.
 - Si el token posee una firma adulterada o formato incorrecto, el backend debe responder `HTTP 401 Unauthorized` con el mensaje `"Token de sesión inválido"`.
-- Ante cualquier respuesta `401` capturada en `fetchWithAuth`, se debe purgar el token de `localStorage` y cambiar la URL a `#/login`.
+- Ante cualquier respuesta `401` capturada en `fetchWithAuth` (`src/services/http.ts`), se debe purgar el token de `localStorage` y cambiar la URL a `#/login`.
 
 ## Metadata
 - **Prioridad**: Alta
 - **Roles involucrados**: `ADMINISTRATIVO`, `CONSULTA`
 - **Reglas de negocio relacionadas**: [RN-AUTH-002](file:///c:/Users/alejo/Downloads/automPYdrive/documentacion/modules/auth/reglas_negocio.md#rn-auth-002), [RN-AUTH-006](file:///c:/Users/alejo/Downloads/automPYdrive/documentacion/modules/auth/reglas_negocio.md#rn-auth-006)
 - **Endpoints relacionados**: `GET /api/auth/me`
-- **Componentes frontend relacionados**: `frontend/src/router/index.ts`, [`frontend/src/services/api.ts`](file:///c:/Users/alejo/Downloads/automPYdrive/frontend/src/services/api.ts) (`fetchWithAuth`)
+- **Componentes frontend relacionados**: `frontend/src/router/index.ts`, `frontend/src/services/http.ts` (`fetchWithAuth`), [`frontend/src/services/api.ts`](file:///c:/Users/alejo/Downloads/automPYdrive/frontend/src/services/api.ts)
 - **Controllers/Services relacionados**: `backend/app/dependencies.py` (`get_current_user`)
 
 ---
@@ -95,7 +95,7 @@ Todas las vistas del sistema (excepto `/login`) poseen el metadato `requiresAuth
 **Para** saber si es posible realizar la sincronización remota de novedades o si es necesario reautorizar la cuenta institucional.
 
 ## Descripción
-El sistema consulta periódicamente o por demanda el estado del token de Google Drive en el servidor a través del endpoint `/api/auth/drive-status`, retornando si las credenciales son válidas o si se requiere reautenticación OAuth.
+El sistema consulta periódicamente o por demanda el estado del token de Google Drive en el servidor a través del endpoint `/api/auth/drive-status` y el servicio `auth.service.ts`, retornando si las credenciales son válidas o si se requiere reautenticación OAuth.
 
 ## Criterios de Aceptación
 - Debe responder `{"connected": true}` si el token de Google Drive existe y es válido.
@@ -107,5 +107,5 @@ El sistema consulta periódicamente o por demanda el estado del token de Google 
 - **Roles involucrados**: `ADMINISTRATIVO`
 - **Reglas de negocio relacionadas**: [RN-AUTH-007](file:///c:/Users/alejo/Downloads/automPYdrive/documentacion/modules/auth/reglas_negocio.md#rn-auth-007)
 - **Endpoints relacionados**: `GET /api/auth/drive-status`
-- **Componentes frontend relacionados**: `frontend/src/views/SincronizarView.vue`, `frontend/src/components/sincronizar/SyncSourceSelector.vue`
+- **Componentes frontend relacionados**: `frontend/src/features/sincronizar/views/SincronizarView.vue`, `frontend/src/features/sincronizar/components/SyncSourceSelector.vue`, `frontend/src/components/layout/Navbar.vue`, `frontend/src/features/auth/services/auth.service.ts`
 - **Controllers/Services relacionados**: `backend/app/routers/auth.py` (`drive_status`), `backend/config/auth.py`

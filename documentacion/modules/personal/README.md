@@ -13,17 +13,23 @@ Proporciona un buscador predictivo con autocompletado en tiempo real por cédula
 - **Router**: [`backend/app/routers/personal.py`](file:///c:/Users/alejo/Downloads/automPYdrive/backend/app/routers/personal.py)
 - **Dependencias**: [`backend/app/dependencies.py`](file:///c:/Users/alejo/Downloads/automPYdrive/backend/app/dependencies.py)
 
-### Frontend
+### Frontend (Feature `src/features/personal/` + Capas Compartidas)
 - **Vistas**:
-  - `frontend/src/views/PersonalView.vue` (Buscador y catálogo general)
-  - `frontend/src/views/PersonalDetalleView.vue` (Expediente individual y mapas de calor)
-- **Componentes**:
-  - `frontend/src/components/personal/PersonalHeaderCard.vue` (Ficha técnica y estado ACTIVO/RETIRADO)
-  - `frontend/src/components/personal/PersonalKpiGrid.vue` (Métricas de disponibilidad acumulada y rachas)
-  - `frontend/src/components/personal/PersonalTimeline.vue` (Bitácora cronológica individual)
-  - `frontend/src/components/personal/PersonalNovedadesChart.vue` (Gráfico de distribución histórica de novedades)
-  - `frontend/src/components/personal/PersonalHeatmapMatrix.vue` (Matriz interactiva mensual y anual)
-  - `frontend/src/components/modals/ReportGenerationModal.vue` (Modal de exportación parametrizable)
+  - `frontend/src/features/personal/views/PersonalView.vue` (Buscador y catálogo general en cuadrícula o tabla)
+  - `frontend/src/features/personal/views/PersonalDetalleView.vue` (Expediente individual completo)
+- **Componentes de Feature**:
+  - `frontend/src/features/personal/components/PersonalHeaderCard.vue` (Ficha técnica y estado ACTIVO/RETIRADO)
+  - `frontend/src/features/personal/components/PersonalKpiGrid.vue` (Métricas de disponibilidad acumulada y rachas)
+  - `frontend/src/features/personal/components/PersonalTimeline.vue` (Bitácora cronológica individual con filtros)
+  - `frontend/src/features/personal/components/PersonalNovedadesChart.vue` (Gráfico de distribución histórica de novedades)
+  - `frontend/src/features/personal/components/PersonalHeatmapMatrix.vue` (Matriz interactiva mensual, anual y tabla)
+- **Composables de Feature**:
+  - `frontend/src/features/personal/composables/usePersonalProfile.ts` (Carga del detalle y meses activos)
+  - `frontend/src/features/personal/composables/usePersonalTimelineFilters.ts` (Filtros dinámicos de línea de tiempo)
+  - `frontend/src/features/personal/composables/usePersonalAutocomplete.ts` (Búsqueda predictiva con debounce)
+- **Servicio de Feature**: `frontend/src/features/personal/services/personal.service.ts`
+- **Tipos de Feature**: `frontend/src/features/personal/types/personal.types.ts`
+- **Modales Compartidos**: `frontend/src/components/modals/ReportGenerationModal.vue` (Modal de exportación parametrizable)
 
 ---
 

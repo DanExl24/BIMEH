@@ -14,14 +14,16 @@ El módulo de **Centro de Exportación y Reportes** es el motor generador de doc
 - **Router**: [`backend/app/routers/exportar.py`](file:///c:/Users/alejo/Downloads/automPYdrive/backend/app/routers/exportar.py)
 - **Librerías de Renderizado**: `openpyxl`, `reportlab`, `csv`, `io.BytesIO`, `io.StringIO`
 
-### Frontend
-- **Vista Principal**: `frontend/src/views/ReportesView.vue`
-- **Componentes**:
-  - `frontend/src/components/reportes/ReportDirectDownloadCard.vue` (Descargas directas rápidas)
-  - `frontend/src/components/reportes/ReportIndividualExpedienteForm.vue` (Exportación por cédula)
-  - `frontend/src/components/reportes/ReportConsolidadoMensualForm.vue` (Exportación de matriz mensual / anual)
-  - `frontend/src/components/reportes/ReportResumenAnualForm.vue` (Resumen anual ejecutivo)
-  - `frontend/src/components/modals/ExportModal.vue` (Modal de exportación general)
+### Frontend (Feature `src/features/reportes/` + Capas Compartidas)
+- **Vista Principal**: `frontend/src/features/reportes/views/ReportesView.vue`
+- **Componentes de Feature**:
+  - `frontend/src/features/reportes/components/ReportDirectDownloadCard.vue` (Descargas directas rápidas del mes activo)
+  - `frontend/src/features/reportes/components/ReportIndividualExpedienteForm.vue` (Exportación por cédula y subnovedad)
+  - `frontend/src/features/reportes/components/ReportConsolidadoMensualForm.vue` (Exportación de matriz mensual / anual)
+  - `frontend/src/features/reportes/components/ReportResumenAnualForm.vue` (Resumen anual ejecutivo)
+- **Servicio de Feature**: `frontend/src/features/reportes/services/reportes.service.ts` (Construcción de URLs de exportación tipadas)
+- **Store Global**: `frontend/src/stores/reportDownloadStore.ts` (Control de descargas asíncronas con modal de progreso)
+- **Modales Compartidos**: `frontend/src/components/modals/ExportModal.vue`, `frontend/src/components/modals/ReportGenerationModal.vue`
 
 ---
 

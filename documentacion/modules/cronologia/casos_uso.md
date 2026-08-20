@@ -13,12 +13,12 @@
 2. Existen reportes operacionales cargados para el mes seleccionado.
 
 ### Flujo Principal
-1. El usuario ingresa a la pestaña **"Cronología"** (`CronologiaView.vue`).
-2. El sistema carga el mes activo y solicita a la API:
-   - `GET /api/reportes/calendario?mes=...`
+1. El usuario ingresa a la pestaña **"Cronología"** (`src/features/cronologia/views/CronologiaView.vue`).
+2. El composable `useCronologiaData.ts` orquesta la carga del mes activo desde `dateStore.ts` y solicita a la API:
+   - `GET /api/reportes/calendario?mes=...` mediante `cronologia.service.ts`.
 3. El frontend dibuja las celdas de los días en `CronologiaActivityCalendar.vue` con sus porcentajes y badges de color.
 4. El usuario hace clic sobre un día específico en el calendario (ej. `2026-05-15`).
-5. La fecha activa se actualiza y se emite la petición `GET /api/reportes/dia?fecha=2026-05-15`.
+5. La fecha activa se actualiza en `dateStore.ts` y se emite la petición `GET /api/reportes/dia?fecha=2026-05-15`.
 6. El backend consulta en la tabla `REGISTRO_PERSONAL` los registros asociados al reporte de esa fecha.
 7. El componente `CronologiaDailyReportTable.vue` lista a todos los integrantes ordenados alfabéticamente.
 8. El usuario utiliza el buscador local para escribir el apellido de un efectivo o selecciona la subnovedad `"PERMISO"` para filtrar la tabla en tiempo real.

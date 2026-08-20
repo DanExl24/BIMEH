@@ -14,15 +14,19 @@ Provee métricas cuantitativas consolidadas del estado de fuerza diario (Total P
 - **Modelos Pydantic**: [`backend/app/models.py`](file:///c:/Users/alejo/Downloads/automPYdrive/backend/app/models.py) (`KPIData`)
 - **Dependencias de Filtrado**: [`backend/app/dependencies.py`](file:///c:/Users/alejo/Downloads/automPYdrive/backend/app/dependencies.py) (`DISPONIBLE_STATUSES = ["CDO UNIDAD", "AREA OPERACIONES"]`, `get_report_ids_for_filter`)
 
-### Frontend
-- **Vista Principal**: `frontend/src/views/DashboardView.vue`
-- **Componentes**:
-  - `frontend/src/components/dashboard/DashboardKpis.vue` (Tarjetas de métricas y porcentajes)
-  - `frontend/src/components/dashboard/DashboardEvolutionChart.vue` (Gráfico de línea temporal de disponibilidad)
-  - `frontend/src/components/dashboard/DashboardDistribucionChart.vue` (Gráfico dona de distribución)
-  - `frontend/src/components/dashboard/DashboardNovedadesChart.vue` (Barras de novedades frecuentes)
-  - `frontend/src/components/dashboard/DashboardCambiosList.vue` (Listado clasificado de transiciones diarias)
-- **Stores**: `frontend/src/stores/appStore.ts`, `frontend/src/stores/dateStore.ts`
+### Frontend (Feature `src/features/dashboard/` + Capas Compartidas)
+- **Vista Principal**: `frontend/src/features/dashboard/views/DashboardView.vue`
+- **Componentes de Feature**:
+  - `frontend/src/features/dashboard/components/DashboardKpis.vue` (Tarjetas de métricas y porcentajes)
+  - `frontend/src/features/dashboard/components/DashboardEvolutionChart.vue` (Gráfico de línea temporal de disponibilidad)
+  - `frontend/src/features/dashboard/components/DashboardDistribucionChart.vue` (Gráfico dona de distribución)
+  - `frontend/src/features/dashboard/components/DashboardNovedadesChart.vue` (Barras de novedades frecuentes)
+  - `frontend/src/features/dashboard/components/DashboardCambiosList.vue` (Listado clasificado de transiciones diarias)
+- **Composable de Feature**: `frontend/src/features/dashboard/composables/useDashboardData.ts` (Carga concurrente de KPIs y transiciones)
+- **Servicio de Feature**: `frontend/src/features/dashboard/services/dashboard.service.ts`
+- **Tipos de Feature**: `frontend/src/features/dashboard/types/dashboard.types.ts`
+- **Composable Compartido**: `frontend/src/composables/useECharts.ts` (Inicialización y auto-resize de gráficos)
+- **Stores Globales**: `frontend/src/stores/dateStore.ts` (Gestión centralizada de fechas), `frontend/src/stores/appStore.ts`
 
 ---
 

@@ -13,13 +13,13 @@
 2. Deben existir reportes operacionales cargados en la base de datos.
 
 ### Flujo Principal
-1. El usuario ingresa a la vista principal del sistema (`DashboardView.vue`).
-2. El frontend obtiene la lista de fechas disponibles invocando `GET /api/fechas`.
-3. El frontend solicita las métricas del día activo a través de `GET /api/dashboard/kpis?fecha=YYYY-MM-DD`.
+1. El usuario ingresa a la vista principal del sistema (`src/features/dashboard/views/DashboardView.vue`).
+2. El frontend obtiene la lista de fechas disponibles invocando `dateStore.fetchFechas()`.
+3. El composable `useDashboardData.ts` orquesta la carga de métricas solicitando `GET /api/dashboard/kpis?fecha=YYYY-MM-DD` a través de `dashboard.service.ts`.
 4. El backend calcula los conteos de personal total, disponibles y en novedades.
 5. El backend calcula el porcentaje de disponibilidad y la cantidad de cambios respecto al día previo.
 6. El backend responde con el modelo `KPIData`.
-7. El componente `DashboardKpis.vue` renderiza las 5 tarjetas de métricas operacionales.
+7. El componente `src/features/dashboard/components/DashboardKpis.vue` renderiza las 5 tarjetas de métricas operacionales.
 
 ### Flujos Alternativos
 - **A1: No existen reportes para la fecha**: El backend retorna todos los valores en `0` y disponibilidad `0.0`. La interfaz muestra las tarjetas con valor cero sin generar excepciones en pantalla.
@@ -37,8 +37,8 @@
 
 ### Flujo Principal
 1. En el Dashboard, el usuario visualiza el panel inferior de "Novedades Diarias".
-2. El frontend realiza la llamada `GET /api/dashboard/cambios?fecha=YYYY-MM-DD`.
+2. El frontend realiza la llamada `GET /api/dashboard/cambios?fecha=YYYY-MM-DD` mediante `dashboard.service.ts`.
 3. El backend localiza el reporte inmediatamente anterior.
 4. El backend compara registro por registro el estado de cada persona entre ambos días.
 5. El backend segrega las transiciones en: `entraron_novedades`, `volvieron_disponibles` y `otros_cambios`.
-6. El frontend renderiza el componente `DashboardCambiosList.vue` con pestañas interactivas y badges de color.
+6. El frontend renderiza el componente `src/features/dashboard/components/DashboardCambiosList.vue` con pestañas interactivas y badges de color.

@@ -13,18 +13,18 @@
 
 ### Flujo Principal
 1. El usuario navega a la sección **"Personal"** en el menú lateral.
-2. En la caja de texto de búsqueda, escribe al menos dos caracteres (ej. `"RAM"` o `"6804"`).
-3. El frontend emite una petición asíncrona a `GET /api/personal/buscar?q=...`.
+2. En la vista `src/features/personal/views/PersonalView.vue`, escribe al menos dos caracteres en la caja de búsqueda (ej. `"RAM"` o `"6804"`).
+3. El composable `usePersonalAutocomplete.ts` captura el input y emite una petición asíncrona a `GET /api/personal/buscar?q=...` a través de `personal.service.ts`.
 4. El backend busca registros en la tabla `PERSONAL` que coincidan con la cédula o el nombre.
 5. El backend devuelve un arreglo JSON con hasta 50 resultados, indicando cédula, nombre y estado (`ACTIVO` / `RETIRADO`).
-6. El frontend despliega la lista desplegable de resultados con badges diferenciados.
+6. El frontend despliega la cuadrícula o lista interactiva de resultados con badges diferenciados.
 7. El usuario hace clic sobre el integrante deseado.
-8. El enrutador navega a la ruta `/personal/:cedula`, renderizando `PersonalDetalleView.vue`.
-9. El componente solicita en paralelo:
+8. El enrutador navega a `/personal/:cedula`, montando `src/features/personal/views/PersonalDetalleView.vue`.
+9. El composable `usePersonalProfile.ts` solicita en paralelo:
    - `GET /api/personal/{cedula}` (Métricas y ficha básica).
    - `GET /api/personal/{cedula}/historial` (Historial detallado).
    - `GET /api/personal/{cedula}/acumulado` (Totales por subnovedad).
-10. La pantalla muestra los KPIs, el gráfico de dona, la línea de tiempo y la matriz Heatmap.
+10. La pantalla renderiza `PersonalHeaderCard.vue`, `PersonalKpiGrid.vue`, `PersonalNovedadesChart.vue`, `PersonalTimeline.vue` y `PersonalHeatmapMatrix.vue`.
 
 ### Flujos Alternativos y Excepciones
 - **A1: Menos de 2 caracteres**: El frontend no envía la solicitud y limpia la lista desplegable.
@@ -42,12 +42,12 @@
 - El usuario se encuentra en la vista de expediente de un integrante existente.
 
 ### Flujo Principal
-1. El usuario presiona el botón **"Generar Reporte"** en la esquina superior derecha del expediente.
-2. Se abre el modal `ReportGenerationModal.vue`.
+1. El usuario presiona el botón **"Generar Reporte"** en la tarjeta `PersonalHeaderCard.vue`.
+2. Se abre el modal compartido `src/components/modals/ReportGenerationModal.vue`.
 3. El usuario selecciona el formato deseado (**Excel**, **CSV** o **PDF**).
 4. El usuario selecciona el alcance (**Historial Completo** o **Heatmap Mensual**).
 5. Opcionalmente, el usuario elige una subnovedad específica en el selector desplegable (ej. `"VACACIONES"`).
 6. El usuario hace clic en **"Descargar Reporte"**.
-7. El frontend solicita el archivo mediante `GET /api/exportar/{formato}?tipo=personal&cedula=...&subnovedad=...`.
+7. El frontend utiliza `reportes.service.ts` para solicitar el archivo mediante `GET /api/exportar/{formato}?tipo=personal&cedula=...&subnovedad=...`.
 8. El backend construye dinámicamente el documento filtrado y lo transmite mediante `StreamingResponse`.
-9. El navegador descarga el archivo con el nombre estandarizado (ej. `historial_cedula_6804683.xlsx`).
+9. El navegador recibe el flujo binario y descarga el archivo (ej. `historial_cedula_6804683.xlsx`).

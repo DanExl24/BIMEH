@@ -10,21 +10,21 @@
 **Para** localizar rápidamente la ficha y expediente de un integrante sin navegar por cientos de registros.
 
 ## Descripción
-El usuario ingresa al módulo de Personal (`/personal`). En la barra de búsqueda escribe al menos 2 caracteres. El frontend realiza una consulta inmediata al endpoint `/api/personal/buscar?q=...`. El backend busca por coincidencia parcial insensible a mayúsculas/minúsculas tanto en el número de cédula como en el nombre completo, retornando hasta un máximo de 50 coincidencias junto con el estado del personal (`ACTIVO` o `RETIRADO`).
+El usuario ingresa al módulo de Personal (`/personal`). En la barra de búsqueda escribe al menos 2 caracteres. El frontend, mediante el composable `usePersonalAutocomplete.ts` y el servicio `personal.service.ts`, realiza una consulta inmediata al endpoint `/api/personal/buscar?q=...`. El backend busca por coincidencia parcial insensible a mayúsculas/minúsculas tanto en el número de cédula como en el nombre completo, retornando hasta un máximo de 50 coincidencias junto con el estado del personal (`ACTIVO` o `RETIRADO`).
 
 ## Criterios de Aceptación
 - La búsqueda requiere un mínimo de 2 caracteres (`min_length=2`); de lo contrario, el backend retorna `HTTP 422 Unprocessable Entity`.
 - La consulta busca en la base de datos coincidencia con `CAST(cedula AS TEXT) LIKE %Q%` o `nombre LIKE %Q%`.
 - El resultado incluye: `cedula`, `nombre`, `estado` (`'ACTIVO'` si `fecha_retiro` es nula, `'RETIRADO'` si tiene fecha) y `fecha_retiro`.
 - Se limita a un máximo de 50 registros por llamada para garantizar respuesta en menos de 100ms.
-- Al hacer clic en un resultado de la lista, el sistema navega a la ruta `/personal/:cedula`.
+- Al hacer clic en un resultado de la lista o tarjeta, el sistema navega a la ruta `/personal/:cedula`.
 
 ## Metadata
 - **Prioridad**: Alta
 - **Roles involucrados**: `ADMINISTRATIVO`, `CONSULTA`
 - **Reglas de negocio relacionadas**: [RN-PERS-001](file:///c:/Users/alejo/Downloads/automPYdrive/documentacion/modules/personal/reglas_negocio.md#rn-pers-001), [RN-PERS-002](file:///c:/Users/alejo/Downloads/automPYdrive/documentacion/modules/personal/reglas_negocio.md#rn-pers-002)
 - **Endpoints relacionados**: `GET /api/personal/buscar`
-- **Componentes frontend relacionados**: `frontend/src/views/PersonalView.vue`
+- **Componentes frontend relacionados**: `frontend/src/features/personal/views/PersonalView.vue`, `frontend/src/features/personal/composables/usePersonalAutocomplete.ts`, `frontend/src/features/personal/services/personal.service.ts`
 - **Controllers/Services relacionados**: `backend/app/routers/personal.py` (`buscar_personal`)
 
 ---
@@ -37,7 +37,7 @@ El usuario ingresa al módulo de Personal (`/personal`). En la barra de búsqued
 **Para** analizar sus porcentajes históricos de disponibilidad, total de días reportados, promedio de duración de rachas de novedades y su última novedad registrada.
 
 ## Descripción
-Al acceder a `/personal/:cedula`, el sistema recupera la información consolidada del integrante. Calcula el porcentaje total de tiempo que ha estado disponible (`"CDO UNIDAD"` o `"AREA OPERACIONES"`) frente al tiempo en novedades, y ejecuta un algoritmo de análisis secuencial para determinar el promedio en días de duración de cada racha ininterrumpida de novedad.
+Al acceder a `/personal/:cedula` (`PersonalDetalleView.vue`), el composable `usePersonalProfile.ts` orquesta las solicitudes para recuperar la información consolidada del integrante. Calcula el porcentaje total de tiempo que ha estado disponible (`"CDO UNIDAD"` o `"AREA OPERACIONES"`) frente al tiempo en novedades, y ejecuta un algoritmo de análisis secuencial para determinar el promedio en días de duración de cada racha ininterrumpida de novedad.
 
 ## Criterios de Aceptación
 - Si la cédula no existe en la base de datos, el backend debe retornar `HTTP 404 Not Found` con el mensaje `"Personal no encontrado."`.
@@ -50,7 +50,7 @@ Al acceder a `/personal/:cedula`, el sistema recupera la información consolidad
 - **Roles involucrados**: `ADMINISTRATIVO`, `CONSULTA`
 - **Reglas de negocio relacionadas**: [RN-PERS-003](file:///c:/Users/alejo/Downloads/automPYdrive/documentacion/modules/personal/reglas_negocio.md#rn-pers-003), [RN-PERS-004](file:///c:/Users/alejo/Downloads/automPYdrive/documentacion/modules/personal/reglas_negocio.md#rn-pers-004)
 - **Endpoints relacionados**: `GET /api/personal/{cedula}`
-- **Componentes frontend relacionados**: `frontend/src/views/PersonalDetalleView.vue`, `frontend/src/components/personal/PersonalHeaderCard.vue`, `frontend/src/components/personal/PersonalKpiGrid.vue`
+- **Componentes frontend relacionados**: `frontend/src/features/personal/views/PersonalDetalleView.vue`, `frontend/src/features/personal/components/PersonalHeaderCard.vue`, `frontend/src/features/personal/components/PersonalKpiGrid.vue`, `frontend/src/features/personal/composables/usePersonalProfile.ts`
 - **Controllers/Services relacionados**: `backend/app/routers/personal.py` (`get_personal_detalle`)
 
 ---
@@ -80,7 +80,7 @@ El expediente individual incluye el componente interactivo `PersonalHeatmapMatri
 - **Roles involucrados**: `ADMINISTRATIVO`, `CONSULTA`
 - **Reglas de negocio relacionadas**: [RN-PERS-005](file:///c:/Users/alejo/Downloads/automPYdrive/documentacion/modules/personal/reglas_negocio.md#rn-pers-005)
 - **Endpoints relacionados**: `GET /api/personal/{cedula}/historial`
-- **Componentes frontend relacionados**: `frontend/src/components/personal/PersonalHeatmapMatrix.vue`
+- **Componentes frontend relacionados**: `frontend/src/features/personal/components/PersonalHeatmapMatrix.vue`, `frontend/src/features/personal/components/PersonalTimeline.vue`, `frontend/src/features/personal/composables/usePersonalTimelineFilters.ts`
 - **Controllers/Services relacionados**: `backend/app/routers/personal.py` (`get_personal_historial`)
 
 ---
@@ -93,7 +93,7 @@ El expediente individual incluye el componente interactivo `PersonalHeatmapMatri
 **Para** generar y descargar su historial de novedades en Excel, CSV o PDF filtrado por rango o subnovedad específica.
 
 ## Descripción
-En la parte superior de la ficha del integrante, el botón "Generar Reporte" despliega el modal `ReportGenerationModal.vue`. El usuario puede configurar el formato (Excel, CSV, PDF), seleccionar el tipo de reporte (Historial Completo o Heatmap Mensual), elegir el mes y opcionalmente filtrar por una subnovedad en particular (ej. solo "INCAPACIDAD MÉDICA").
+En la parte superior de la ficha del integrante (`PersonalHeaderCard.vue`), el botón "Generar Reporte" despliega el modal compartido `ReportGenerationModal.vue`. El usuario puede configurar el formato (Excel, CSV, PDF), seleccionar el tipo de reporte (Historial Completo o Heatmap Mensual), elegir el mes y opcionalmente filtrar por una subnovedad en particular (ej. solo "INCAPACIDAD MÉDICA").
 
 ## Criterios de Aceptación
 - El modal permite seleccionar los formatos: Excel (`.xlsx`), CSV (`.csv`) y PDF (`.pdf`).
@@ -105,5 +105,5 @@ En la parte superior de la ficha del integrante, el botón "Generar Reporte" des
 - **Roles involucrados**: `ADMINISTRATIVO`, `CONSULTA`
 - **Reglas de negocio relacionadas**: [RN-PERS-006](file:///c:/Users/alejo/Downloads/automPYdrive/documentacion/modules/personal/reglas_negocio.md#rn-pers-006)
 - **Endpoints relacionados**: `GET /api/exportar/excel`, `GET /api/exportar/csv`, `GET /api/exportar/pdf`
-- **Componentes frontend relacionados**: `frontend/src/components/modals/ReportGenerationModal.vue`
+- **Componentes frontend relacionados**: `frontend/src/components/modals/ReportGenerationModal.vue`, `frontend/src/features/personal/components/PersonalHeaderCard.vue`, `frontend/src/features/reportes/services/reportes.service.ts`
 - **Controllers/Services relacionados**: `backend/app/routers/exportar.py`

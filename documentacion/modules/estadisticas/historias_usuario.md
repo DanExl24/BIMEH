@@ -10,7 +10,7 @@
 **Para** evaluar qué contingencias operacionales consumen más horas-hombre y detectar efectivos con acumulados atípicos de ausencias.
 
 ## Descripción
-Al acceder a `/estadisticas`, el sistema consulta `/api/stats/ranking`. El backend genera dos agrupaciones estadísticas:
+Al acceder a `/estadisticas` (`EstadisticasView.vue`), el sistema consulta `/api/stats/ranking` mediante `estadisticas.service.ts`. El backend genera dos agrupaciones estadísticas:
 1. **Ranking Global de Subnovedades**: Conteo total de días acumulados por cada subnovedad en toda la base de datos, ordenado descendente.
 2. **Top 15 de Personal con Más Días de Novedad**: Lista de los 15 integrantes que registran el mayor número de días en estados no disponibles.
 
@@ -25,7 +25,7 @@ Al acceder a `/estadisticas`, el sistema consulta `/api/stats/ranking`. El backe
 - **Roles involucrados**: `ADMINISTRATIVO`, `CONSULTA`
 - **Reglas de negocio relacionadas**: [RN-STAT-001](file:///c:/Users/alejo/Downloads/automPYdrive/documentacion/modules/estadisticas/reglas_negocio.md#rn-stat-001), [RN-STAT-002](file:///c:/Users/alejo/Downloads/automPYdrive/documentacion/modules/estadisticas/reglas_negocio.md#rn-stat-002)
 - **Endpoints relacionados**: `GET /api/stats/ranking`
-- **Componentes frontend relacionados**: `frontend/src/views/EstadisticasView.vue`
+- **Componentes frontend relacionados**: `frontend/src/features/estadisticas/views/EstadisticasView.vue`, `frontend/src/features/estadisticas/services/estadisticas.service.ts`
 - **Controllers/Services relacionados**: `backend/app/routers/stats.py` (`get_stats_rankings`)
 
 ---
@@ -53,5 +53,5 @@ En la sección inferior del módulo de estadísticas, se presenta la matriz gene
 - **Roles involucrados**: `ADMINISTRATIVO`, `CONSULTA`
 - **Reglas de negocio relacionadas**: [RN-STAT-003](file:///c:/Users/alejo/Downloads/automPYdrive/documentacion/modules/estadisticas/reglas_negocio.md#rn-stat-003)
 - **Endpoints relacionados**: `GET /api/stats/heatmap`
-- **Componentes frontend relacionados**: `frontend/src/views/EstadisticasView.vue`
+- **Componentes frontend relacionados**: `frontend/src/features/estadisticas/views/EstadisticasView.vue`, `frontend/src/features/cronologia/services/cronologia.service.ts`
 - **Controllers/Services relacionados**: `backend/app/routers/stats.py` (`get_stats_heatmap`)

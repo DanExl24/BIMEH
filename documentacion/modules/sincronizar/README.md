@@ -17,15 +17,21 @@ El módulo de **Ingesta y Sincronización** es el encargado de alimentar y mante
   - [`backend/leer_archivos_excel.py`](file:///c:/Users/alejo/Downloads/automPYdrive/backend/leer_archivos_excel.py) (Extracción, limpieza y parsing de libros Excel)
   - `backend/config/auth.py` (Manejo de flujo y tokens OAuth 2.0 de Google)
 
-### Frontend
-- **Vista Principal**: `frontend/src/views/SincronizarView.vue`
-- **Componentes**:
-  - `frontend/src/components/sincronizar/SyncSourceSelector.vue` (Selector de origen: Archivo Local vs Google Drive)
-  - `frontend/src/components/sincronizar/SyncFileDropzone.vue` (Área de arrastrar y soltar archivos)
-  - `frontend/src/components/sincronizar/SyncMultiDayCalendar.vue` (Selector multi-día interactivo)
-  - `frontend/src/components/sincronizar/SyncDriveProgress.vue` (Barra de progreso y consola de logs en tiempo real)
-  - `frontend/src/components/sincronizar/SyncConflictAlert.vue` (Alerta modal de resolución de conflictos de fecha)
-  - `frontend/src/components/sincronizar/SyncTemplateDownload.vue` (Descargador de plantillas oficiales Excel y JSON)
+### Frontend (Feature `src/features/sincronizar/` + Capas Compartidas)
+- **Vista Principal**: `frontend/src/features/sincronizar/views/SincronizarView.vue`
+- **Componentes de Feature**:
+  - `frontend/src/features/sincronizar/components/SyncSourceSelector.vue` (Selector de origen: Archivo Local vs Google Drive)
+  - `frontend/src/features/sincronizar/components/SyncFileDropzone.vue` (Área Drag-and-Drop para arrastrar archivos)
+  - `frontend/src/features/sincronizar/components/SyncMultiDayCalendar.vue` (Selector multi-día interactivo)
+  - `frontend/src/features/sincronizar/components/SyncDriveProgress.vue` (Barra de progreso y consola de logs en tiempo real)
+  - `frontend/src/features/sincronizar/components/SyncConflictAlert.vue` (Alerta modal de resolución de conflictos de fecha)
+  - `frontend/src/features/sincronizar/components/SyncTemplateDownload.vue` (Descargador de plantillas oficiales Excel y JSON)
+- **Composables de Feature**:
+  - `frontend/src/features/sincronizar/composables/useMultiDaySelection.ts` (Lógica para marcar/desmarcar días en calendario)
+  - `frontend/src/features/sincronizar/composables/useLocalFileUpload.ts` (Manejo de carga FormData y conflictos)
+- **Servicio de Feature**: `frontend/src/features/sincronizar/services/sync.service.ts`
+- **Tipos de Feature**: `frontend/src/features/sincronizar/types/sync.types.ts`
+- **Stores Globales**: `frontend/src/stores/appStore.ts` (Control de SSE y progreso Drive en segundo plano), `frontend/src/stores/dateStore.ts`
 
 ---
 

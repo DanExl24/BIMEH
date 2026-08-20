@@ -9,7 +9,7 @@
 - **Descripción**: Toda exportación en formato CSV debe codificarse obligatoriamente con `utf-8-sig` (codificación UTF-8 con marca de orden de bytes BOM).
 - **Motivo**: Permitir que Microsoft Excel en plataformas Windows interprete de forma automática y transparente caracteres latinos (acentos, tildes, eñes) sin requerir que el usuario configure manualmente la página de códigos en el asistente de importación.
 - **Módulos afectados**: `reportes`.
-- **Archivos donde se implementa**: [`backend/app/routers/exportar.py`](file:///c:/Users/alejo/Downloads/automPYdrive/backend/app/routers/exportar.py) (Línea 276).
+- **Archivos donde se implementa**: [`backend/app/routers/exportar.py`](file:///c:/Users/alejo/Downloads/automPYdrive/backend/app/routers/exportar.py) (Línea 276), `frontend/src/features/reportes/services/reportes.service.ts`.
 - **Endpoints relacionados**: `GET /api/exportar/csv`
 - **Historias de usuario relacionadas**: [HU-REP-001](file:///c:/Users/alejo/Downloads/automPYdrive/documentacion/modules/reportes/historias_usuario.md#hu-rep-001)
 
@@ -50,7 +50,7 @@
   4. Si la subnovedad registrada es cualquier otra $\rightarrow$ `N` (o nombre literal).
 - **Motivo**: Garantizar fidelidad absoluta en la matriz de control de fuerza mensual y anual.
 - **Módulos afectados**: `reportes`.
-- **Archivos donde se implementa**: [`backend/app/routers/exportar.py`](file:///c:/Users/alejo/Downloads/automPYdrive/backend/app/routers/exportar.py) (Líneas 252–270).
+- **Archivos donde se implementa**: [`backend/app/routers/exportar.py`](file:///c:/Users/alejo/Downloads/automPYdrive/backend/app/routers/exportar.py) (Líneas 252–270), `frontend/src/features/reportes/components/ReportConsolidadoMensualForm.vue`.
 - **Endpoints relacionados**: `GET /api/exportar/csv`, `GET /api/exportar/excel`, `GET /api/exportar/pdf`
 - **Historias de usuario relacionadas**: [HU-REP-002](file:///c:/Users/alejo/Downloads/automPYdrive/documentacion/modules/reportes/historias_usuario.md#hu-rep-002)
 

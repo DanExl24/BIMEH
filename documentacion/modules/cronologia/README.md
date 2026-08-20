@@ -13,13 +13,17 @@ Ofrece un calendario interactivo de disponibilidad mensual con porcentajes por d
 - **Router**: [`backend/app/routers/personal.py`](file:///c:/Users/alejo/Downloads/automPYdrive/backend/app/routers/personal.py) (`/api/reportes/dia`, `/api/reportes/calendario`), [`backend/app/routers/dashboard.py`](file:///c:/Users/alejo/Downloads/automPYdrive/backend/app/routers/dashboard.py) (`/api/fechas`)
 - **Adaptadores de Base de Datos**: [`backend/app/database.py`](file:///c:/Users/alejo/Downloads/automPYdrive/backend/app/database.py) (`get_month_dates`)
 
-### Frontend
-- **Vista Principal**: `frontend/src/views/CronologiaView.vue`
-- **Componentes**:
-  - `frontend/src/components/cronologia/CronologiaMonthlyMetrics.vue` (Tarjetas de métricas del mes)
-  - `frontend/src/components/cronologia/CronologiaActivityCalendar.vue` (Calendario de fechas con disponibilidad %)
-  - `frontend/src/components/cronologia/CronologiaDailyReportTable.vue` (Tabla de novedades diarias con filtros)
-  - `frontend/src/components/cronologia/CronologiaMonthlyHeatmapMatrix.vue` (Matriz consolidada mensual)
+### Frontend (Feature `src/features/cronologia/` + Capas Compartidas)
+- **Vista Principal**: `frontend/src/features/cronologia/views/CronologiaView.vue`
+- **Componentes de Feature**:
+  - `frontend/src/features/cronologia/components/CronologiaActivityCalendar.vue` (Calendario de fechas con disponibilidad %)
+  - `frontend/src/features/cronologia/components/CronologiaMonthlyMetrics.vue` (Tarjetas de métricas del mes)
+  - `frontend/src/features/cronologia/components/CronologiaDailyReportTable.vue` (Tabla de novedades diarias con filtros)
+  - `frontend/src/features/cronologia/components/CronologiaMonthlyHeatmapMatrix.vue` (Matriz consolidada mensual)
+- **Composable de Feature**: `frontend/src/features/cronologia/composables/useCronologiaData.ts`
+- **Servicio de Feature**: `frontend/src/features/cronologia/services/cronologia.service.ts`
+- **Tipos de Feature**: `frontend/src/features/cronologia/types/cronologia.types.ts`
+- **Stores Globales**: `frontend/src/stores/dateStore.ts`
 
 ---
 

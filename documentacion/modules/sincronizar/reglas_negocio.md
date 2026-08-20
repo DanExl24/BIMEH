@@ -9,7 +9,7 @@
 - **Descripción**: Todo archivo de carga manual (Excel o JSON) debe contener obligatoriamente las tres columnas maestras de negocio: `CEDULA`, `APELLIDOS Y NOMBRES` y `SUBNOVEDAD`. La ausencia de cualquiera de ellas anula la carga con código `HTTP 400 Bad Request`.
 - **Motivo**: Prevenir la inserción de registros huérfanos o corruptos que desvirtúen las estadísticas y los conteos de fuerza disponible.
 - **Módulos afectados**: `sincronizar`.
-- **Archivos donde se implementa**: [`backend/app/routers/sincronizar.py`](file:///c:/Users/alejo/Downloads/automPYdrive/backend/app/routers/sincronizar.py) (Líneas 133, 163–165, 233, 279).
+- **Archivos donde se implementa**: [`backend/app/routers/sincronizar.py`](file:///c:/Users/alejo/Downloads/automPYdrive/backend/app/routers/sincronizar.py) (Líneas 133, 163–165, 233, 279), `frontend/src/features/sincronizar/composables/useLocalFileUpload.ts`.
 - **Endpoints relacionados**: `POST /api/sincronizar/cargar`
 - **Historias de usuario relacionadas**: [HU-SYNC-001](file:///c:/Users/alejo/Downloads/automPYdrive/documentacion/modules/sincronizar/historias_usuario.md#hu-sync-001)
 
@@ -20,7 +20,7 @@
 - **Descripción**: Si una fecha a cargar ya posee registros en la tabla `REPORTES` y el parámetro `overwrite` es `FALSE` (o no fue marcado), el sistema detiene la transacción y retorna un estado `status="conflict"` con la lista de fechas duplicadas detectadas.
 - **Motivo**: Proteger los datos históricos existentes frente a sobrescrituras involuntarias por parte de los operadores.
 - **Módulos afectados**: `sincronizar`.
-- **Archivos donde se implementa**: [`backend/app/routers/sincronizar.py`](file:///c:/Users/alejo/Downloads/automPYdrive/backend/app/routers/sincronizar.py) (Líneas 290–304).
+- **Archivos donde se implementa**: [`backend/app/routers/sincronizar.py`](file:///c:/Users/alejo/Downloads/automPYdrive/backend/app/routers/sincronizar.py) (Líneas 290–304), `frontend/src/features/sincronizar/components/SyncConflictAlert.vue`.
 - **Endpoints relacionados**: `POST /api/sincronizar/cargar`
 - **Historias de usuario relacionadas**: [HU-SYNC-001](file:///c:/Users/alejo/Downloads/automPYdrive/documentacion/modules/sincronizar/historias_usuario.md#hu-sync-001)
 

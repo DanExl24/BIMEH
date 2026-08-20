@@ -9,7 +9,7 @@
 - **Descripción**: La condición de personal "DISPONIBLE" está restringida estrictamente a los registros que contengan como subnovedad `"CDO UNIDAD"` o `"AREA OPERACIONES"`.
 - **Motivo**: Solo el personal en comando de unidad o desplegado en área de operaciones se encuentra efectivamente en servicio activo e inmediato para la misión. Cualquier otra subnovedad (permiso, vacaciones, comisión, excusa, hospitalización, etc.) constituye una indisponibilidad temporal.
 - **Módulos afectados**: `dashboard`, `personal`, `cronologia`, `estadisticas`, `reportes`.
-- **Archivos donde se implementa**: [`backend/app/dependencies.py`](file:///c:/Users/alejo/Downloads/automPYdrive/backend/app/dependencies.py) (Línea 28: `DISPONIBLE_STATUSES = ["CDO UNIDAD", "AREA OPERACIONES"]`), [`backend/app/routers/dashboard.py`](file:///c:/Users/alejo/Downloads/automPYdrive/backend/app/routers/dashboard.py).
+- **Archivos donde se implementa**: [`backend/app/dependencies.py`](file:///c:/Users/alejo/Downloads/automPYdrive/backend/app/dependencies.py) (Línea 28: `DISPONIBLE_STATUSES = ["CDO UNIDAD", "AREA OPERACIONES"]`), [`backend/app/routers/dashboard.py`](file:///c:/Users/alejo/Downloads/automPYdrive/backend/app/routers/dashboard.py), `frontend/src/utils/personal.utils.ts`.
 - **Endpoints relacionados**: `GET /api/dashboard/kpis`, `GET /api/dashboard/evolucion`, `GET /api/dashboard/distribucion`
 - **Historias de usuario relacionadas**: [HU-DASH-001](file:///c:/Users/alejo/Downloads/automPYdrive/documentacion/modules/dashboard/historias_usuario.md#hu-dash-001), [HU-DASH-003](file:///c:/Users/alejo/Downloads/automPYdrive/documentacion/modules/dashboard/historias_usuario.md#hu-dash-003)
 
@@ -33,7 +33,7 @@
 - **Descripción**: Cuando no se envían parámetros temporales (`fecha=None`, `mes=None`, `dia=None`), el backend consulta automáticamente la última fecha registrada en la base de datos (`SELECT fecha FROM REPORTES ORDER BY fecha DESC LIMIT 1`).
 - **Motivo**: Permitir que el dashboard cargue siempre la situación operacional más reciente sin requerir intervención manual del usuario.
 - **Módulos afectados**: `dashboard`.
-- **Archivos donde se implementa**: [`backend/app/routers/dashboard.py`](file:///c:/Users/alejo/Downloads/automPYdrive/backend/app/routers/dashboard.py) (Líneas 41–46, 167–172, 204–209, 257–262).
+- **Archivos donde se implementa**: [`backend/app/routers/dashboard.py`](file:///c:/Users/alejo/Downloads/automPYdrive/backend/app/routers/dashboard.py) (Líneas 41–46, 167–172, 204–209, 257–262), `frontend/src/features/dashboard/composables/useDashboardData.ts`.
 - **Endpoints relacionados**: `GET /api/dashboard/kpis`, `GET /api/dashboard/novedades-frecuentes`, `GET /api/dashboard/distribucion`, `GET /api/dashboard/cambios`
 - **Historias de usuario relacionadas**: [HU-DASH-001](file:///c:/Users/alejo/Downloads/automPYdrive/documentacion/modules/dashboard/historias_usuario.md#hu-dash-001)
 
@@ -49,7 +49,7 @@
   - Si cambió entre subnovedades no disponibles o causó baja $\rightarrow$ Clasifica como `otros_cambios`.
 - **Motivo**: Automatizar la auditoría de relevos y novedades diarias que anteriormente tomaba horas de revisión manual en libros de novedades.
 - **Módulos afectados**: `dashboard`.
-- **Archivos donde se implementa**: [`backend/app/routers/dashboard.py`](file:///c:/Users/alejo/Downloads/automPYdrive/backend/app/routers/dashboard.py) (Líneas 248–372).
+- **Archivos donde se implementa**: [`backend/app/routers/dashboard.py`](file:///c:/Users/alejo/Downloads/automPYdrive/backend/app/routers/dashboard.py) (Líneas 248–372), `frontend/src/features/dashboard/components/DashboardCambiosList.vue`.
 - **Endpoints relacionados**: `GET /api/dashboard/cambios`, `GET /api/dashboard/kpis` (cálculo de `cambios_vs_ayer`).
 - **Historias de usuario relacionadas**: [HU-DASH-001](file:///c:/Users/alejo/Downloads/automPYdrive/documentacion/modules/dashboard/historias_usuario.md#hu-dash-001), [HU-DASH-002](file:///c:/Users/alejo/Downloads/automPYdrive/documentacion/modules/dashboard/historias_usuario.md#hu-dash-002)
 

@@ -20,7 +20,7 @@
 - **Descripción**: La sesión emitida tiene una vigencia fija e improrrogable de 24 horas (`ACCESS_TOKEN_EXPIRE_HOURS = 24`) contenida en el *claim* `exp` del token JWT.
 - **Motivo**: Limitar la ventana temporal de exposición ante el eventual compromiso de un token de acceso en un cliente web.
 - **Módulos afectados**: `auth`, `dashboard`, `personal`, `cronologia`, `estadisticas`, `reportes`, `sincronizar`.
-- **Archivos donde se implementa**: [`backend/app/routers/auth.py`](file:///c:/Users/alejo/Downloads/automPYdrive/backend/app/routers/auth.py) (Líneas 13, 100–108), [`backend/app/dependencies.py`](file:///c:/Users/alejo/Downloads/automPYdrive/backend/app/dependencies.py) (Líneas 12–26).
+- **Archivos donde se implementa**: [`backend/app/routers/auth.py`](file:///c:/Users/alejo/Downloads/automPYdrive/backend/app/routers/auth.py) (Líneas 13, 100–108), [`backend/app/dependencies.py`](file:///c:/Users/alejo/Downloads/automPYdrive/backend/app/dependencies.py) (Líneas 12–26), `frontend/src/features/auth/stores/authStore.ts`.
 - **Endpoints relacionados**: `POST /api/auth/login`, `GET /api/auth/me`, todos los endpoints que inyectan `get_current_user`.
 - **Historias de usuario relacionadas**: [HU-AUTH-001](file:///c:/Users/alejo/Downloads/automPYdrive/documentacion/modules/auth/historias_usuario.md#hu-auth-001), [HU-AUTH-003](file:///c:/Users/alejo/Downloads/automPYdrive/documentacion/modules/auth/historias_usuario.md#hu-auth-003)
 
@@ -44,7 +44,7 @@
 - **Descripción**: El correo electrónico ingresado debe ser normalizado a minúsculas (`correo.lower()`) antes de realizar la consulta en la base de datos.
 - **Motivo**: Evitar fallos de inicio de sesión debido a diferencias tipográficas o autocapitalización en teclados móviles.
 - **Módulos afectados**: `auth`.
-- **Archivos donde se implementa**: [`backend/app/routers/auth.py`](file:///c:/Users/alejo/Downloads/automPYdrive/backend/app/routers/auth.py) (Líneas 47).
+- **Archivos donde se implementa**: [`backend/app/routers/auth.py`](file:///c:/Users/alejo/Downloads/automPYdrive/backend/app/routers/auth.py) (Líneas 47), `frontend/src/features/auth/views/LoginView.vue`.
 - **Endpoints relacionados**: `POST /api/auth/login`
 - **Historias de usuario relacionadas**: [HU-AUTH-001](file:///c:/Users/alejo/Downloads/automPYdrive/documentacion/modules/auth/historias_usuario.md#hu-auth-001)
 
@@ -66,7 +66,7 @@
 - **Descripción**: Cualquier respuesta HTTP `401 Unauthorized` originada por token vencido o corrupto desencadena la purga forzosa del token en el cliente (`localStorage.removeItem`) y la redirección a `#/login`.
 - **Motivo**: Evitar estados inconsistentes en la interfaz de usuario donde se muestren componentes vacíos por falta de autorización.
 - **Módulos afectados**: `auth`, cliente frontend global.
-- **Archivos donde se implementa**: [`frontend/src/services/api.ts`](file:///c:/Users/alejo/Downloads/automPYdrive/frontend/src/services/api.ts) (Líneas 16–19).
+- **Archivos donde se implementa**: `frontend/src/services/http.ts` (Líneas 14–19).
 - **Endpoints relacionados**: Todos los endpoints protegidos.
 - **Historias de usuario relacionadas**: [HU-AUTH-003](file:///c:/Users/alejo/Downloads/automPYdrive/documentacion/modules/auth/historias_usuario.md#hu-auth-003)
 
@@ -79,7 +79,7 @@
 - **Descripción**: La indisponibilidad o expiración del token de Google Drive no debe bajo ninguna circunstancia impedir ni bloquear el inicio de sesión local en el sistema BIMEH.
 - **Motivo**: Mantener la alta disponibilidad del sistema para operaciones de consulta, visualización y carga manual de archivos locales aun si la nube de Google presenta fallos de conectividad.
 - **Módulos afectados**: `auth`, `sincronizar`.
-- **Archivos donde se implementa**: [`backend/app/routers/auth.py`](file:///c:/Users/alejo/Downloads/automPYdrive/backend/app/routers/auth.py) (Líneas 81–86).
+- **Archivos donde se implementa**: [`backend/app/routers/auth.py`](file:///c:/Users/alejo/Downloads/automPYdrive/backend/app/routers/auth.py) (Líneas 81–86), `frontend/src/features/auth/services/auth.service.ts`.
 - **Endpoints relacionados**: `POST /api/auth/login`, `GET /api/auth/drive-status`
 - **Historias de usuario relacionadas**: [HU-AUTH-001](file:///c:/Users/alejo/Downloads/automPYdrive/documentacion/modules/auth/historias_usuario.md#hu-auth-001), [HU-AUTH-004](file:///c:/Users/alejo/Downloads/automPYdrive/documentacion/modules/auth/historias_usuario.md#hu-auth-004)
 

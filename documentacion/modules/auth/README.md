@@ -15,11 +15,14 @@ El sistema implementa autenticación basada en tokens JWT (*JSON Web Tokens*) fi
 - **Gestor CLI de Usuarios**: [`backend/manage_users.py`](file:///c:/Users/alejo/Downloads/automPYdrive/backend/manage_users.py)
 - **Integración OAuth**: `backend/config/auth.py`
 
-### Frontend
-- **Vista**: `frontend/src/views/LoginView.vue`
-- **Store Pinia**: `frontend/src/stores/authStore.ts`
+### Frontend (Feature `src/features/auth/` + Capas Compartidas)
+- **Vista**: `frontend/src/features/auth/views/LoginView.vue`
+- **Servicio de Feature**: `frontend/src/features/auth/services/auth.service.ts`
+- **Store de Feature**: `frontend/src/features/auth/stores/authStore.ts` (re-exportado en `frontend/src/stores/authStore.ts`)
+- **Tipos de Feature**: `frontend/src/features/auth/types/auth.types.ts`
 - **Guardián de Rutas**: `frontend/src/router/index.ts`
-- **Cliente HTTP**: [`frontend/src/services/api.ts`](file:///c:/Users/alejo/Downloads/automPYdrive/frontend/src/services/api.ts) (`fetchWithAuth`)
+- **Cliente HTTP Transversal**: `frontend/src/services/http.ts` (`fetchWithAuth`, `http.get`, `http.post`)
+- **Fachada Centralizada**: [`frontend/src/services/api.ts`](file:///c:/Users/alejo/Downloads/automPYdrive/frontend/src/services/api.ts)
 
 ---
 

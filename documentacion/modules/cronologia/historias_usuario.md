@@ -10,20 +10,20 @@
 **Para** identificar visualmente qué días tuvieron caídas críticas en la fuerza disponible de la unidad.
 
 ## Descripción
-En la vista `/cronologia`, el usuario selecciona un mes activo. El componente `CronologiaActivityCalendar.vue` consume el endpoint `/api/reportes/calendario?mes=...` y renderiza cada fecha del mes con su indicador de disponibilidad porcentual, total de efectivos, disponibles y novedades. Al hacer clic en un día del calendario, la tabla inferior se actualiza automáticamente para mostrar el detalle de ese día.
+En la vista `/cronologia` (`CronologiaView.vue`), el usuario selecciona un mes activo. El componente `CronologiaActivityCalendar.vue` consume el composable `useCronologiaData.ts` y el endpoint `/api/reportes/calendario?mes=...` a través de `cronologia.service.ts`, renderizando cada fecha del mes con su indicador de disponibilidad porcentual, total de efectivos, disponibles y novedades. Al hacer clic en un día del calendario, la tabla inferior se actualiza automáticamente para mostrar el detalle de ese día.
 
 ## Criterios de Aceptación
 - El endpoint `/api/reportes/calendario` retorna un arreglo con los días ordenados cronológicamente.
 - Cada día incluye: `fecha`, `disponibilidad` (porcentaje con 1 decimal), `total_personal`, `disponibles` y `novedades`.
 - Los días con alta disponibilidad ($\ge 80\%$) se identifican con badges verdes, los de media ($50\% - 79\%$) en amarillo/naranja y los de baja ($< 50\%$) en rojo.
-- Al hacer clic sobre cualquier celda del día en el calendario, se actualiza la fecha seleccionada en el store y se recarga la tabla de personal de esa fecha.
+- Al hacer clic sobre cualquier celda del día en el calendario, se actualiza la fecha seleccionada en `dateStore.ts` y se recarga la tabla de personal de esa fecha.
 
 ## Metadata
 - **Prioridad**: Alta
 - **Roles involucrados**: `ADMINISTRATIVO`, `CONSULTA`
 - **Reglas de negocio relacionadas**: [RN-CRON-001](file:///c:/Users/alejo/Downloads/automPYdrive/documentacion/modules/cronologia/reglas_negocio.md#rn-cron-001), [RN-CRON-002](file:///c:/Users/alejo/Downloads/automPYdrive/documentacion/modules/cronologia/reglas_negocio.md#rn-cron-002)
 - **Endpoints relacionados**: `GET /api/reportes/calendario`
-- **Componentes frontend relacionados**: `frontend/src/views/CronologiaView.vue`, `frontend/src/components/cronologia/CronologiaActivityCalendar.vue`
+- **Componentes frontend relacionados**: `frontend/src/features/cronologia/views/CronologiaView.vue`, `frontend/src/features/cronologia/components/CronologiaActivityCalendar.vue`, `frontend/src/features/cronologia/composables/useCronologiaData.ts`, `frontend/src/features/cronologia/services/cronologia.service.ts`
 - **Controllers/Services relacionados**: `backend/app/routers/personal.py` (`get_calendario`)
 
 ---
@@ -50,7 +50,7 @@ El componente `CronologiaDailyReportTable.vue` lista a todos los integrantes pre
 - **Roles involucrados**: `ADMINISTRATIVO`, `CONSULTA`
 - **Reglas de negocio relacionadas**: [RN-CRON-003](file:///c:/Users/alejo/Downloads/automPYdrive/documentacion/modules/cronologia/reglas_negocio.md#rn-cron-003)
 - **Endpoints relacionados**: `GET /api/reportes/dia`
-- **Componentes frontend relacionados**: `frontend/src/components/cronologia/CronologiaDailyReportTable.vue`
+- **Componentes frontend relacionados**: `frontend/src/features/cronologia/components/CronologiaDailyReportTable.vue`, `frontend/src/features/cronologia/services/cronologia.service.ts`
 - **Controllers/Services relacionados**: `backend/app/routers/personal.py` (`get_reporte_dia`)
 
 ---
@@ -75,5 +75,5 @@ El componente `CronologiaMonthlyHeatmapMatrix.vue` permite desplegar la matriz d
 - **Roles involucrados**: `ADMINISTRATIVO`, `CONSULTA`
 - **Reglas de negocio relacionadas**: [RN-CRON-004](file:///c:/Users/alejo/Downloads/automPYdrive/documentacion/modules/cronologia/reglas_negocio.md#rn-cron-004)
 - **Endpoints relacionados**: `GET /api/stats/heatmap`
-- **Componentes frontend relacionados**: `frontend/src/components/cronologia/CronologiaMonthlyHeatmapMatrix.vue`
+- **Componentes frontend relacionados**: `frontend/src/features/cronologia/components/CronologiaMonthlyHeatmapMatrix.vue`, `frontend/src/features/cronologia/services/cronologia.service.ts`
 - **Controllers/Services relacionados**: `backend/app/routers/stats.py` (`get_stats_heatmap`)
