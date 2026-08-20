@@ -89,7 +89,7 @@
 
 <script setup lang="ts">
 import { Clock } from 'lucide-vue-next'
-import type { PersonalDia } from '../../types'
+import type { HistorialRegistro } from '../../types'
 import { isAvailable } from '../../utils/personal.utils'
 
 defineProps<{
@@ -98,8 +98,9 @@ defineProps<{
   filtroSubnovedad: string
   subnovedadesList: string[]
   diasDelMes: string[]
-  filteredHistorial: PersonalDia[]
+  filteredHistorial: HistorialRegistro[]
 }>()
+
 
 defineEmits<{
   (e: 'update:filtroMes', val: string): void
