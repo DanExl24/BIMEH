@@ -614,11 +614,20 @@ onBeforeUnmount(() => {
   distribucionChart?.dispose()
 })
 
-// Reload when filters change
+// Reload when filters change or when Drive sync finishes
 watch(
   () => [appStore.selectedDashboardMonth, appStore.selectedDashboardDay],
   () => {
     loadDashboardData()
+  }
+)
+
+watch(
+  () => appStore.syncStatus,
+  (newStatus) => {
+    if (newStatus === 'success') {
+      loadDashboardData()
+    }
   }
 )
 </script>

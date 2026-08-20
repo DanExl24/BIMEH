@@ -39,18 +39,13 @@
           </svg>
           Google Drive no está autorizado en el servidor
         </p>
-        <p class="text-slate-400">Para sincronizar reportes desde Drive, un administrador debe autorizar la cuenta de Google en el servidor.</p>
+        <p class="text-slate-400">Es obligatorio autorizar la cuenta de Google Drive para acceder al sistema y sincronizar reportes.</p>
         <button
+          type="button"
           @click="iniciarOAuth"
-          class="mt-1 w-full py-2 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/30 rounded-lg text-[11px] font-bold text-amber-300 transition-all"
+          class="mt-1 w-full py-2.5 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/30 rounded-lg text-xs font-bold text-amber-300 transition-all cursor-pointer flex items-center justify-center gap-1.5"
         >
           🔗 Autorizar Google Drive ahora
-        </button>
-        <button
-          @click="continuarSinDrive"
-          class="w-full py-2 text-slate-500 hover:text-slate-300 text-[10px] transition-all"
-        >
-          Continuar sin Drive →
         </button>
       </div>
 
@@ -136,18 +131,33 @@ const handleLogin = async () => {
   try {
     const success = await authStore.login(correo.value, password.value)
     if (success) {
-      // Verificar si Drive está autorizado en el servidor
+      // 1. Verificar estrictamente si Google Drive está autorizado en el servidor
       try {
         const driveRes = await fetch(`${appStore.apiBase}/api/auth/drive-status`)
         const driveData = await driveRes.json()
         if (driveData.connected) {
+          // Drive conectado con éxito -> Iniciar sincronización automática del mes actual
+          const currentMonthIndex = new Date().getMonth()
+          const monthNames = ['ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO', 'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE']
+          const currentMonthName = monthNames[currentMonthIndex]
+
+          appStore.startDriveSync({
+            tipo: 'mes',
+            mes: currentMonthName,
+            overwrite: false
+          })
+
           router.push('/')
         } else {
+          // Bloquear acceso: Cerrar sesión temporal y exigir autorización de Drive
+          authStore.logout()
           needsDriveAuth.value = true
+          errorMessage.value = 'Se requiere autorización de Google Drive para ingresar al sistema.'
         }
-      } catch {
-        // Si no se puede verificar Drive, dejar pasar al sistema
-        router.push('/')
+      } catch (err) {
+        authStore.logout()
+        needsDriveAuth.value = true
+        errorMessage.value = 'No se pudo verificar el estado de Google Drive en el servidor. Por favor autoriza la conexión.'
       }
     }
   } catch (error: any) {
@@ -185,10 +195,5 @@ const iniciarOAuth = async () => {
     console.error('Error al iniciar OAuth:', err)
     errorMessage.value = err.message || 'No se pudo iniciar el flujo de autorización. Intenta de nuevo.'
   }
-}
-
-const continuarSinDrive = () => {
-  needsDriveAuth.value = false
-  router.push('/')
 }
 </script>
