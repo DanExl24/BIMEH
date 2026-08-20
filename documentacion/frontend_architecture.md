@@ -222,13 +222,15 @@ frontend/src/
 │   ├── 📂 reportes/                    # DOMINIO: Centro de Exportación
 │   │   ├── 📂 components/
 │   │   │   ├── 📄 ReportDirectDownloadCard.vue # Descarga directa en un clic del mes activo (Excel/PDF)
-│   │   │   ├── 📄 ReportConsolidadoMensualForm.vue # Formulario para consolidado mensual
-│   │   │   ├── 📄 ReportResumenAnualForm.vue # Formulario para resumen anual acumulado
-│   │   │   └── 📄 ReportIndividualExpedienteForm.vue # Formulario para exportar expediente por cédula
+│   │   │   ├── 📄 ReportConsolidadoMensualForm.vue # Matriz completa de novedades por mes (Excel/PDF/CSV)
+│   │   │   ├── 📄 ReportAgilForm.vue           # Exportación ágil de novedades por rangos condensados
+│   │   │   ├── 📄 ReportDetalladoForm.vue      # Parte oficial detallado por día, mes o anual (Excel/PDF/CSV)
+│   │   │   ├── 📄 ReportIndividualExpedienteForm.vue # Expediente individual por cédula
+│   │   │   └── 📄 ReportCatalogoCard.vue       # Tarjetas de descarga para Base de Datos de Personal y Catálogo de Novedades
 │   │   ├── 📂 services/
 │   │   │   └── 📄 reportes.service.ts  # Construcción de URLs de exportación con parámetros
 │   │   └── 📂 views/
-│   │       └── 📄 ReportesView.vue     # Panel de generación de informes
+│   │       └── 📄 ReportesView.vue     # Panel de generación de informes agrupados por categorías
 │   │
 │   └── 📂 estadisticas/                # DOMINIO: Análisis y Rankings
 │       ├── 📂 services/
