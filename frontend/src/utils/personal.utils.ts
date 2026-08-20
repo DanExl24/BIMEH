@@ -2,17 +2,21 @@
  * Utilidades puras para el manejo de personal y novedades
  */
 
+export const DISPONIBLE_STATUSES = [
+  'CDO UNIDAD',
+  'AREA OPERACIONES',
+  'SIN NOVEDAD',
+  'DISPONIBLE',
+  'SERVICIO ACTIVO'
+]
+
 export function isAvailable(subnovedad?: string | null): boolean {
   if (!subnovedad) return true
   const s = subnovedad.trim().toUpperCase()
-  return (
-    s === 'SIN NOVEDAD' ||
-    s === 'DISPONIBLE' ||
-    s === 'SERVICIO ACTIVO' ||
-    s === '' ||
-    s === '-'
-  )
+  if (s === '' || s === '-') return true
+  return DISPONIBLE_STATUSES.includes(s)
 }
+
 
 export function getStatusBadgeClass(estado: string): string {
   const e = (estado || '').toUpperCase()
