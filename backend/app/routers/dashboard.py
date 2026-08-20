@@ -25,17 +25,36 @@ def get_kpis(
 ):
     cursor = db.cursor()
     
+    # Generate custom fecha label
+    if fecha:
+        fecha_label = fecha
+    elif mes and dia:
+        fecha_label = f"{mes} - Día {dia}"
+    elif mes:
+        fecha_label = f"Mes: {mes}"
+    elif dia:
+        fecha_label = f"Día {dia} (Anual)"
+    else:
+        fecha_label = "Anual (Todo el año)"
+
     # If no parameters provided, default to the latest report date in DB
     if fecha is None and mes is None and dia is None:
         cursor.execute("SELECT fecha FROM REPORTES ORDER BY fecha DESC LIMIT 1;")
         latest_row = cursor.fetchone()
-        if not latest_row:
-            raise HTTPException(status_code=404, detail="No hay reportes cargados en el sistema.")
-        fecha = latest_row[0]
+        if latest_row:
+            fecha = latest_row[0]
+            fecha_label = fecha
         
     reports = get_report_ids_for_filter(db, mes, dia, fecha)
     if not reports:
-        raise HTTPException(status_code=404, detail="No se encontraron reportes para el filtro seleccionado.")
+        return KPIData(
+            fecha=fecha_label,
+            total_personal=0,
+            disponibles=0,
+            novedades=0,
+            disponibilidad=0.0,
+            cambios_vs_ayer=0
+        )
         
     placeholders = ",".join("?" for _ in DISPONIBLE_STATUSES)
     cursor.execute(f"SELECT id FROM SUB_NOVEDADES WHERE nombre IN ({placeholders});", DISPONIBLE_STATUSES)
@@ -85,18 +104,6 @@ def get_kpis(
                 if today_statuses.get(pid) != yesterday_statuses.get(pid):
                     total_cambios += 1
                     
-    # Generate custom fecha label
-    if fecha:
-        fecha_label = fecha
-    elif mes and dia:
-        fecha_label = f"{mes} - Día {dia}"
-    elif mes:
-        fecha_label = f"Mes: {mes}"
-    elif dia:
-        fecha_label = f"Día {dia} (Anual)"
-    else:
-        fecha_label = "Anual (Todo el año)"
-        
     return KPIData(
         fecha=fecha_label,
         total_personal=avg_total_personal,
