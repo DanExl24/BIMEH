@@ -73,27 +73,27 @@ def _get_db_conn():
         print(f"[AUTH] No se pudo conectar/inicializar DB para tokens ({e}).")
         return None
 
-def _leer_token_db(correo_google: str | None = None) -> str | None:
-    """Lee el token JSON de un usuario especifico o el mas reciente de la BD."""
+def _leer_token_db(correo_google: str | None = None) -> tuple[str | None, str | None]:
+    """Lee el correo y token JSON de un usuario especifico o el mas reciente de la BD."""
     conn = _get_db_conn()
     if not conn:
-        return None
+        return None, None
     try:
         cursor = conn.cursor()
         if correo_google:
             cursor.execute(
-                "SELECT token_json FROM google_oauth_tokens WHERE correo_google = %s",
+                "SELECT correo_google, token_json FROM google_oauth_tokens WHERE correo_google = %s",
                 (correo_google,)
             )
         else:
             cursor.execute(
-                "SELECT token_json FROM google_oauth_tokens ORDER BY actualizado_en DESC LIMIT 1"
+                "SELECT correo_google, token_json FROM google_oauth_tokens ORDER BY actualizado_en DESC LIMIT 1"
             )
         row = cursor.fetchone()
-        return row[0] if row else None
+        return (row[0], row[1]) if row else (None, None)
     except Exception as e:
         print(f"[AUTH] Error leyendo token de BD ({e}).")
-        return None
+        return None, None
     finally:
         try:
             conn.close()
@@ -159,7 +159,7 @@ def eliminar_token_existente(correo_google: str | None = None):
             print(f"[AUTH] Error eliminando token local: {e}")
 
 def generar_oauth_url(redirect_uri: str) -> str:
-    """Genera la URL de autorización de Google OAuth."""
+    """Genera la URL de autorización de Google OAuth con access_type offline."""
     creds_path = _asegurar_credentials()
     flow = Flow.from_client_secrets_file(creds_path, scopes=SCOPES, redirect_uri=redirect_uri)
     flow.autogenerate_code_verifier = False
@@ -206,19 +206,21 @@ def intercambiar_codigo_oauth(code: str, redirect_uri: str):
 
 def obtener_credenciales(correo_google: str | None = None, force_new: bool = False) -> Credentials:
     """
-    Obtiene credenciales válidas para un usuario (o el token mas reciente).
-    Busca en BD primero, luego en archivo local. Refresca si expiro.
+    Obtiene credenciales válidas para un usuario (o el token más reciente).
+    Busca en BD primero, luego en archivo local. Refresca y persiste en BD automáticamente.
     """
     creds = None
+    email_identificado = correo_google
 
     if force_new:
         eliminar_token_existente(correo_google)
 
     # 1. Intentar cargar desde BD
-    token_json = _leer_token_db(correo_google)
+    db_email, token_json = _leer_token_db(correo_google)
     if token_json:
         try:
             creds = Credentials.from_authorized_user_info(json.loads(token_json), SCOPES)
+            email_identificado = db_email or correo_google
         except Exception as e:
             print(f"[AUTH] Error cargando token de BD: {e}")
             creds = None
@@ -231,18 +233,25 @@ def obtener_credenciales(correo_google: str | None = None, force_new: bool = Fal
             print(f"[AUTH] Error cargando token local: {e}")
             creds = None
 
-    # 3. Refrescar si esta expirado
+    # 3. Refrescar automáticamente con el refresh_token si el access_token expiró
     if creds and not creds.valid:
         if creds.expired and creds.refresh_token:
             try:
+                print(f"[AUTH] Access token expirado para '{email_identificado}'. Refrescando automáticamente...")
                 creds.refresh(Request())
-                if correo_google:
-                    _guardar_token_db(correo_google, creds.to_json())
+                token_actualizado = creds.to_json()
+                
+                # Persistir siempre el token actualizado en la base de datos
+                if email_identificado:
+                    _guardar_token_db(email_identificado, token_actualizado)
+                
+                # Y también en archivo local si existe
                 try:
                     with open(TOKEN_PATH, "w", encoding="utf-8") as f:
-                        f.write(creds.to_json())
+                        f.write(token_actualizado)
                 except Exception:
                     pass
+                print(f"[AUTH] Token de '{email_identificado}' renovado y guardado en BD con éxito.")
             except Exception as e:
                 print(f"[AUTH] No se pudo refrescar el token ({e}).")
                 creds = None
