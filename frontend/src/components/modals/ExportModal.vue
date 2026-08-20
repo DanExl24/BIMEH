@@ -120,18 +120,18 @@
         >
           Cancelar
         </button>
-        <a 
-          :href="downloadUrl"
-          download
-          @click="$emit('close')"
+        <button 
+          type="button"
+          @click="handleExport"
           class="flex-1 px-4 py-2.5 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 rounded-xl text-xs font-bold text-white text-center transition-all cursor-pointer shadow-md select-none flex items-center justify-center gap-1.5 active:scale-95"
         >
           <Download class="w-4 h-4 stroke-[2.5]" />
           <span>Descargar</span>
-        </a>
+        </button>
       </div>
     </div>
   </div>
+
 </template>
 
 <script setup lang="ts">
@@ -145,7 +145,7 @@ import {
 } from 'lucide-vue-next'
 import { useAppStore } from '../../stores/appStore'
 import { useDateStore } from '../../stores/dateStore'
-
+import { useReportDownloadStore } from '../../stores/reportDownloadStore'
 
 const props = withDefaults(
   defineProps<{
@@ -166,12 +166,14 @@ const props = withDefaults(
   }
 )
 
-defineEmits<{
+const emit = defineEmits<{
   (e: 'close'): void
 }>()
 
 const appStore = useAppStore()
 const dateStore = useDateStore()
+const reportStore = useReportDownloadStore()
+
 
 const format = ref<'excel' | 'csv' | 'pdf'>('excel')
 const reportType = ref<'personal' | 'consolidado_mensual' | 'agil'>(props.defaultReportType)
@@ -227,5 +229,17 @@ const downloadUrl = computed(() => {
 
   return url
 })
+
+const handleExport = () => {
+  const typeLabelMap: Record<string, string> = {
+    personal: 'Historial de Personal',
+    consolidado_mensual: 'Consolidado Mensual',
+    agil: 'Exportación Ágil'
+  }
+  const title = `${typeLabelMap[reportType.value] || 'Reporte'} (${selectedMonth.value || 'Anual'})`
+  emit('close')
+  reportStore.downloadReport(downloadUrl.value, title, format.value)
+}
 </script>
+
 

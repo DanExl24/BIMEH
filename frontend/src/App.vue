@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import Sidebar from './components/layout/Sidebar.vue'
+import ReportGenerationModal from './components/modals/ReportGenerationModal.vue'
+
 import { 
   Menu, 
   Shield, 
@@ -242,8 +244,12 @@ onMounted(async () => {
         <X class="w-4 h-4" />
       </button>
     </div>
+
+    <!-- Global Report Generation Modal Dialog -->
+    <ReportGenerationModal />
   </div>
 </template>
+
 
 <style>
 .fade-enter-active,

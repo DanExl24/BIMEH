@@ -64,31 +64,31 @@
       </div>
     </div>
 
-    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-8 pt-4 border-t border-darkBorder/60">
-      <a 
-        :href="heatmapExcelUrl"
-        download
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-4 border-t border-darkBorder/60">
+      <button 
+        type="button"
+        @click="reportStore.downloadReport(heatmapExcelUrl, `Consolidado Heatmap - ${heatmapLabel}`, 'excel')"
         class="flex items-center justify-center gap-2 text-center px-4 py-2.5 rounded-xl text-xs font-bold uppercase transition-all duration-200 border cursor-pointer select-none shadow-sm bg-emerald-500/15 border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/25 hover:border-emerald-500/50 active:scale-95"
       >
         <FileSpreadsheet class="w-4 h-4" />
         <span>Excel Heatmap ({{ heatmapLabel }})</span>
-      </a>
-      <a 
-        :href="heatmapCsvUrl"
-        download
+      </button>
+      <button 
+        type="button"
+        @click="reportStore.downloadReport(heatmapCsvUrl, `Consolidado Heatmap - ${heatmapLabel}`, 'csv')"
         class="flex items-center justify-center gap-2 text-center px-4 py-2.5 rounded-xl text-xs font-bold uppercase transition-all duration-200 border cursor-pointer select-none shadow-sm bg-darkBg border-slate-700 text-slate-300 hover:text-white hover:border-slate-500 active:scale-95"
       >
         <FileCode class="w-4 h-4" />
         <span>CSV Heatmap ({{ heatmapLabel }})</span>
-      </a>
-      <a 
-        :href="heatmapPdfUrl"
-        download
+      </button>
+      <button 
+        type="button"
+        @click="reportStore.downloadReport(heatmapPdfUrl, `Consolidado Heatmap - ${heatmapLabel}`, 'pdf')"
         class="flex items-center justify-center gap-2 text-center px-4 py-2.5 rounded-xl text-xs font-bold uppercase transition-all duration-200 border cursor-pointer select-none shadow-sm bg-cyan-500/15 border-cyan-500/30 text-cyan-300 hover:bg-cyan-500/25 hover:border-cyan-500/50 active:scale-95"
       >
         <FileText class="w-4 h-4" />
         <span>PDF Heatmap ({{ heatmapLabel }})</span>
-      </a>
+      </button>
     </div>
   </div>
 </template>
@@ -96,6 +96,10 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { Layers, FileSpreadsheet, FileCode, FileText } from 'lucide-vue-next'
+import { useReportDownloadStore } from '../../stores/reportDownloadStore'
+
+const reportStore = useReportDownloadStore()
+
 
 const props = defineProps<{
   apiBase: string

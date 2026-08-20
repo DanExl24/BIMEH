@@ -15,31 +15,32 @@
 
       <!-- Export Buttons -->
       <div v-if="dailyReport.length > 0" class="flex flex-wrap items-center gap-2.5">
-        <a 
-          :href="`${apiBase}/api/exportar/csv?tipo=dia&fecha=${activeDate}`"
-          download
-          class="px-3.5 py-2 bg-darkBg border border-slate-700 hover:border-slate-500 rounded-xl text-xs font-bold text-slate-300 hover:text-white transition-all cursor-pointer shadow-sm flex items-center gap-1.5"
+        <button 
+          type="button"
+          @click="reportStore.downloadReport(`${apiBase}/api/exportar/csv?tipo=dia&fecha=${activeDate}`, `Reporte Diario (${activeDate})`, 'csv')"
+          class="px-3.5 py-2 bg-darkBg border border-slate-700 hover:border-slate-500 rounded-xl text-xs font-bold text-slate-300 hover:text-white transition-all cursor-pointer shadow-sm flex items-center gap-1.5 active:scale-95"
         >
           <FileCode class="w-3.5 h-3.5 text-slate-400" />
           <span>CSV</span>
-        </a>
-        <a 
-          :href="`${apiBase}/api/exportar/excel?tipo=dia&fecha=${activeDate}`"
-          download
-          class="px-3.5 py-2 bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/25 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-sm flex items-center gap-1.5"
+        </button>
+        <button 
+          type="button"
+          @click="reportStore.downloadReport(`${apiBase}/api/exportar/excel?tipo=dia&fecha=${activeDate}`, `Reporte Diario (${activeDate})`, 'excel')"
+          class="px-3.5 py-2 bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/25 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-sm flex items-center gap-1.5 active:scale-95"
         >
           <FileSpreadsheet class="w-3.5 h-3.5" />
           <span>Excel</span>
-        </a>
-        <a 
-          :href="`${apiBase}/api/exportar/pdf?tipo=dia&fecha=${activeDate}`"
-          download
-          class="px-3.5 py-2 bg-cyan-500/15 border border-cyan-500/30 text-cyan-300 hover:bg-cyan-500/25 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-sm flex items-center gap-1.5"
+        </button>
+        <button 
+          type="button"
+          @click="reportStore.downloadReport(`${apiBase}/api/exportar/pdf?tipo=dia&fecha=${activeDate}`, `Reporte Diario (${activeDate})`, 'pdf')"
+          class="px-3.5 py-2 bg-cyan-500/15 border border-cyan-500/30 text-cyan-300 hover:bg-cyan-500/25 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-sm flex items-center gap-1.5 active:scale-95"
         >
           <FileText class="w-3.5 h-3.5" />
           <span>PDF</span>
-        </a>
+        </button>
       </div>
+
     </div>
 
     <!-- Search in daily report -->
@@ -115,6 +116,7 @@ import {
 } from 'lucide-vue-next'
 import type { PersonalDia } from '../../types'
 import { isAvailable } from '../../utils/personal.utils'
+import { useReportDownloadStore } from '../../stores/reportDownloadStore'
 
 defineProps<{
   activeDate: string
@@ -128,5 +130,8 @@ defineProps<{
 defineEmits<{
   (e: 'update:dailySearch', val: string): void
 }>()
+
+const reportStore = useReportDownloadStore()
 </script>
+
 

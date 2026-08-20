@@ -15,31 +15,35 @@
     <!-- Template Download Buttons -->
     <div class="flex items-center gap-2.5 flex-wrap">
       <span class="text-xs uppercase font-bold text-slate-400 mr-1">Descargar Plantillas:</span>
-      <a 
-        :href="`${apiBase}/api/sincronizar/plantilla/excel`" 
-        download
+      <button 
+        type="button"
+        @click="reportStore.downloadReport(`${apiBase}/api/sincronizar/plantilla/excel`, 'Plantilla Oficial (Excel)', 'excel')" 
         class="px-3.5 py-2 bg-emerald-500/15 border border-emerald-500/30 hover:border-emerald-500/50 hover:bg-emerald-500/25 rounded-xl text-xs font-bold text-emerald-300 flex items-center gap-1.5 transition-all select-none cursor-pointer shadow-sm active:scale-95"
       >
         <FileSpreadsheet class="w-4 h-4" />
         <span>Plantilla Excel</span>
-      </a>
-      <a 
-        :href="`${apiBase}/api/sincronizar/plantilla/json`" 
-        download
+      </button>
+      <button 
+        type="button"
+        @click="reportStore.downloadReport(`${apiBase}/api/sincronizar/plantilla/json`, 'Plantilla Oficial (JSON)', 'json')" 
         class="px-3.5 py-2 bg-darkBg border border-slate-700 hover:border-slate-500 hover:text-white rounded-xl text-xs font-bold text-slate-300 flex items-center gap-1.5 transition-all select-none cursor-pointer shadow-sm active:scale-95"
       >
         <FileCode class="w-4 h-4" />
         <span>Plantilla JSON</span>
-      </a>
+      </button>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { FileSpreadsheet, FileCode } from 'lucide-vue-next'
+import { useReportDownloadStore } from '../../stores/reportDownloadStore'
 
 defineProps<{
   apiBase: string
 }>()
+
+const reportStore = useReportDownloadStore()
 </script>
+
 

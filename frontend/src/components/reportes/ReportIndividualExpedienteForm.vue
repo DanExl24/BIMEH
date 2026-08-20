@@ -59,22 +59,22 @@
     </div>
 
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-8 pt-4 border-t border-darkBorder/60">
-      <a 
-        :href="agilExcelUrl"
-        download
+      <button 
+        type="button"
+        @click="reportStore.downloadReport(agilExcelUrl, `Exportación Ágil - ${agilLabel}`, 'excel')"
         class="flex items-center justify-center gap-2 text-center px-4 py-2.5 rounded-xl text-xs font-bold uppercase transition-all duration-200 border cursor-pointer select-none shadow-sm bg-emerald-500/20 border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/30 hover:border-emerald-500/60 active:scale-95"
       >
         <FileSpreadsheet class="w-4 h-4" />
         <span>Excel Ágil ({{ agilLabel }})</span>
-      </a>
-      <a 
-        :href="agilPdfUrl"
-        download
+      </button>
+      <button 
+        type="button"
+        @click="reportStore.downloadReport(agilPdfUrl, `Exportación Ágil - ${agilLabel}`, 'pdf')"
         class="flex items-center justify-center gap-2 text-center px-4 py-2.5 rounded-xl text-xs font-bold uppercase transition-all duration-200 border cursor-pointer select-none shadow-sm bg-cyan-500/20 border-cyan-500/40 text-cyan-300 hover:bg-cyan-500/30 hover:border-cyan-500/60 active:scale-95"
       >
         <FileText class="w-4 h-4" />
         <span>PDF Ágil ({{ agilLabel }})</span>
-      </a>
+      </button>
     </div>
   </div>
 </template>
@@ -82,6 +82,10 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { Zap, FileSpreadsheet, FileText } from 'lucide-vue-next'
+import { useReportDownloadStore } from '../../stores/reportDownloadStore'
+
+const reportStore = useReportDownloadStore()
+
 
 const props = defineProps<{
   apiBase: string

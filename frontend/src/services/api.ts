@@ -6,7 +6,7 @@ const getApiBase = () => {
   return store.apiBase
 }
 
-const fetchWithAuth = async (url: string, options: RequestInit = {}): Promise<Response> => {
+export const fetchWithAuth = async (url: string, options: RequestInit = {}): Promise<Response> => {
   const token = localStorage.getItem('bimej12_auth_token')
   const headers = {
     ...(options.headers || {}),
@@ -19,6 +19,7 @@ const fetchWithAuth = async (url: string, options: RequestInit = {}): Promise<Re
   }
   return res
 }
+
 
 export async function fetchFechas(): Promise<string[]> {
   const res = await fetchWithAuth(`${getApiBase()}/api/fechas`)
