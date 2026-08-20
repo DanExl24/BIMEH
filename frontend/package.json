@@ -6,7 +6,7 @@
   "main": "electron/main.js",
   "scripts": {
     "dev": "vite",
-    "build": "npx vite build",
+    "build": "vue-tsc --noEmit && vite build",
     "preview": "vite preview",
     "electron:dev": "electron electron/main.js",
     "electron:build": "npm run build && npx electron-builder",

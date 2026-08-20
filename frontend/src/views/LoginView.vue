@@ -1,109 +1,101 @@
 <template>
   <div class="min-h-screen bg-darkBg text-slate-100 flex items-center justify-center p-4 font-sans select-none relative overflow-hidden">
-    <!-- Animated background gradients -->
-    <div class="absolute -top-40 -left-40 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl animate-pulse"></div>
-    <div class="absolute -bottom-40 -right-40 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl animate-pulse"></div>
+    <!-- Ambient tactical glow -->
+    <div class="absolute -top-40 -left-40 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none"></div>
+    <div class="absolute -bottom-40 -right-40 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl pointer-events-none"></div>
 
-    <div class="glass-panel max-w-md w-full p-8 rounded-3xl space-y-6 shadow-2xl border border-darkBorder/40 backdrop-blur-md relative z-10">
+    <div class="glass-panel max-w-md w-full p-6 sm:p-8 rounded-3xl space-y-6 shadow-2xl border border-darkBorder relative z-10">
       <!-- Header -->
       <div class="text-center space-y-2">
-        <div class="inline-flex p-3.5 bg-cyan-500/10 border border-cyan-500/25 rounded-2xl text-cyan-400 mb-2">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-          </svg>
+        <div class="inline-flex p-3.5 bg-gradient-to-br from-cyan-500/15 to-blue-500/10 border border-cyan-500/30 rounded-2xl text-cyan-400 mb-1 shadow-lg shadow-cyan-500/10">
+          <ShieldCheck class="w-8 h-8 stroke-[2]" />
         </div>
-        <h2 class="text-xs text-cyan-400 font-bold uppercase tracking-widest">Unidad Militar BIMEJ 12</h2>
-        <h1 class="text-xl font-extrabold tracking-tight text-slate-100 uppercase">Control de Acceso</h1>
-        <p class="text-xs text-slate-500">Ingresa tus credenciales administrativas autorizadas</p>
+        <div>
+          <h2 class="text-xs text-cyan-400 font-bold uppercase tracking-widest">Unidad Militar BIMEJ 12</h2>
+          <h1 class="text-xl sm:text-2xl font-black tracking-tight text-slate-100 uppercase">Control de Acceso</h1>
+          <p class="text-xs text-slate-400 mt-1">Ingresa tus credenciales administrativas autorizadas</p>
+        </div>
       </div>
 
-      <!-- Alertas de Error -->
+      <!-- Alerta de Error (Clean tactical banner) -->
       <div
         v-if="errorMessage"
-        class="bg-red-500/10 border border-red-500/20 text-red-400 text-xs px-4 py-3 rounded-xl flex items-center gap-2 animate-bounce"
+        class="bg-red-500/10 border border-red-500/30 text-red-300 text-xs p-3.5 rounded-xl flex items-start gap-2.5 shadow-sm"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-4.5 w-4.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-        </svg>
-        <span>{{ errorMessage }}</span>
+        <AlertCircle class="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+        <span class="font-medium leading-relaxed">{{ errorMessage }}</span>
       </div>
 
-      <!-- Estado de Drive OAuth (aparece si Drive no está autorizado tras login) -->
+      <!-- Estado de Drive OAuth (si Drive no está autorizado tras login) -->
       <div
         v-if="needsDriveAuth"
-        class="bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[11px] px-3.5 py-3 rounded-xl space-y-2"
+        class="bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs p-4 rounded-xl space-y-2.5"
       >
-        <p class="font-bold flex items-center gap-1.5">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          Google Drive no está autorizado en el servidor
+        <div class="flex items-center gap-2 font-bold text-amber-400">
+          <AlertCircle class="w-4 h-4 shrink-0" />
+          <span>Autorización de Google Drive Requerida</span>
+        </div>
+        <p class="text-slate-300 text-[11px] leading-relaxed">
+          Para acceder a los reportes operacionales es obligatorio vincular la cuenta autorizada de Google Drive.
         </p>
-        <p class="text-slate-400">Es obligatorio autorizar la cuenta de Google Drive para acceder al sistema y sincronizar reportes.</p>
         <button
           type="button"
           @click="iniciarOAuth"
-          class="mt-1 w-full py-2.5 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/30 rounded-lg text-xs font-bold text-amber-300 transition-all cursor-pointer flex items-center justify-center gap-1.5"
+          class="w-full py-2.5 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 rounded-xl text-xs font-bold text-amber-300 transition-all cursor-pointer flex items-center justify-center gap-2 shadow-sm active:scale-98"
         >
-          🔗 Autorizar Google Drive ahora
+          <ExternalLink class="w-4 h-4" />
+          <span>Autorizar Google Drive Ahora</span>
         </button>
       </div>
 
-      <!-- Nota informativa (cuando Drive está ok o no se ha verificado aún) -->
-      <div v-if="!needsDriveAuth" class="bg-cyan-500/10 border border-cyan-500/20 text-cyan-300 text-[11px] px-3.5 py-2.5 rounded-xl flex items-start gap-2">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-cyan-400 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-        </svg>
-        <span>Para sincronizar desde Google Drive, es necesario autorizar la cuenta Google en la sección Sincronizar.</span>
+      <!-- Nota informativa previa -->
+      <div v-if="!needsDriveAuth" class="bg-cyan-500/10 border border-cyan-500/20 text-cyan-300 text-xs p-3 rounded-xl flex items-start gap-2.5">
+        <Lock class="w-4 h-4 text-cyan-400 shrink-0 mt-0.5" />
+        <span class="text-slate-300 text-[11px] leading-relaxed">
+          Acceso restringido para personal autorizado del BIMEJ 12. Todas las operaciones quedan registradas.
+        </span>
       </div>
 
       <!-- Formulario -->
       <form @submit.prevent="handleLogin" class="space-y-4">
         <!-- Correo -->
         <div class="space-y-1.5">
-          <label class="text-[10px] uppercase font-bold text-slate-400">Correo Electrónico:</label>
+          <label class="text-xs font-semibold text-slate-300 uppercase tracking-wider block">Correo Electrónico:</label>
           <div class="relative">
             <input
               type="email"
               v-model="correo"
               required
               placeholder="ejemplo@bimeh.com"
-              class="w-full bg-darkBg/60 border border-darkBorder rounded-xl pl-10 pr-4 py-2.5 text-xs text-slate-100 placeholder-slate-500 outline-none focus:border-cyan-500/50 transition-all font-mono"
+              class="w-full bg-darkBg border border-darkBorder rounded-xl pl-11 pr-4 py-2.5 text-xs sm:text-sm text-slate-100 placeholder-slate-500 outline-none focus:border-cyan-500/60 transition-all font-mono shadow-inner"
             />
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 absolute left-3.5 top-3.5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.206" />
-            </svg>
+            <Mail class="w-4 h-4 absolute left-3.5 top-3 text-slate-400 pointer-events-none" />
           </div>
         </div>
 
         <!-- Contraseña -->
         <div class="space-y-1.5">
-          <label class="text-[10px] uppercase font-bold text-slate-400">Contraseña:</label>
+          <label class="text-xs font-semibold text-slate-300 uppercase tracking-wider block">Contraseña:</label>
           <div class="relative">
             <input
               type="password"
               v-model="password"
               required
               placeholder="••••••••••••"
-              class="w-full bg-darkBg/60 border border-darkBorder rounded-xl pl-10 pr-4 py-2.5 text-xs text-slate-100 placeholder-slate-500 outline-none focus:border-cyan-500/50 transition-all font-mono"
+              class="w-full bg-darkBg border border-darkBorder rounded-xl pl-11 pr-4 py-2.5 text-xs sm:text-sm text-slate-100 placeholder-slate-500 outline-none focus:border-cyan-500/60 transition-all font-mono shadow-inner"
             />
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 absolute left-3.5 top-3.5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-            </svg>
+            <KeyRound class="w-4 h-4 absolute left-3.5 top-3 text-slate-400 pointer-events-none" />
           </div>
         </div>
 
-        <!-- Botón -->
+        <!-- Botón de Ingreso -->
         <button
           type="submit"
           :disabled="authStore.loading"
-          class="w-full mt-2 py-3 bg-cyan-600 hover:bg-cyan-500 disabled:bg-cyan-800 disabled:text-slate-500 rounded-xl text-xs font-bold text-slate-100 flex items-center justify-center gap-2 transition-all cursor-pointer shadow-md shadow-cyan-900/20 active:scale-98 select-none"
+          class="w-full mt-3 py-3 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 disabled:opacity-50 rounded-xl text-xs sm:text-sm font-bold text-white flex items-center justify-center gap-2 transition-all cursor-pointer shadow-lg shadow-cyan-950/40 active:scale-98 select-none"
         >
-          <template v-if="authStore.loading">
-            <div class="w-4 h-4 border-2 border-slate-100/20 border-t-slate-100 rounded-full animate-spin"></div>
-            <span>VERIFICANDO...</span>
-          </template>
-          <span v-else>INGRESAR AL SISTEMA</span>
+          <Loader2 v-if="authStore.loading" class="w-4 h-4 animate-spin" />
+          <span>{{ authStore.loading ? 'VERIFICANDO CREDENCIALES...' : 'INGRESAR AL SISTEMA' }}</span>
         </button>
       </form>
     </div>
@@ -113,8 +105,20 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { 
+  ShieldCheck, 
+  Lock, 
+  Mail, 
+  KeyRound, 
+  AlertCircle, 
+  ExternalLink, 
+  Loader2 
+} from 'lucide-vue-next'
+
 import { useAuthStore } from '../stores/authStore'
 import { useAppStore } from '../stores/appStore'
+import { fetchDriveStatus, fetchOAuthUrl } from '../services/api'
+import { MONTHS_LIST } from '../utils/date'
 
 const correo = ref('')
 const password = ref('')
@@ -131,15 +135,11 @@ const handleLogin = async () => {
   try {
     const success = await authStore.login(correo.value, password.value)
     if (success) {
-      // 1. Verificar estrictamente si Google Drive está autorizado en el servidor
       try {
-        const driveRes = await fetch(`${appStore.apiBase}/api/auth/drive-status`)
-        const driveData = await driveRes.json()
+        const driveData = await fetchDriveStatus()
         if (driveData.connected) {
-          // Drive conectado con éxito -> Iniciar sincronización automática del mes actual
           const currentMonthIndex = new Date().getMonth()
-          const monthNames = ['ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO', 'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE']
-          const currentMonthName = monthNames[currentMonthIndex]
+          const currentMonthName = MONTHS_LIST[currentMonthIndex]
 
           appStore.startDriveSync({
             tipo: 'mes',
@@ -149,12 +149,11 @@ const handleLogin = async () => {
 
           router.push('/')
         } else {
-          // Bloquear acceso: Cerrar sesión temporal y exigir autorización de Drive
           authStore.logout()
           needsDriveAuth.value = true
           errorMessage.value = 'Se requiere autorización de Google Drive para ingresar al sistema.'
         }
-      } catch (err) {
+      } catch {
         authStore.logout()
         needsDriveAuth.value = true
         errorMessage.value = 'No se pudo verificar el estado de Google Drive en el servidor. Por favor autoriza la conexión.'
@@ -169,18 +168,10 @@ const iniciarOAuth = async () => {
   try {
     const base = appStore.apiBase ? appStore.apiBase.replace(/\/$/, '') : window.location.origin
     const callbackUrl = `${base}/api/sincronizar/oauth/callback`
-    const res = await fetch(`${base}/api/sincronizar/oauth/url?redirect_uri=${encodeURIComponent(callbackUrl)}`)
+    const data = await fetchOAuthUrl(callbackUrl)
     
-    if (!res.ok) {
-      const errData = await res.json().catch(() => ({}))
-      throw new Error(errData.detail || `Error en el servidor (${res.status})`)
-    }
-
-    const data = await res.json()
     if (data.auth_url) {
-      // En Electron: usar shell.openExternal para abrir en el navegador del sistema (Edge/Chrome)
-      // En web o móvil: window.open en nueva pestaña
-      const electronAPI = (window as any).electronAPI
+      const electronAPI = (window as unknown as { electronAPI?: { openExternal?: (url: string) => void } }).electronAPI
       if (electronAPI && typeof electronAPI.openExternal === 'function') {
         electronAPI.openExternal(data.auth_url)
       } else {
@@ -197,3 +188,4 @@ const iniciarOAuth = async () => {
   }
 }
 </script>
+

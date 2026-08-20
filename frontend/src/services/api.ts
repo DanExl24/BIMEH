@@ -143,3 +143,26 @@ export async function fetchStatsHeatmap(mes: string): Promise<Types.HeatmapRespo
   if (!res.ok) throw new Error('Error al obtener heatmap')
   return res.json()
 }
+
+export async function fetchDriveStatus(): Promise<Types.DriveStatusResponse> {
+  const res = await fetchWithAuth(`${getApiBase()}/api/auth/drive-status`)
+  if (!res.ok) throw new Error('Error al verificar estado de Google Drive')
+  return res.json()
+}
+
+export async function fetchOAuthUrl(redirectUri: string): Promise<Types.OAuthUrlResponse> {
+  const res = await fetch(`${getApiBase()}/api/sincronizar/oauth/url?redirect_uri=${encodeURIComponent(redirectUri)}`)
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}))
+    throw new Error(errData.detail || `Error en el servidor (${res.status})`)
+  }
+  return res.json()
+}
+
+export async function uploadReportFile(formData: FormData): Promise<Types.SyncResponse> {
+  const res = await fetchWithAuth(`${getApiBase()}/api/sincronizar/cargar`, {
+    method: 'POST',
+    body: formData
+  })
+  return res.json()
+}

@@ -119,3 +119,28 @@ export interface RankingsData {
   global_rank: RankingItem[]
   most_novelties_people: PersonnelRankingItem[]
 }
+
+export interface DriveStatusResponse {
+  connected: boolean
+  message?: string
+}
+
+export interface OAuthUrlResponse {
+  auth_url: string
+}
+
+export interface SyncLog {
+  file: string
+  status: 'success' | 'skipped' | 'error'
+  detail: string
+}
+
+export interface SyncResponse {
+  status: 'success' | 'error' | 'conflict'
+  message?: string
+  detail?: string
+  errors?: string[]
+  logs?: SyncLog[]
+  conflicts?: string[]
+  auto_dismiss_seconds?: number
+}

@@ -1,61 +1,54 @@
 import { createRouter, createWebHashHistory, type RouteRecordRaw } from 'vue-router'
-import DashboardView from '../views/DashboardView.vue'
-import PersonalView from '../views/PersonalView.vue'
-import PersonalDetalleView from '../views/PersonalDetalleView.vue'
-import EstadisticasView from '../views/EstadisticasView.vue'
-import CronologiaView from '../views/CronologiaView.vue'
-import ReportesView from '../views/ReportesView.vue'
-import SincronizarView from '../views/SincronizarView.vue'
-import LoginView from '../views/LoginView.vue'
 import { useAuthStore } from '../stores/authStore'
 
 const routes: Array<RouteRecordRaw> = [
   {
     path: '/login',
     name: 'login',
-    component: LoginView
+    component: () => import('../views/LoginView.vue'),
+    meta: { title: 'Control de Acceso' }
   },
   {
     path: '/',
     name: 'dashboard',
-    component: DashboardView,
-    meta: { requiresAuth: true }
+    component: () => import('../views/DashboardView.vue'),
+    meta: { requiresAuth: true, title: 'Módulo de Dashboard Operacional' }
   },
   {
     path: '/personal',
     name: 'personal',
-    component: PersonalView,
-    meta: { requiresAuth: true }
+    component: () => import('../views/PersonalView.vue'),
+    meta: { requiresAuth: true, title: 'Buscador y Perfiles de Personal' }
   },
   {
     path: '/personal/:cedula',
     name: 'personal-detalle',
-    component: PersonalDetalleView,
-    meta: { requiresAuth: true }
+    component: () => import('../views/PersonalDetalleView.vue'),
+    meta: { requiresAuth: true, title: 'Detalle Histórico de Integrante' }
   },
   {
     path: '/estadisticas',
     name: 'estadisticas',
-    component: EstadisticasView,
-    meta: { requiresAuth: true }
+    component: () => import('../views/EstadisticasView.vue'),
+    meta: { requiresAuth: true, title: 'Análisis de Novedades y Tendencias' }
   },
   {
     path: '/cronologia',
     name: 'cronologia',
-    component: CronologiaView,
-    meta: { requiresAuth: true }
+    component: () => import('../views/CronologiaView.vue'),
+    meta: { requiresAuth: true, title: 'Cronología de Actividad Diaria' }
   },
   {
     path: '/reportes',
     name: 'reportes',
-    component: ReportesView,
-    meta: { requiresAuth: true }
+    component: () => import('../views/ReportesView.vue'),
+    meta: { requiresAuth: true, title: 'Reportes de Personal' }
   },
   {
     path: '/sincronizar',
     name: 'sincronizar',
-    component: SincronizarView,
-    meta: { requiresAuth: true }
+    component: () => import('../views/SincronizarView.vue'),
+    meta: { requiresAuth: true, title: 'Carga y Sincronización de Reportes' }
   },
   {
     path: '/:pathMatch(.*)*',

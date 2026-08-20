@@ -1,7 +1,16 @@
 <script setup lang="ts">
-import { onMounted, computed, ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import Sidebar from './components/layout/Sidebar.vue'
-import { Menu } from '@lucide/vue'
+import { 
+  Menu, 
+  Shield, 
+  Calendar as CalendarIcon, 
+  Loader2, 
+  CheckCircle2, 
+  AlertCircle, 
+  X, 
+  Square
+} from 'lucide-vue-next'
 
 import { useAppStore } from './stores/appStore'
 import { useAuthStore } from './stores/authStore'
@@ -10,8 +19,6 @@ const appStore = useAppStore()
 const authStore = useAuthStore()
 
 const isMobileMenuOpen = ref(false)
-
-
 
 onMounted(async () => {
   await appStore.fetchAvailableDates()
@@ -31,34 +38,42 @@ onMounted(async () => {
     }
   }
 })
-
 </script>
 
 <template>
-  <div class="min-h-screen bg-darkBg text-slate-100 flex flex-col md:flex-row overflow-x-hidden">
-    <!-- Mobile Top Navigation Header -->
+  <div class="min-h-screen bg-darkBg text-slate-100 flex flex-col lg:flex-row overflow-x-hidden">
+    <!-- Mobile/Tablet Top Navigation Header (visible under 1024px) -->
     <header 
       v-if="$route.name !== 'login'"
-      class="md:hidden fixed top-0 left-0 right-0 z-30 flex items-center justify-between px-4 bg-darkCard/95 border-b border-darkBorder backdrop-blur-md pt-[env(safe-area-inset-top,0px)] h-[calc(3.75rem+env(safe-area-inset-top,0px))]"
+      class="lg:hidden fixed top-0 left-0 right-0 z-30 flex items-center justify-between px-4 bg-darkCard/95 border-b border-darkBorder backdrop-blur-md pt-[env(safe-area-inset-top,0px)] h-16 shadow-lg shadow-black/20"
     >
       <div class="flex items-center gap-3">
         <button 
           @click="isMobileMenuOpen = true"
-          class="p-2 text-slate-300 hover:text-slate-100 rounded-lg hover:bg-darkBorder/40 transition-colors"
-          aria-label="Abrir menú"
+          class="p-2 text-slate-300 hover:text-slate-100 rounded-xl hover:bg-darkBorder/60 transition-colors cursor-pointer"
+          aria-label="Abrir menú de navegación"
         >
           <Menu class="w-6 h-6 text-cyan-400" />
         </button>
-        <div class="flex items-center gap-2">
-          <div class="w-6 h-6 bg-cyan-500 rounded-md flex items-center justify-center text-darkBg text-xs font-bold shadow-md shadow-cyan-500/20">
-            B
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-lg flex items-center justify-center text-slate-950 font-black shadow-md shadow-cyan-500/20">
+            <Shield class="w-4 h-4 stroke-[2.5]" />
           </div>
-          <span class="font-bold tracking-wider text-sm text-slate-100 uppercase">BIMEJ 12</span>
+          <div>
+            <span class="font-extrabold tracking-wider text-sm text-slate-100 uppercase block leading-tight">BIMEJ 12</span>
+            <span class="text-[10px] text-cyan-400 font-semibold tracking-widest uppercase block">Comando</span>
+          </div>
         </div>
+      </div>
+
+      <!-- Quick status indicator in mobile top bar -->
+      <div v-if="appStore.syncStatus === 'running'" class="flex items-center gap-1.5 bg-cyan-500/10 border border-cyan-500/20 px-2.5 py-1 rounded-lg">
+        <Loader2 class="w-3.5 h-3.5 text-cyan-400 animate-spin" />
+        <span class="text-[11px] font-mono text-cyan-300 font-bold">Sync...</span>
       </div>
     </header>
 
-    <!-- Navigation Sidebar -->
+    <!-- Navigation Sidebar / Drawer -->
     <Sidebar 
       v-if="$route.name !== 'login'" 
       :isOpen="isMobileMenuOpen" 
@@ -68,148 +83,152 @@ onMounted(async () => {
     <!-- Main Content Area -->
     <main 
       class="flex-1 min-h-screen flex flex-col w-full max-w-full transition-all duration-300"
-      :class="$route.name !== 'login' ? 'ml-0 md:ml-64 p-4 md:p-8 pt-[calc(4.75rem+env(safe-area-inset-top,0px))] md:pt-8 pb-[calc(2.5rem+env(safe-area-inset-bottom,0px))]' : ''"
+      :class="$route.name !== 'login' ? 'ml-0 lg:ml-64 p-4 sm:p-6 lg:p-8 pt-20 lg:pt-8 pb-12' : ''"
     >
+      <div class="max-w-7xl mx-auto w-full flex-1 flex flex-col space-y-6">
 
-      <!-- Top header layout -->
-      <header v-if="$route.name !== 'login'" class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 md:mb-8 border-b border-darkBorder/40 pb-4">
-        <div>
-          <h2 class="text-[10px] sm:text-xs text-slate-400 font-semibold uppercase tracking-widest">Unidad Militar BIMEJ 12</h2>
-          <h1 class="text-lg sm:text-xl font-bold tracking-tight text-slate-100">
-            {{ $route.name === 'dashboard' ? 'Módulo de Dashboard Operacional' : 
-               $route.name === 'personal' ? 'Buscador y Perfiles de Personal' :
-               $route.name === 'personal-detalle' ? 'Detalle Histórico de Integrante' :
-               $route.name === 'estadisticas' ? 'Análisis de Novedades y Tendencias' :
-               $route.name === 'cronologia' ? 'Cronología de Actividad Diaria' : 'Reportes de Personal' }}
-          </h1>
-        </div>
-
-        <!-- Global controls for selecting date/month -->
-        <div class="flex flex-wrap items-center gap-3">
-          <!-- Show Month picker only on Cronologia or Estadisticas -->
-          <div v-if="$route.name === 'cronologia' || $route.name === 'estadisticas'" class="flex items-center gap-2 w-full sm:w-auto">
-            <span class="text-xs text-slate-400 font-medium whitespace-nowrap">Mes:</span>
-            <select 
-              v-model="appStore.selectedMonth"
-              class="w-full sm:w-auto bg-darkCard border border-darkBorder rounded-lg px-3 py-1.5 text-sm text-slate-200 outline-none focus:border-cyan-500/50"
-            >
-              <option 
-                v-for="m in appStore.monthsWithAvailability" 
-                :key="m.name" 
-                :value="m.name"
-                :disabled="!m.isAvailable"
-                :class="!m.isAvailable ? 'text-slate-500 italic bg-darkBg' : 'text-slate-100 font-medium'"
-              >
-                {{ m.label }}
-              </option>
-            </select>
+        <!-- Top Header & Global Context Bar -->
+        <header v-if="$route.name !== 'login'" class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-darkBorder/60 pb-5">
+          <div>
+            <div class="flex items-center gap-2 text-xs font-semibold text-slate-400 uppercase tracking-widest mb-0.5">
+              <span class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
+              Unidad Militar BIMEJ 12
+            </div>
+            <h1 class="text-xl sm:text-2xl font-bold tracking-tight text-slate-100">
+              {{ $route.meta.title || 'Módulo Operacional' }}
+            </h1>
           </div>
 
-          <!-- Show Month and Day pickers on Dashboard -->
-          <div v-if="$route.name === 'dashboard'" class="flex flex-wrap sm:flex-nowrap items-center gap-3 w-full sm:w-auto">
-            <div class="flex items-center gap-2 flex-1 sm:flex-none">
-              <span class="text-xs text-slate-400 font-medium whitespace-nowrap">Mes:</span>
+          <!-- Contextual Filter Controls -->
+          <div class="flex flex-wrap items-center gap-3">
+            <!-- Month selector on Cronologia / Estadisticas -->
+            <div 
+              v-if="$route.name === 'cronologia' || $route.name === 'estadisticas'" 
+              class="flex items-center gap-2 bg-darkCard/80 border border-darkBorder px-3 py-1.5 rounded-xl shadow-sm"
+            >
+              <CalendarIcon class="w-4 h-4 text-cyan-400 shrink-0" />
+              <span class="text-xs text-slate-300 font-semibold uppercase tracking-wider">Mes:</span>
               <select 
-                v-model="appStore.selectedDashboardMonth"
-                class="w-full bg-darkCard border border-darkBorder rounded-lg px-3 py-1.5 text-sm text-slate-200 outline-none focus:border-cyan-500/50"
+                v-model="appStore.selectedMonth"
+                class="bg-transparent text-xs font-semibold text-slate-100 outline-none cursor-pointer pr-2"
+                aria-label="Seleccionar mes"
               >
-                <option value="">Todos los Meses</option>
                 <option 
                   v-for="m in appStore.monthsWithAvailability" 
                   :key="m.name" 
                   :value="m.name"
                   :disabled="!m.isAvailable"
-                  :class="!m.isAvailable ? 'text-slate-500 italic bg-darkBg' : 'text-slate-100 font-medium'"
+                  :class="!m.isAvailable ? 'text-slate-500 italic bg-darkBg' : 'text-slate-100 font-medium bg-darkCard'"
                 >
                   {{ m.label }}
                 </option>
               </select>
             </div>
-            
-            <div class="flex items-center gap-2 flex-1 sm:flex-none">
-              <span class="text-xs text-slate-400 font-medium whitespace-nowrap">Día:</span>
-              <select 
-                v-model="appStore.selectedDashboardDay"
-                class="w-full bg-darkCard border border-darkBorder rounded-lg px-3 py-1.5 text-sm text-slate-200 outline-none focus:border-cyan-500/50"
-              >
-                <option value="">Todos los Días</option>
-                <option 
-                  v-for="d in appStore.dashboardDaysFormatted" 
-                  :key="d.val" 
-                  :value="d.val"
-                  :disabled="!d.isAvailable"
-                  :class="!d.isAvailable ? 'text-slate-500 italic bg-darkBg' : 'text-slate-100 font-medium'"
+
+            <!-- Month & Day Selectors on Dashboard -->
+            <div 
+              v-if="$route.name === 'dashboard'" 
+              class="flex flex-wrap sm:flex-nowrap items-center gap-2 w-full md:w-auto"
+            >
+              <!-- Month dropdown -->
+              <div class="flex items-center gap-2 bg-darkCard/80 border border-darkBorder px-3 py-2 rounded-xl flex-1 sm:flex-none shadow-sm">
+                <CalendarIcon class="w-4 h-4 text-cyan-400 shrink-0" />
+                <span class="text-xs text-slate-300 font-semibold uppercase tracking-wider">Mes:</span>
+                <select 
+                  v-model="appStore.selectedDashboardMonth"
+                  class="bg-transparent text-xs font-semibold text-slate-100 outline-none cursor-pointer w-full sm:w-auto pr-2"
+                  aria-label="Seleccionar mes del dashboard"
                 >
-                  {{ d.label }}
-                </option>
-              </select>
+                  <option value="" class="bg-darkCard text-slate-100">Todos los Meses</option>
+                  <option 
+                    v-for="m in appStore.monthsWithAvailability" 
+                    :key="m.name" 
+                    :value="m.name"
+                    :disabled="!m.isAvailable"
+                    :class="!m.isAvailable ? 'text-slate-500 italic bg-darkBg' : 'text-slate-100 font-medium bg-darkCard'"
+                  >
+                    {{ m.label }}
+                  </option>
+                </select>
+              </div>
+
+              <!-- Day dropdown -->
+              <div class="flex items-center gap-2 bg-darkCard/80 border border-darkBorder px-3 py-2 rounded-xl flex-1 sm:flex-none shadow-sm">
+                <span class="text-xs text-slate-300 font-semibold uppercase tracking-wider">Día:</span>
+                <select 
+                  v-model="appStore.selectedDashboardDay"
+                  class="bg-transparent text-xs font-semibold text-slate-100 outline-none cursor-pointer w-full sm:w-auto pr-2"
+                  aria-label="Seleccionar día del dashboard"
+                >
+                  <option value="" class="bg-darkCard text-slate-100">Todos los Días</option>
+                  <option 
+                    v-for="d in appStore.dashboardDaysFormatted" 
+                    :key="d.val" 
+                    :value="d.val"
+                    :disabled="!d.isAvailable"
+                    :class="!d.isAvailable ? 'text-slate-500 italic bg-darkBg' : 'text-slate-100 font-medium bg-darkCard'"
+                  >
+                    {{ d.label }}
+                  </option>
+                </select>
+              </div>
             </div>
           </div>
+        </header>
+
+        <!-- View Wrapper -->
+        <div class="flex-1 flex flex-col">
+          <router-view v-slot="{ Component }">
+            <transition name="fade" mode="out-in">
+              <component :is="Component" />
+            </transition>
+          </router-view>
         </div>
-      </header>
-
-
-      <!-- View Wrapper -->
-      <div class="flex-1 flex flex-col">
-        <router-view v-slot="{ Component }">
-          <transition name="fade" mode="out-in">
-            <component :is="Component" />
-          </transition>
-        </router-view>
       </div>
     </main>
 
-    <!-- Global Background Sync Floating Status -->
+    <!-- Global Background Sync Floating Notification (Non-blocking pill) -->
     <div 
       v-if="appStore.syncStatus !== 'idle'" 
-      class="fixed bottom-[calc(1rem+env(safe-area-inset-bottom,0px))] left-3 right-3 md:left-auto md:right-6 z-50 glass-panel p-3 sm:p-4 rounded-xl border max-w-full md:max-w-sm flex items-center justify-between gap-2.5 transition-all duration-300 shadow-2xl animate-fade-in"
-      :class="appStore.syncStatus === 'running' ? 'border-cyan-500/30 shadow-cyan-500/5' : 
-              appStore.syncStatus === 'success' ? 'border-emerald-500/30 shadow-emerald-500/5' : 'border-red-500/30 shadow-red-500/5'"
+      class="fixed bottom-4 right-4 z-40 glass-panel p-3 sm:p-4 rounded-2xl border flex items-center justify-between gap-3 transition-all duration-300 shadow-2xl max-w-xs sm:max-w-sm"
+      :class="appStore.syncStatus === 'running' ? 'border-cyan-500/40 shadow-cyan-500/10' : 
+              appStore.syncStatus === 'success' ? 'border-emerald-500/40 shadow-emerald-500/10' : 'border-red-500/40 shadow-red-500/10'"
     >
       <!-- Icon/Spinner -->
       <div class="flex-shrink-0">
-        <div v-if="appStore.syncStatus === 'running'" class="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-cyan-500/10 flex items-center justify-center text-cyan-400">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 7.89" />
-          </svg>
+        <div v-if="appStore.syncStatus === 'running'" class="w-8 h-8 rounded-xl bg-cyan-500/15 flex items-center justify-center text-cyan-400">
+          <Loader2 class="w-4 h-4 animate-spin" />
         </div>
-        <div v-else-if="appStore.syncStatus === 'success'" class="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-400">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4" />
-          </svg>
+        <div v-else-if="appStore.syncStatus === 'success'" class="w-8 h-8 rounded-xl bg-emerald-500/15 flex items-center justify-center text-emerald-400">
+          <CheckCircle2 class="w-4 h-4 stroke-[2.5]" />
         </div>
-        <div v-else class="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-red-500/10 flex items-center justify-center text-red-400">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-          </svg>
+        <div v-else class="w-8 h-8 rounded-xl bg-red-500/15 flex items-center justify-center text-red-400">
+          <AlertCircle class="w-4 h-4 stroke-[2.5]" />
         </div>
       </div>
       
       <!-- Text details -->
       <div class="flex-1 min-w-0 font-sans">
-        <p class="text-[11px] sm:text-xs font-bold text-slate-200 truncate">
-          {{ appStore.syncStatus === 'running' ? 'Sincronizando Drive...' : 
-             appStore.syncStatus === 'success' ? 'Sincronización Exitosa' : 'Error de Sincronización' }}
+        <p class="text-xs font-bold text-slate-200 truncate">
+          {{ appStore.syncStatus === 'running' ? 'Sincronizando Drive' : 
+             appStore.syncStatus === 'success' ? 'Sincronización Lista' : 'Error de Sincronización' }}
         </p>
-        <p class="text-[9px] sm:text-[10px] text-slate-400 truncate mt-0.5 font-medium" :title="appStore.syncMessage">
+        <p class="text-[11px] text-slate-400 truncate font-medium" :title="appStore.syncMessage">
           {{ appStore.syncMessage }}
         </p>
       </div>
 
       <!-- Timer overlay and Cancel button if running -->
       <div v-if="appStore.syncStatus === 'running'" class="flex items-center gap-1.5 shrink-0">
-        <div class="text-[9px] sm:text-[10px] font-mono text-cyan-400 bg-cyan-500/10 px-1.5 py-0.5 rounded font-bold">
+        <span class="text-[11px] font-mono text-cyan-400 bg-cyan-500/15 px-2 py-0.5 rounded-md font-bold">
           {{ Math.floor(appStore.syncSecondsElapsed / 60) }}m {{ appStore.syncSecondsElapsed % 60 }}s
-        </div>
+        </span>
         <button 
           @click="appStore.cancelDriveSync()" 
-          class="px-1.5 py-1 bg-red-500/15 hover:bg-red-500/25 text-red-400 border border-red-500/30 rounded-md text-[9px] sm:text-[10px] font-bold transition-all cursor-pointer flex items-center gap-0.5 active:scale-95"
+          class="p-1.5 bg-red-500/15 hover:bg-red-500/25 text-red-400 border border-red-500/30 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1"
           title="Detener sincronización"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-          </svg>
-          <span class="hidden sm:inline">Cancelar</span>
+          <Square class="w-3.5 h-3.5 fill-current" />
         </button>
       </div>
 
@@ -217,19 +236,14 @@ onMounted(async () => {
       <button 
         v-if="appStore.syncStatus !== 'running'"
         @click="appStore.clearSyncStatus()" 
-        class="text-slate-400 hover:text-slate-200 p-1 rounded-lg hover:bg-slate-700/50 transition-all cursor-pointer shrink-0"
+        class="text-slate-400 hover:text-slate-200 p-1.5 rounded-lg hover:bg-slate-700/50 transition-all cursor-pointer shrink-0"
         title="Cerrar notificación"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-        </svg>
+        <X class="w-4 h-4" />
       </button>
-
     </div>
   </div>
-
 </template>
-
 
 <style>
 .fade-enter-active,
@@ -242,3 +256,4 @@ onMounted(async () => {
   opacity: 0;
 }
 </style>
+
