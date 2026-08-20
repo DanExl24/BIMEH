@@ -6,20 +6,32 @@ __pycache__
 .mypy_cache
 .ruff_cache
 
+# Secretos y credenciales
 .env
 .env.*
 !.env.example
+*credentials*
+token.json
+credentials.json
 
+# Entornos virtuales
 .venv
 venv
 env
 
+# Builds y empaquetados
 build
 dist
 *.spec
 
-*.log
+# Datos locales / dumps
+decode/
+listadoMeses/
+*.json
+!requirements.txt
 
+# Logs y Git
+*.log
 .git
 .gitignore
 Dockerfile

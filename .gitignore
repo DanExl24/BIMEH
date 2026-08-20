@@ -1,28 +1,81 @@
+# ==========================================
+# Entornos Virtuales y Python
+# ==========================================
 .venv/
+venv/
+env/
 __pycache__/
-*.pyc
-*.db
-personal_consolidado.json
-processing_report.json
+*.py[cod]
+*$py.class
+*.spec
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# ==========================================
+# Variables de Entorno y Secretos (CRÍTICO)
+# ==========================================
+.env
+.env.*
+!.env.example
+backend/.env
+backend/.env.*
+!backend/.env.example
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
 token.json
 **/token.json
 credentials.json
+**/credentials.json
+*credentials*.md
 redeploy.ps1
-bimeh-credentials.md
 
+# ==========================================
+# Datos Sensibles, Dumps y Caches Locales
+# ==========================================
+*.db
+*.sqlite3
+*.dump
+backend/decode/
+backend/listadoMeses/
+backend/listado_meses.json
+backend/encabezados.json
+backend/config/carpeta_principal.json
+personal_consolidado.json
+processing_report.json
+respaldo/
 
-# Dependencies & Build Outputs
+# ==========================================
+# Node.js, Frontend & Build Outputs
+# ==========================================
 node_modules/
 dist/
 dist-desktop/
+dist-ssr/
+frontend/dist/
 frontend/dist-desktop/
 backend/build/
 backend/dist/
 out/
 build/
-respaldo/
+.vite/
+*.local
 
-# Installers, Binaries & Packaging
+# ==========================================
+# Logs
+# ==========================================
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# ==========================================
+# Android / Electron / Binarios
+# ==========================================
+frontend/android/.gradle/
+frontend/android/app/build/
+frontend/android/build/
 *.apk
 *.aab
 *.exe
@@ -31,5 +84,12 @@ respaldo/
 *.dmg
 *.AppImage
 
-.DS_Store
+# ==========================================
+# IDEs y Sistema Operativo
+# ==========================================
 .vscode/
+**/.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+

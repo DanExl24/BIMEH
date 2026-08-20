@@ -32,7 +32,7 @@ SCOPES = [
 ]
 
 # ---------------------------------------------------------------------------
-# credentials.json: en producción (Render) se escribe desde la env var
+# credentials.json: en producción se escribe desde la env var
 # GOOGLE_CREDENTIALS_JSON al arrancar, evitando subir el archivo a git.
 # ---------------------------------------------------------------------------
 def _asegurar_credentials():
@@ -50,7 +50,7 @@ def _asegurar_credentials():
 
     raise FileNotFoundError(
         "No se encontró credentials.json ni la variable de entorno "
-        "GOOGLE_CREDENTIALS_JSON. Configura la variable en el dashboard de Render."
+        "GOOGLE_CREDENTIALS_JSON. Configura las variables de entorno de tu servidor."
     )
 
 # ---------------------------------------------------------------------------
@@ -249,7 +249,7 @@ def obtener_credenciales(correo_google: str | None = None, force_new: bool = Fal
         else:
             creds = None
 
-    # 4. Si se ejecuto en Render sin token valido
+    # 4. Si no hay token valido
     if not creds:
         raise Exception(
             "No hay token de Google Drive autorizado en el servidor. "

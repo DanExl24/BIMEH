@@ -4,12 +4,11 @@ services:
     build:
       context: ./frontend
       args:
-        - VITE_API_BASE=
-    ports:
-      - 8085:80
+        - VITE_API_BASE=${VITE_API_BASE:-http://localhost:8000}
     networks:
-      - bimeh-internal
+      - proxy-network
     restart: always
+
   backend:
     container_name: bimeh-backend
     build:
@@ -18,16 +17,17 @@ services:
       - TZ=America/Bogota
       - DB_HOST=postgres
       - DB_PORT=5432
-      - DB_NAME=bimeh
-      - DB_USER=postgres
-      - DB_PASSWORD=postgres
-    expose:
-      - 8000
+      - DB_NAME=${DB_NAME:-bimeh}
+      - DB_USER=${DB_USER:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:-postgres}
+      - ALLOW_ORIGINS=${ALLOW_ORIGINS:-http://localhost:5173,http://localhost:80}
     depends_on:
       postgres:
         condition: service_healthy
     networks:
+      - proxy-network
       - bimeh-internal
+    restart: always
 
   postgres:
     container_name: bimeh-postgres
@@ -35,19 +35,20 @@ services:
     environment:
       - TZ=America/Bogota
       - PGTZ=America/Bogota
-      - POSTGRES_DB=bimeh
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=${DB_NAME:-bimeh}
+      - POSTGRES_USER=${DB_USER:-postgres}
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-postgres}
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./init_scripts:/docker-entrypoint-initdb.d
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d bimeh"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-bimeh}"]
       interval: 5s
       timeout: 5s
       retries: 10
     networks:
       - bimeh-internal
+    restart: always
 
 volumes:
   postgres_data:

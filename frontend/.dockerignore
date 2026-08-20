@@ -1,6 +1,7 @@
 node_modules
 dist
 dist-desktop
+dist-ssr
 coverage
 .vite
 
@@ -19,4 +20,5 @@ Dockerfile
 .dockerignore
 
 android
+electron
 electron-builder.yml
