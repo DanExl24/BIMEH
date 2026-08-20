@@ -5,7 +5,17 @@
     "types": ["vite/client"],
     "skipLibCheck": true,
     "allowArbitraryExtensions": true,
-
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"],
+      "@features/*": ["src/features/*"],
+      "@components/*": ["src/components/*"],
+      "@composables/*": ["src/composables/*"],
+      "@stores/*": ["src/stores/*"],
+      "@services/*": ["src/services/*"],
+      "@utils/*": ["src/utils/*"],
+      "@types/*": ["src/types/*"]
+    },
 
     /* Linting */
     "noUnusedLocals": true,

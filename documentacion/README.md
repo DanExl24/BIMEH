@@ -22,6 +22,7 @@ La documentación se encuentra dividida modularmente en la carpeta [`documentaci
 
 ## 🔗 Enlaces a Documentación Complementaria
 
+- [Arquitectura Modular del Frontend & Tree Map](file:///c:/Users/alejo/Downloads/automPYdrive/documentacion/frontend_architecture.md): Documento oficial de arquitectura técnica, separación por *features*, capas compartidas y tree map del frontend.
 - [Manual Técnico General](file:///c:/Users/alejo/Downloads/automPYdrive/docs/manual_tecnico.md): Arquitectura de software, modelo relacional de PostgreSQL, instrucciones de despliegue y mantenimiento.
 - [Manual de Usuario General](file:///c:/Users/alejo/Downloads/automPYdrive/docs/manual_usuario.md): Guía de navegación operativa paso a paso.
 - [Guía de Integración Electron / Desktop](file:///c:/Users/alejo/Downloads/automPYdrive/docs/electron_setup.md): Empaquetado como ejecutable de escritorio.
