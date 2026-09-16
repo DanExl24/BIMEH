@@ -39,6 +39,12 @@ const routes: Array<RouteRecordRaw> = [
     meta: { requiresAuth: true, title: 'Cronología de Actividad Diaria' }
   },
   {
+    path: '/novedades',
+    name: 'novedades',
+    component: () => import('@features/novedades/views/NovedadesView.vue'),
+    meta: { requiresAuth: true, title: 'Gestión y Búsqueda de Novedades' }
+  },
+  {
     path: '/reportes',
     name: 'reportes',
     component: () => import('@features/reportes/views/ReportesView.vue'),

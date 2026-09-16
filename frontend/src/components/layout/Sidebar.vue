@@ -90,6 +90,7 @@ import {
   Users, 
   BarChart3, 
   Calendar,
+  Tag,
   Download,
   Upload,
   LogOut,
@@ -116,6 +117,7 @@ const handleLogout = () => {
 const menuItems = [
   { name: 'Dashboard General', path: '/', icon: LayoutDashboard },
   { name: 'Buscador de Personal', path: '/personal', icon: Users },
+  { name: 'Gestión de Novedades', path: '/novedades', icon: Tag },
   { name: 'Estadísticas Históricas', path: '/estadisticas', icon: BarChart3 },
   { name: 'Cronología & Heatmap', path: '/cronologia', icon: Calendar },
   { name: 'Centro de Reportes', path: '/reportes', icon: Download },

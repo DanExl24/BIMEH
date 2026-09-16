@@ -524,3 +524,11 @@ INSERT INTO public.sub_novedades (id, nombre) VALUES
   (20, 'TRATAMIENTO LESIHMANIASIS')
 ON CONFLICT (id) DO NOTHING;
 SELECT pg_catalog.setval('public.sub_novedades_id_seq', 20, true);
+
+--
+-- Índices de alto rendimiento para consultas analíticas y búsqueda de novedades
+--
+CREATE INDEX IF NOT EXISTS idx_registro_personal_subnovedad ON public.registro_personal(id_sub_novedad);
+CREATE INDEX IF NOT EXISTS idx_registro_personal_personal ON public.registro_personal(id_personal);
+CREATE INDEX IF NOT EXISTS idx_registro_personal_reporte ON public.registro_personal(id_reporte);
+CREATE INDEX IF NOT EXISTS idx_reportes_fecha ON public.reportes(fecha);
