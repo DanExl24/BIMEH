@@ -37,6 +37,11 @@ redeploy.ps1
 *.db
 *.sqlite3
 *.dump
+*.sql
+*.sql.gz
+*.tar.gz
+init_scripts/*.sql
+!init_scripts/01_schema.sql
 backend/decode/
 backend/listadoMeses/
 backend/listado_meses.json
