@@ -130,7 +130,7 @@
           </label>
           <select
             v-model="filtros.mes"
-            @change="triggerSearch"
+            @change="onMesChange"
             class="w-full bg-slate-900 border border-darkBorder hover:border-cyan-500/40 focus:border-cyan-400 text-slate-200 rounded-xl px-3 py-2 text-xs font-medium focus:outline-none transition-all cursor-pointer"
           >
             <option value="TODOS">TODOS LOS MESES</option>
@@ -140,12 +140,31 @@
           </select>
         </div>
 
-        <!-- Rango de Fechas: Desde -->
+        <!-- Rango de Fechas / Días: Desde -->
         <div>
-          <label class="block text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
-            Fecha Desde
+          <label class="block text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5 flex items-center justify-between">
+            <span>{{ filtros.mes !== 'TODOS' ? 'Día Desde' : 'Fecha Desde' }}</span>
+            <span v-if="filtros.mes !== 'TODOS'" class="text-[10px] text-cyan-400 font-mono font-bold lowercase">
+              ({{ filtros.mes }})
+            </span>
           </label>
+
+          <!-- Si seleccionó un mes específico, solo permite elegir días de ese mes -->
+          <select
+            v-if="filtros.mes !== 'TODOS'"
+            v-model="diaInicio"
+            @change="onDiaChange"
+            class="w-full bg-slate-900 border border-darkBorder hover:border-cyan-500/40 focus:border-cyan-400 text-slate-200 rounded-xl px-3 py-2 text-xs font-medium focus:outline-none transition-all cursor-pointer"
+          >
+            <option value="">Todo el mes (Desde día 01)</option>
+            <option v-for="d in diasDelMes" :key="d" :value="d">
+              Día {{ d }} de {{ filtros.mes }}
+            </option>
+          </select>
+
+          <!-- Si mes es TODOS, permite selector libre de fecha -->
           <input
+            v-else
             v-model="filtros.fecha_inicio"
             @change="triggerSearch"
             type="date"
@@ -153,12 +172,31 @@
           />
         </div>
 
-        <!-- Rango de Fechas: Hasta -->
+        <!-- Rango de Fechas / Días: Hasta -->
         <div>
-          <label class="block text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
-            Fecha Hasta
+          <label class="block text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5 flex items-center justify-between">
+            <span>{{ filtros.mes !== 'TODOS' ? 'Día Hasta' : 'Fecha Hasta' }}</span>
+            <span v-if="filtros.mes !== 'TODOS'" class="text-[10px] text-cyan-400 font-mono font-bold lowercase">
+              ({{ filtros.mes }})
+            </span>
           </label>
+
+          <!-- Si seleccionó un mes específico, solo permite elegir días de ese mes -->
+          <select
+            v-if="filtros.mes !== 'TODOS'"
+            v-model="diaFin"
+            @change="onDiaChange"
+            class="w-full bg-slate-900 border border-darkBorder hover:border-cyan-500/40 focus:border-cyan-400 text-slate-200 rounded-xl px-3 py-2 text-xs font-medium focus:outline-none transition-all cursor-pointer"
+          >
+            <option value="">Todo el mes (Hasta día {{ totalDiasMes }})</option>
+            <option v-for="d in diasDelMes" :key="d" :value="d">
+              Día {{ d }} de {{ filtros.mes }}
+            </option>
+          </select>
+
+          <!-- Si mes es TODOS, permite selector libre de fecha -->
           <input
+            v-else
             v-model="filtros.fecha_fin"
             @change="triggerSearch"
             type="date"
@@ -403,6 +441,7 @@ import type {
   NovedadesConsultaFiltros 
 } from '../types/novedades.types'
 import { useAppStore } from '@stores/appStore'
+import { MONTH_TO_NUMBER, getDaysInMonth } from '@/utils/date'
 
 const appStore = useAppStore()
 
@@ -452,12 +491,58 @@ const catalogoTop = computed(() => {
     .slice(0, 6)
 })
 
+const diaInicio = ref('')
+const diaFin = ref('')
+
+const anioOperacional = computed(() => {
+  return 2026
+})
+
+const mesNumero = computed(() => {
+  if (!filtros.value.mes || filtros.value.mes === 'TODOS') return ''
+  return MONTH_TO_NUMBER[filtros.value.mes.toUpperCase()] || ''
+})
+
+const totalDiasMes = computed(() => {
+  if (!filtros.value.mes || filtros.value.mes === 'TODOS') return 31
+  return getDaysInMonth(filtros.value.mes, anioOperacional.value)
+})
+
+const diasDelMes = computed(() => {
+  return Array.from({ length: totalDiasMes.value }, (_, i) => String(i + 1).padStart(2, '0'))
+})
+
+const onMesChange = () => {
+  diaInicio.value = ''
+  diaFin.value = ''
+  filtros.value.fecha_inicio = ''
+  filtros.value.fecha_fin = ''
+  triggerSearch()
+}
+
+const onDiaChange = () => {
+  if (filtros.value.mes && filtros.value.mes !== 'TODOS') {
+    const y = anioOperacional.value
+    const m = mesNumero.value
+
+    if (diaInicio.value && diaFin.value && diaFin.value < diaInicio.value) {
+      diaFin.value = diaInicio.value
+    }
+
+    filtros.value.fecha_inicio = diaInicio.value ? `${y}-${m}-${diaInicio.value}` : ''
+    filtros.value.fecha_fin = diaFin.value ? `${y}-${m}-${diaFin.value}` : ''
+  }
+  triggerSearch()
+}
+
 const tieneFiltrosActivos = computed(() => {
   return (
     filtros.value.id_sub_novedad !== null ||
     filtros.value.mes !== 'TODOS' ||
     Boolean(filtros.value.fecha_inicio) ||
     Boolean(filtros.value.fecha_fin) ||
+    Boolean(diaInicio.value) ||
+    Boolean(diaFin.value) ||
     Boolean(filtros.value.q) ||
     filtros.value.estado !== 'TODOS'
   )
@@ -524,6 +609,8 @@ const cambiarPagina = (nuevaPagina: number) => {
 }
 
 const limpiarFiltros = () => {
+  diaInicio.value = ''
+  diaFin.value = ''
   filtros.value = {
     id_sub_novedad: null,
     mes: 'TODOS',

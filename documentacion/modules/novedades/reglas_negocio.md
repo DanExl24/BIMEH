@@ -30,10 +30,10 @@
 
 ### RN-NOV-003
 - **Identificador**: `RN-NOV-003`
-- **Descripción**: El filtro por mes operacional utiliza la función de mapeo de fechas de `get_month_dates(mes)` para asociar reportes cuyas fechas calendáricas correspondan exactamente al mes solicitado.
-- **Motivo**: Mantener coherencia con la estructura de reportes diarios consolidados del sistema sin desfasar días de inicio/fin de mes.
+- **Descripción**: El filtro por mes operacional sincroniza dinámicamente los selectores de rango temporal. Al seleccionar un mes específico (ej. FEBRERO, JUNIO), el sistema restringe los selectores de *Día Desde* y *Día Hasta* exclusivamente a los días calendáricos correspondientes a dicho mes (ej. 1 al 28 para febrero, 1 al 30 para junio), evitando combinaciones cronológicas incompatibles. Si el mes seleccionado es *"TODOS LOS MESES"*, el sistema habilita selectores libres de fecha completa (`YYYY-MM-DD`).
+- **Motivo**: Garantizar consistencia temporal y evitar que el usuario asigne días o meses no correspondientes al periodo evaluado.
 - **Módulos afectados**: `novedades`, `reportes`.
-- **Archivos donde se implementa**: [`backend/app/routers/novedades.py`](file:///c:/Users/alejo/Downloads/proyectos-dev/BIMEH/backend/app/routers/novedades.py) (Líneas 50–57), [`backend/app/database.py`](file:///c:/Users/alejo/Downloads/proyectos-dev/BIMEH/backend/app/database.py) (Línea 143).
+- **Archivos donde se implementa**: [`frontend/src/features/novedades/views/NovedadesView.vue`](file:///c:/Users/alejo/Downloads/proyectos-dev/BIMEH/frontend/src/features/novedades/views/NovedadesView.vue), [`backend/app/routers/novedades.py`](file:///c:/Users/alejo/Downloads/proyectos-dev/BIMEH/backend/app/routers/novedades.py) (Líneas 50–57).
 - **Endpoints relacionados**: `GET /api/novedades/consulta`.
 - **Historias de usuario relacionadas**: [HU-NOV-002](file:///c:/Users/alejo/Downloads/proyectos-dev/BIMEH/documentacion/modules/novedades/historias_usuario.md#hu-nov-002).
 
