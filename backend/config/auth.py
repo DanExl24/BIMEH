@@ -7,6 +7,11 @@ from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow, Flow
 from googleapiclient.discovery import build
+# Asegurar que la raíz del backend esté en sys.path para imports de 'app'
+BACKEND_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if BACKEND_DIR not in sys.path:
+    sys.path.insert(0, BACKEND_DIR)
+
 from app.database import ConnectionWrapper, DB_CONN_PARAMS
 
 # ---------------------------------------------------------------------------
@@ -296,3 +301,42 @@ def obtener_servicio_drive(correo_google: str | None = None, force_new: bool = F
 
 def obtener_servicio_sheets(correo_google: str | None = None, force_new: bool = False):
     return build("sheets", "v4", credentials=obtener_credenciales(correo_google, force_new))
+
+def login_interactivo(port: int = 8080):
+    """
+    Abre una ventana en el navegador para autorizar Google Drive interactivamente
+    desde la terminal y guarda el token fresco en PostgreSQL y en disco local.
+    """
+    print("\n====================================================")
+    print("   BIMEH - AUTORIZACIÓN DE GOOGLE DRIVE (TERMINAL)  ")
+    print("====================================================\n")
+    creds_path = _asegurar_credentials()
+    flow = InstalledAppFlow.from_client_secrets_file(creds_path, scopes=SCOPES)
+    print("🌐 Abriendo navegador para iniciar sesión con Google...")
+    creds = flow.run_local_server(port=port, prompt="consent", access_type="offline")
+
+    correo_google = "desconocido"
+    try:
+        import google.oauth2.id_token
+        import google.auth.transport.requests
+        request = google.auth.transport.requests.Request()
+        id_info = google.oauth2.id_token.verify_oauth2_token(creds.id_token, request)
+        correo_google = id_info.get("email", "desconocido")
+    except Exception as e:
+        print(f"[AUTH] No se pudo extraer email de id_token: {e}")
+
+    token_json = creds.to_json()
+    _guardar_token_db(correo_google, token_json)
+    try:
+        os.makedirs(os.path.dirname(TOKEN_PATH), exist_ok=True)
+        with open(TOKEN_PATH, "w", encoding="utf-8") as f:
+            f.write(token_json)
+    except Exception as e:
+        print(f"[AUTH] Error guardando token local: {e}")
+
+    print(f"\n✅ ¡Google Drive autorizado exitosamente para: {correo_google}!")
+    print("   El nuevo token ha sido guardado en la base de datos PostgreSQL.\n")
+    return creds
+
+if __name__ == "__main__":
+    login_interactivo()
