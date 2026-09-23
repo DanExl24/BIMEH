@@ -21,8 +21,18 @@
           </p>
         </div>
 
-        <!-- Botones de Exportación Rápida -->
-        <div class="flex items-center gap-2.5 shrink-0">
+        <!-- Botones de Exportación Rápida & Constructor -->
+        <div class="flex items-center gap-2.5 shrink-0 flex-wrap sm:flex-nowrap">
+          <!-- Botón Principal: Constructor de Reportes -->
+          <button
+            @click="isReportBuilderOpen = true"
+            class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-slate-950 text-xs font-black transition-all shadow-md shadow-cyan-500/20 hover:shadow-cyan-500/30 cursor-pointer"
+            title="Abrir Constructor de Reportes (Modo Ágil para Comandancia y Modo Detallado)"
+          >
+            <Sliders class="w-4 h-4 text-slate-950" />
+            <span>Constructor de Reportes</span>
+          </button>
+
           <button
             @click="handleExportar('excel')"
             :disabled="isDownloadingExcel || isLoading"
@@ -413,6 +423,22 @@
         </div>
       </div>
     </div>
+
+    <!-- Modal Constructor de Reportes -->
+    <ReportBuilderModal
+      :is-open="isReportBuilderOpen"
+      :catalogo="catalogo"
+      :meses-disponibles="mesesDisponibles"
+      :initial-filters="{
+        id_sub_novedad: filtros.id_sub_novedad,
+        mes: filtros.mes,
+        fecha_inicio: filtros.fecha_inicio,
+        fecha_fin: filtros.fecha_fin,
+        estado: filtros.estado,
+        q: filtros.q
+      }"
+      @close="isReportBuilderOpen = false"
+    />
   </div>
 </template>
 
@@ -429,10 +455,12 @@ import {
   ExternalLink, 
   Loader2, 
   AlertCircle, 
+  Sliders,
   X 
 } from 'lucide-vue-next'
 
 import NovedadKpis from '../components/NovedadKpis.vue'
+import ReportBuilderModal from '../components/ReportBuilderModal.vue'
 import { novedadesService } from '../services/novedades.service'
 import type { 
   NovedadCatalogoItem, 
@@ -452,6 +480,7 @@ const totalPages = ref(1)
 const isLoading = ref(false)
 const isDownloadingExcel = ref(false)
 const isDownloadingPdf = ref(false)
+const isReportBuilderOpen = ref(false)
 
 const kpis = ref<NovedadesKpisType>({
   total_registros: 0,
