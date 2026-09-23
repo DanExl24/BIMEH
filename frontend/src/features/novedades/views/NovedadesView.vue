@@ -176,7 +176,9 @@
           <input
             v-else
             v-model="filtros.fecha_inicio"
-            @change="triggerSearch"
+            :max="filtros.fecha_fin || '2026-12-31'"
+            min="2026-01-01"
+            @change="onFechaInicioLibreChange"
             type="date"
             class="w-full bg-slate-900 border border-darkBorder hover:border-cyan-500/40 focus:border-cyan-400 text-slate-200 rounded-xl px-3 py-2 text-xs font-medium focus:outline-none transition-all"
           />
@@ -208,7 +210,9 @@
           <input
             v-else
             v-model="filtros.fecha_fin"
-            @change="triggerSearch"
+            :min="filtros.fecha_inicio || '2026-01-01'"
+            max="2026-12-31"
+            @change="onFechaFinLibreChange"
             type="date"
             class="w-full bg-slate-900 border border-darkBorder hover:border-cyan-500/40 focus:border-cyan-400 text-slate-200 rounded-xl px-3 py-2 text-xs font-medium focus:outline-none transition-all"
           />
@@ -560,6 +564,20 @@ const onDiaChange = () => {
 
     filtros.value.fecha_inicio = diaInicio.value ? `${y}-${m}-${diaInicio.value}` : ''
     filtros.value.fecha_fin = diaFin.value ? `${y}-${m}-${diaFin.value}` : ''
+  }
+  triggerSearch()
+}
+
+const onFechaInicioLibreChange = () => {
+  if (filtros.value.fecha_inicio && filtros.value.fecha_fin && filtros.value.fecha_fin < filtros.value.fecha_inicio) {
+    filtros.value.fecha_fin = filtros.value.fecha_inicio
+  }
+  triggerSearch()
+}
+
+const onFechaFinLibreChange = () => {
+  if (filtros.value.fecha_fin && filtros.value.fecha_inicio && filtros.value.fecha_inicio > filtros.value.fecha_fin) {
+    filtros.value.fecha_inicio = filtros.value.fecha_fin
   }
   triggerSearch()
 }

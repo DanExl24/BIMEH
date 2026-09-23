@@ -151,8 +151,11 @@
 
             <!-- Mes Operacional -->
             <div>
-              <label class="block text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
-                Mes Operacional
+              <label class="block text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5 flex items-center justify-between">
+                <span>Mes Operacional</span>
+                <span v-if="mesLimits.isSpecificMonth" class="text-[10px] text-cyan-400 font-mono font-bold">
+                  {{ mesLimits.totalDias }} días
+                </span>
               </label>
               <select
                 v-model="config.mes"
@@ -168,12 +171,17 @@
 
             <!-- Rango de Fechas: Desde -->
             <div>
-              <label class="block text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
-                Fecha Desde
+              <label class="block text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5 flex items-center justify-between">
+                <span>Fecha Desde</span>
+                <span v-if="mesLimits.isSpecificMonth" class="text-[10px] text-amber-400 font-mono">
+                  Min: 01/{{ mesLimits.mesNum }}
+                </span>
               </label>
               <input
                 v-model="config.fecha_inicio"
-                @change="debouncedPreview"
+                :min="mesLimits.min"
+                :max="config.fecha_fin || mesLimits.max"
+                @change="onFechaInicioChange"
                 type="date"
                 class="w-full bg-slate-950 border border-darkBorder hover:border-cyan-500/40 focus:border-cyan-400 text-slate-200 rounded-xl px-3 py-2 text-xs font-medium focus:outline-none transition-all"
               />
@@ -181,15 +189,71 @@
 
             <!-- Rango de Fechas: Hasta -->
             <div>
-              <label class="block text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
-                Fecha Hasta
+              <label class="block text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5 flex items-center justify-between">
+                <span>Fecha Hasta</span>
+                <span v-if="mesLimits.isSpecificMonth" class="text-[10px] text-amber-400 font-mono">
+                  Max: {{ mesLimits.totalDias }}/{{ mesLimits.mesNum }}
+                </span>
               </label>
               <input
                 v-model="config.fecha_fin"
-                @change="debouncedPreview"
+                :min="config.fecha_inicio || mesLimits.min"
+                :max="mesLimits.max"
+                @change="onFechaFinChange"
                 type="date"
                 class="w-full bg-slate-950 border border-darkBorder hover:border-cyan-500/40 focus:border-cyan-400 text-slate-200 rounded-xl px-3 py-2 text-xs font-medium focus:outline-none transition-all"
               />
+            </div>
+
+            <!-- Barra de sincronización y accesos rápidos de fechas -->
+            <div class="sm:col-span-2 lg:col-span-4 flex flex-wrap items-center justify-between gap-2 px-3.5 py-2 rounded-xl bg-slate-950/70 border border-darkBorder/70 text-xs">
+              <div class="flex items-center gap-2 text-slate-300">
+                <span class="w-2 h-2 rounded-full" :class="mesLimits.isSpecificMonth ? 'bg-cyan-400 animate-pulse' : 'bg-slate-500'"></span>
+                <span v-if="mesLimits.isSpecificMonth" class="text-[11px]">
+                  Filtro sincronizado con <strong class="text-cyan-300 font-semibold">{{ config.mes }} {{ anioOperacional }}</strong> (rango estricto del 01 al {{ mesLimits.totalDias }})
+                </span>
+                <span v-else class="text-[11px] text-slate-400">
+                  Filtro libre en todo el año <strong class="text-slate-200 font-mono">{{ anioOperacional }}</strong>
+                  <span v-if="config.fecha_inicio || config.fecha_fin" class="text-cyan-400 ml-1 font-mono">
+                    ({{ config.fecha_inicio || '01/01' }} ➔ {{ config.fecha_fin || '31/12' }})
+                  </span>
+                </span>
+              </div>
+
+              <!-- Botones rápidos de quincena y limpieza -->
+              <div class="flex items-center gap-1.5">
+                <template v-if="mesLimits.isSpecificMonth">
+                  <button
+                    type="button"
+                    @click="aplicarPresetMes('todo')"
+                    class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-bold transition-all cursor-pointer border border-darkBorder"
+                  >
+                    Todo el Mes
+                  </button>
+                  <button
+                    type="button"
+                    @click="aplicarPresetMes('q1')"
+                    class="px-2.5 py-1 rounded-lg bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 text-[10px] font-bold transition-all cursor-pointer border border-cyan-500/30"
+                  >
+                    1ra Quincena (01-15)
+                  </button>
+                  <button
+                    type="button"
+                    @click="aplicarPresetMes('q2')"
+                    class="px-2.5 py-1 rounded-lg bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 text-[10px] font-bold transition-all cursor-pointer border border-cyan-500/30"
+                  >
+                    2da Quincena (16-{{ mesLimits.totalDias }})
+                  </button>
+                </template>
+                <button
+                  v-if="config.fecha_inicio || config.fecha_fin"
+                  type="button"
+                  @click="aplicarPresetMes('limpiar')"
+                  class="px-2.5 py-1 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 text-[10px] font-bold transition-all cursor-pointer border border-rose-500/30"
+                >
+                  Limpiar Fechas
+                </button>
+              </div>
             </div>
 
             <!-- Estado de Personal -->
@@ -467,6 +531,7 @@ import type {
   ReportBuilderPreviewResponse
 } from '../types/novedades.types'
 import { novedadesService } from '../services/novedades.service'
+import { MONTH_TO_NUMBER, getDaysInMonth } from '@/utils/date'
 
 const props = defineProps<{
   isOpen: boolean
@@ -486,6 +551,8 @@ const emit = defineEmits<{
   (e: 'close'): void
 }>()
 
+const anioOperacional = 2026
+
 // Columnas por defecto para cada modo
 const COLUMNAS_AGIL = ['cedula', 'nombre', 'estado', 'sub_novedad', 'rango_fechas', 'dias_acumulados', 'descripcion']
 const COLUMNAS_DETALLADO = ['cedula', 'nombre', 'estado', 'sub_novedad', 'fecha_reporte', 'fecha_inicio', 'fecha_final', 'descripcion']
@@ -502,6 +569,31 @@ const config = reactive<ReportBuilderConfig>({
   min_dias: 0,
   columnas: [...COLUMNAS_AGIL],
   orden: 'nombre_asc'
+})
+
+// Cálculo reactivo de los límites de fecha según el mes operacional
+const mesLimits = computed(() => {
+  if (!config.mes || config.mes === 'TODOS') {
+    return {
+      min: `${anioOperacional}-01-01`,
+      max: `${anioOperacional}-12-31`,
+      isSpecificMonth: false,
+      totalDias: 31,
+      mesNum: '',
+      label: 'Año Completo (2026)'
+    }
+  }
+  const mNum = MONTH_TO_NUMBER[config.mes.toUpperCase()] || '01'
+  const total = getDaysInMonth(config.mes, anioOperacional)
+  const totalStr = String(total).padStart(2, '0')
+  return {
+    min: `${anioOperacional}-${mNum}-01`,
+    max: `${anioOperacional}-${mNum}-${totalStr}`,
+    isSpecificMonth: true,
+    totalDias: total,
+    mesNum: mNum,
+    label: `${config.mes} ${anioOperacional}`
+  }
 })
 
 // Lista dinámica de columnas según el modo
@@ -550,10 +642,76 @@ const cambiarModo = (nuevoModo: ReportBuilderModo) => {
   debouncedPreview()
 }
 
+// Sincronización cuando cambia el mes operacional
 const onMesChange = () => {
-  if (config.mes && config.mes !== 'TODOS') {
+  if (mesLimits.value.isSpecificMonth) {
+    const { min, max } = mesLimits.value
+    // Si las fechas actuales están fuera de los límites del mes seleccionado, limpiarlas
+    if (config.fecha_inicio && (config.fecha_inicio < min || config.fecha_inicio > max)) {
+      config.fecha_inicio = ''
+    }
+    if (config.fecha_fin && (config.fecha_fin < min || config.fecha_fin > max)) {
+      config.fecha_fin = ''
+    }
+  }
+  debouncedPreview()
+}
+
+// Sincronización y validación estricta de Fecha Desde
+const onFechaInicioChange = () => {
+  if (config.fecha_inicio) {
+    // Clamping con los límites actuales del mes
+    if (config.fecha_inicio < mesLimits.value.min) {
+      config.fecha_inicio = mesLimits.value.min
+    } else if (config.fecha_inicio > mesLimits.value.max) {
+      config.fecha_inicio = mesLimits.value.max
+    }
+    // Sincronizar fecha fin si quedó menor que fecha inicio
+    if (config.fecha_fin && config.fecha_fin < config.fecha_inicio) {
+      config.fecha_fin = config.fecha_inicio
+    }
+  }
+  debouncedPreview()
+}
+
+// Sincronización y validación estricta de Fecha Hasta
+const onFechaFinChange = () => {
+  if (config.fecha_fin) {
+    // Clamping con los límites actuales del mes
+    if (config.fecha_fin > mesLimits.value.max) {
+      config.fecha_fin = mesLimits.value.max
+    } else if (config.fecha_fin < mesLimits.value.min) {
+      config.fecha_fin = mesLimits.value.min
+    }
+    // Sincronizar fecha inicio si quedó mayor que fecha fin
+    if (config.fecha_inicio && config.fecha_inicio > config.fecha_fin) {
+      config.fecha_inicio = config.fecha_fin
+    }
+  }
+  debouncedPreview()
+}
+
+// Aplicar presets de quincenas o mes completo
+const aplicarPresetMes = (tipo: 'todo' | 'q1' | 'q2' | 'limpiar') => {
+  if (tipo === 'limpiar') {
     config.fecha_inicio = ''
     config.fecha_fin = ''
+  } else if (!mesLimits.value.isSpecificMonth) {
+    config.fecha_inicio = ''
+    config.fecha_fin = ''
+  } else {
+    const { min, max, mesNum, totalDias } = mesLimits.value
+    const totalStr = String(totalDias).padStart(2, '0')
+    if (tipo === 'todo') {
+      config.fecha_inicio = min
+      config.fecha_fin = max
+    } else if (tipo === 'q1') {
+      config.fecha_inicio = `${anioOperacional}-${mesNum}-01`
+      config.fecha_fin = `${anioOperacional}-${mesNum}-15`
+    } else if (tipo === 'q2') {
+      config.fecha_inicio = `${anioOperacional}-${mesNum}-16`
+      config.fecha_fin = `${anioOperacional}-${mesNum}-${totalStr}`
+    }
   }
   debouncedPreview()
 }
@@ -602,6 +760,22 @@ watch(
         config.fecha_fin = props.initialFilters.fecha_fin || ''
         config.q = props.initialFilters.q || ''
         config.estado = props.initialFilters.estado || 'TODOS'
+
+        // Validar coherencia de fechas iniciales recibidas
+        if (config.fecha_inicio && config.fecha_fin && config.fecha_inicio > config.fecha_fin) {
+          const temp = config.fecha_inicio
+          config.fecha_inicio = config.fecha_fin
+          config.fecha_fin = temp
+        }
+        if (mesLimits.value.isSpecificMonth) {
+          const { min, max } = mesLimits.value
+          if (config.fecha_inicio && (config.fecha_inicio < min || config.fecha_inicio > max)) {
+            config.fecha_inicio = ''
+          }
+          if (config.fecha_fin && (config.fecha_fin < min || config.fecha_fin > max)) {
+            config.fecha_fin = ''
+          }
+        }
       }
       cargarPreview()
     }

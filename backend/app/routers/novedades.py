@@ -65,6 +65,20 @@ def _build_novedades_where_clause(
     q = _clean_param(q)
     estado = _clean_param(estado)
 
+    # 1. Asegurar consistencia de orden en fechas (evitar rangos invertidos como inicio > fin)
+    if fecha_inicio and fecha_fin and str(fecha_inicio).strip() and str(fecha_fin).strip():
+        fecha_inicio_str = str(fecha_inicio).strip()
+        fecha_fin_str = str(fecha_fin).strip()
+        if fecha_inicio_str > fecha_fin_str:
+            fecha_inicio, fecha_fin = fecha_fin_str, fecha_inicio_str
+        else:
+            fecha_inicio = fecha_inicio_str
+            fecha_fin = fecha_fin_str
+    elif fecha_inicio:
+        fecha_inicio = str(fecha_inicio).strip()
+    elif fecha_fin:
+        fecha_fin = str(fecha_fin).strip()
+
     where_clauses = []
     params = []
 
@@ -72,22 +86,32 @@ def _build_novedades_where_clause(
         where_clauses.append("rp.id_sub_novedad = %s")
         params.append(int(id_sub_novedad))
 
-    if mes and mes.upper() != "TODOS":
+    if mes and str(mes).upper() != "TODOS":
         dates = get_month_dates(mes)
         if dates:
-            placeholders = ",".join("%s" for _ in dates)
-            where_clauses.append(f"r.fecha IN ({placeholders})")
-            params.extend(dates)
+            # Si se pasó fecha_inicio o fecha_fin junto a un mes específico, 
+            # filtrar los dates del mes que se encuentren dentro del rango solicitado
+            if fecha_inicio:
+                dates = [d for d in dates if d >= fecha_inicio]
+            if fecha_fin:
+                dates = [d for d in dates if d <= fecha_fin]
+            
+            if dates:
+                placeholders = ",".join("%s" for _ in dates)
+                where_clauses.append(f"r.fecha IN ({placeholders})")
+                params.extend(dates)
+            else:
+                where_clauses.append("1=0")
         else:
             where_clauses.append("1=0")
+    else:
+        if fecha_inicio:
+            where_clauses.append("r.fecha >= %s")
+            params.append(fecha_inicio)
 
-    if fecha_inicio:
-        where_clauses.append("r.fecha >= %s")
-        params.append(fecha_inicio)
-
-    if fecha_fin:
-        where_clauses.append("r.fecha <= %s")
-        params.append(fecha_fin)
+        if fecha_fin:
+            where_clauses.append("r.fecha <= %s")
+            params.append(fecha_fin)
 
     if q and q.strip():
         search_pattern = f"%{q.strip().upper()}%"
