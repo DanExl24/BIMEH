@@ -21,40 +21,54 @@ DATABASE_SCHEMA_CONTEXT = """
 Eres el Asistente de Inteligencia de Personal Militar para el batallón BIMEJ 12.
 Tienes acceso de SOLO LECTURA a la base de datos PostgreSQL de BIMEH.
 
-TABLAS Y ESQUEMA:
+TABLAS Y ESQUEMA REAL:
 1. PERSONAL:
    - id (INTEGER PRIMARY KEY)
-   - cedula (BIGINT, documento de identidad)
-   - nombre (TEXT, apellidos y nombres del integrante militar)
-   - compania (TEXT, ej: 'PLANA MAYOR', 'CP. COMANDO', 'CP. ALFA', 'CP. BRAVO', 'SERVICIOS')
-   - cargo (TEXT, función o cargo asignado)
-   - fecha_retiro (DATE, NULL si el militar está ACTIVO; contiene fecha si está RETIRADO)
-   - motivo_retiro (TEXT)
+   - cedula (BIGINT, documento de identidad único)
+   - nombre (VARCHAR, apellidos y nombres del integrante militar)
+   - fecha_retiro (VARCHAR, NULL o vacío si el militar está ACTIVO; contiene fecha si está RETIRADO)
+   * REGLA ESTRICTA: La tabla PERSONAL ÚNICAMENTE tiene id, cedula, nombre, fecha_retiro. NO contiene compania, cargo, rango ni motivo_retiro. NUNCA hagas SELECT p.compania ni SELECT p.cargo.
 
 2. REPORTES:
    - id (INTEGER PRIMARY KEY)
-   - fecha (TEXT con formato 'YYYY-MM-DD', representa el día del reporte diario)
+   - fecha (VARCHAR formato 'YYYY-MM-DD', representa el día del reporte diario)
+   - archivo (VARCHAR)
 
 3. SUB_NOVEDADES:
    - id (INTEGER PRIMARY KEY)
-   - nombre (TEXT, nombre de la novedad: ej. 'VACACIONES', 'PERMISO', 'INCAPACIDAD MEDICA', 'COMISION DEL SERVICIO', 'LICENCIA', 'HOSPITALIZADO', 'AISLAMIENTO', 'EXCUSA DE SERVICIO', 'SANCION DISCIPLINARIA', etc.)
-   - tipo (TEXT, categoría general)
+   - nombre (VARCHAR, nombre de la novedad: ej. 'VACACIONES', 'PERMISO', 'INCAPACIDAD MEDICA', 'COMISION DEL SERVICIO', 'LICENCIA', 'HOSPITALIZADO', 'AISLAMIENTO', 'EXCUSA DE SERVICIO', 'SANCION DISCIPLINARIA', etc.)
 
 4. REGISTRO_PERSONAL:
    - id (INTEGER PRIMARY KEY)
-   - id_personal (INTEGER REFERENCES PERSONAL.id)
    - id_reporte (INTEGER REFERENCES REPORTES.id)
+   - id_personal (INTEGER REFERENCES PERSONAL.id)
    - id_sub_novedad (INTEGER REFERENCES SUB_NOVEDADES.id)
    - descripcion (TEXT, detalles, diagnóstico o justificación de la novedad)
+   - fecha_inicio (VARCHAR)
+   - fecha_final (VARCHAR)
 
 REGLAS CRÍTICAS DE SQL:
 - Solo genera consultas SELECT. NUNCA generes INSERT, UPDATE, DELETE, DROP, ALTER, TRUNCATE.
-- Militar ACTIVO: p.fecha_retiro IS NULL.
-- Militar RETIRADO: p.fecha_retiro IS NOT NULL.
-- Para buscar por nombre o cédula usa UPPER(p.nombre) LIKE '%TERMINO%' o CAST(p.cedula AS TEXT) LIKE '%TERMINO%'.
+- Militar ACTIVO: (p.fecha_retiro IS NULL OR p.fecha_retiro = '').
+- Militar RETIRADO: (p.fecha_retiro IS NOT NULL AND p.fecha_retiro != '').
+- Para buscar por nombre: UPPER(p.nombre) LIKE '%TERMINO%' (si buscan nombres y apellidos ej: 'JORGE PEÑA', busca '%JORGE%PEÑA%').
+- Para buscar por cédula: CAST(p.cedula AS TEXT) LIKE '%TERMINO%'.
+- Para consultar información o estado de un militar específico (ej: 'jorge peña'):
+  SELECT p.cedula, p.nombre, CASE WHEN (p.fecha_retiro IS NULL OR p.fecha_retiro = '') THEN 'ACTIVO' ELSE 'RETIRADO' END AS estado, p.fecha_retiro, COUNT(rp.id) as total_novedades_registradas
+  FROM PERSONAL p
+  LEFT JOIN REGISTRO_PERSONAL rp ON rp.id_personal = p.id
+  WHERE UPPER(p.nombre) LIKE '%JORGE%PEÑA%'
+  GROUP BY p.cedula, p.nombre, p.fecha_retiro;
+- Para ver historial de novedades o ausencias de un militar:
+  SELECT p.cedula, p.nombre, r.fecha, sn.nombre AS novedad, rp.descripcion, rp.fecha_inicio, rp.fecha_final
+  FROM PERSONAL p
+  JOIN REGISTRO_PERSONAL rp ON rp.id_personal = p.id
+  JOIN REPORTES r ON r.id = rp.id_reporte
+  LEFT JOIN SUB_NOVEDADES sn ON sn.id = rp.id_sub_novedad
+  WHERE UPPER(p.nombre) LIKE '%JORGE%PEÑA%'
+  ORDER BY r.fecha DESC LIMIT 20;
 - Para contar días acumulados de una novedad: COUNT(rp.id) o COUNT(DISTINCT r.fecha).
 - Para ordenar por mayor incidencia usa ORDER BY COUNT(rp.id) DESC.
-- Usa alias claros en las columnas (ej: SELECT p.cedula, p.nombre, sn.nombre AS novedad, COUNT(rp.id) AS dias_acumulados).
 - Si la consulta no tiene LIMIT, incluye siempre LIMIT 50 para evitar sobrecarga.
 """
 
@@ -288,26 +302,69 @@ Responde ÚNICAMENTE un objeto JSON válido, sin texto adicional antes o despué
             "model": model
         }
 
-    # Si es SQL, validar y ejecutar
-    is_valid, validated_sql = validate_sql(generated_sql)
-    if not is_valid:
-        return {
-            "type": "error",
-            "answer": f"No se pudo ejecutar la consulta: {validated_sql}",
-            "sql": generated_sql,
-            "columns": [],
-            "rows": [],
-            "total_records": 0,
-            "model": model
-        }
+    # Si es SQL, validar y ejecutar con bucle de auto-corrección (Self-Healing SQL)
+    max_retries = 2
+    query_result = None
+    last_sql_err = None
+    validated_sql = generated_sql
 
-    try:
-        query_result = execute_safe_query(db, validated_sql)
-    except Exception as sql_err:
-        logger.error(f"Error ejecutando SQL generado por IA: {sql_err}")
+    for intento in range(max_retries + 1):
+        is_valid, validated_sql = validate_sql(generated_sql)
+        if not is_valid:
+            last_sql_err = validated_sql
+            break
+
+        try:
+            query_result = execute_safe_query(db, validated_sql)
+            break  # ¡Consulta ejecutada con éxito!
+        except Exception as sql_err:
+            last_sql_err = sql_err
+            logger.warning(
+                f"[Auto-Corrección IA] Intento {intento + 1}/{max_retries + 1} falló al ejecutar SQL: {sql_err}. "
+                "Enviando feedback de error a Ollama para auto-reparación..."
+            )
+            if intento < max_retries:
+                fix_prompt = f"""
+La consulta SQL que generaste previamente falló al ejecutarse en PostgreSQL con el siguiente error:
+
+CONSULTA FALLIDA:
+{validated_sql}
+
+ERROR DE POSTGRESQL:
+{str(sql_err)}
+
+ESQUEMA EXACTO Y REAL DE LA BASE DE DATOS (REVISA LOS NOMBRES DE TABLAS Y COLUMNAS):
+{DATABASE_SCHEMA_CONTEXT}
+
+SOLICITUD ORIGINAL DEL USUARIO:
+"{user_message}"
+
+INSTRUCCIÓN DE CORRECCIÓN:
+Analiza el error reportado por PostgreSQL y ajusta la consulta SQL utilizando ÚNICAMENTE las columnas y tablas existentes.
+Por ejemplo: La tabla PERSONAL sólo tiene: id, cedula, nombre, fecha_retiro (NO existe compania ni cargo).
+Responde ÚNICAMENTE en formato JSON válido:
+{{"tipo": "sql", "sql": "SELECT ...", "explicacion": "Explicación de cómo corregiste el error..."}}
+"""
+                try:
+                    fix_response = query_ollama(prompt=fix_prompt)
+                    json_match = re.search(r"\{[\s\S]*\}", fix_response)
+                    if json_match:
+                        parsed_fix = json.loads(json_match.group(0))
+                        generated_sql = parsed_fix.get("sql") or generated_sql
+                    else:
+                        extracted = extract_sql_from_text(fix_response)
+                        if extracted:
+                            generated_sql = extracted
+                        else:
+                            break
+                except Exception as fix_call_err:
+                    logger.error(f"Error llamando a Ollama durante auto-corrección: {fix_call_err}")
+                    break
+
+    if not query_result:
         return {
             "type": "error",
-            "answer": f"Error en la consulta a la base de datos: {str(sql_err)}",
+            "answer": f"Error en la consulta a la base de datos tras reintentos automáticos de auto-corrección: {str(last_sql_err)}",
             "sql": validated_sql,
             "columns": [],
             "rows": [],
@@ -355,8 +412,8 @@ def generate_executive_briefing(mes: Optional[str], db) -> Dict[str, Any]:
     cursor.execute("""
         SELECT 
             COUNT(*) AS total,
-            COUNT(CASE WHEN fecha_retiro IS NULL THEN 1 END) AS activos,
-            COUNT(CASE WHEN fecha_retiro IS NOT NULL THEN 1 END) AS retirados
+            COUNT(CASE WHEN fecha_retiro IS NULL OR fecha_retiro = '' THEN 1 END) AS activos,
+            COUNT(CASE WHEN fecha_retiro IS NOT NULL AND fecha_retiro != '' THEN 1 END) AS retirados
         FROM PERSONAL;
     """)
     p_row = cursor.fetchone()
@@ -364,15 +421,8 @@ def generate_executive_briefing(mes: Optional[str], db) -> Dict[str, Any]:
     total_activos = p_row[1] or 0
     total_retirados = p_row[2] or 0
 
-    # 2. Distribución por compañías del personal activo
-    cursor.execute("""
-        SELECT COALESCE(compania, 'SIN ASIGNAR'), COUNT(*)
-        FROM PERSONAL
-        WHERE fecha_retiro IS NULL
-        GROUP BY 1
-        ORDER BY 2 DESC;
-    """)
-    companias = [{"compania": r[0], "total": r[1]} for r in cursor.fetchall()]
+    # 2. Distribución de personal
+    companias = []
 
     # 3. Top novedades del período
     mes_filter = ""

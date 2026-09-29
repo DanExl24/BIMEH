@@ -123,6 +123,31 @@
           </button>
         </div>
 
+        <!-- Selector de Modelo de Ollama -->
+        <div class="space-y-1 pt-1 border-t border-darkBorder/60">
+          <label class="text-[11px] text-slate-400 font-medium flex items-center justify-between">
+            <span>Modelo de IA Activo:</span>
+            <span class="text-cyan-400 font-mono text-[10px]">{{ status?.model_configured }}</span>
+          </label>
+          <div class="flex items-center gap-2">
+            <select
+              v-model="customModel"
+              class="flex-1 bg-slate-900 border border-darkBorder hover:border-cyan-500/40 focus:border-cyan-400 text-slate-100 rounded-xl px-2.5 py-1.5 text-xs font-mono outline-none"
+            >
+              <option v-for="m in availableModels" :key="m" :value="m">
+                {{ m }} {{ m.includes('3.2') ? '⚡ Ultra-Rápido (3B)' : m.includes('3.1') ? '🧠 Preciso (8B)' : '' }}
+              </option>
+            </select>
+            <button
+              @click="cambiarModelo"
+              :disabled="isGuardandoConfig || customModel === status?.model_configured"
+              class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-cyan-300 text-xs font-semibold transition-all cursor-pointer disabled:opacity-40 border border-cyan-500/30 shrink-0"
+            >
+              Cambiar
+            </button>
+          </div>
+        </div>
+
         <!-- Mensajes de feedback -->
         <div v-if="configSuccessMsg" class="flex items-center gap-1.5 text-emerald-400 text-[11px] bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-2">
           <Check class="w-3.5 h-3.5 shrink-0" />
@@ -368,9 +393,36 @@ const mensajes = ref<IAChatMessage[]>([])
 
 const mostrarConfig = ref(false)
 const customBaseUrl = ref('')
+const customModel = ref('')
 const isGuardandoConfig = ref(false)
 const configErrorMsg = ref<string | null>(null)
 const configSuccessMsg = ref<string | null>(null)
+
+const availableModels = computed(() => {
+  const installed = status.value?.models_installed || []
+  const defaults = ['llama3.2:3b', 'llama3.1:8b']
+  return Array.from(new Set([...installed, ...defaults]))
+})
+
+const cambiarModelo = async () => {
+  if (!customModel.value) return
+  isGuardandoConfig.value = true
+  configErrorMsg.value = null
+  configSuccessMsg.value = null
+  try {
+    const res = await iaService.actualizarConfig(customBaseUrl.value || status.value?.base_url || '', customModel.value)
+    status.value = res
+    configSuccessMsg.value = `¡Modelo cambiado a ${res.model_configured}!`
+    setTimeout(() => {
+      configSuccessMsg.value = null
+    }, 2000)
+  } catch (err: any) {
+    configErrorMsg.value = 'Error al cambiar de modelo.'
+  } finally {
+    isGuardandoConfig.value = false
+    await verificarEstado()
+  }
+}
 
 // Cronómetro en vivo y fases de razonamiento
 const tiempoTranscurrido = ref(0)
@@ -406,7 +458,7 @@ const guardarConfigUrl = async () => {
   configErrorMsg.value = null
   configSuccessMsg.value = null
   try {
-    const res = await iaService.actualizarConfig(customBaseUrl.value.trim())
+    const res = await iaService.actualizarConfig(customBaseUrl.value.trim(), customModel.value || undefined)
     status.value = res
     if (res.online) {
       configSuccessMsg.value = `¡Conectado exitosamente con ${res.model_configured}!`
@@ -449,6 +501,9 @@ const verificarEstado = async () => {
     status.value = await iaService.obtenerEstado()
     if (status.value?.base_url && !customBaseUrl.value) {
       customBaseUrl.value = status.value.base_url
+    }
+    if (status.value?.model_configured && !customModel.value) {
+      customModel.value = status.value.model_configured
     }
   } catch (err) {
     status.value = {
