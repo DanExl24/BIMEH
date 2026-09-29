@@ -256,7 +256,7 @@ def asegurar_optimizaciones_db():
 
         cursor.close()
         raw_conn.close()
-        print("✅ Índices y vistas optimizadas verificados correctamente en PostgreSQL.")
+        print("[DB-OPT] Indices y vistas optimizadas verificados correctamente en PostgreSQL.")
     except Exception as e:
-        print(f"⚠️ Aviso: no se pudieron aplicar optimizaciones automáticas de DB: {e}")
+        print(f"[DB-OPT] Aviso: no se pudieron aplicar optimizaciones automaticas de DB: {e}")
 

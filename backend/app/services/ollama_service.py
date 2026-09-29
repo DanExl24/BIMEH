@@ -25,13 +25,13 @@ VISTAS RECOMENDADAS (PRIORIZA SIEMPRE ESTAS VISTAS PARA MÁXIMA RAPIDEZ Y PRECIS
 1. v_personal_resumen:
    Columnas: id, cedula, nombre, estado ('ACTIVO'/'RETIRADO'), fecha_retiro, total_novedades_historicas
    - Úsala para buscar a cualquier militar por nombre o cédula, o para contar activos y retirados.
-   - Ejemplo búsqueda: SELECT cedula, nombre, estado, fecha_retiro, total_novedades_historicas FROM v_personal_resumen WHERE UPPER(nombre) LIKE '%JORGE%PEÑA%' LIMIT 10
+   - Ejemplo búsqueda militar: SELECT cedula, nombre, estado, fecha_retiro, total_novedades_historicas FROM v_personal_resumen WHERE UPPER(nombre) LIKE '%JORGE%' AND UPPER(nombre) LIKE '%PEÑA%' LIMIT 10
    - Ejemplo conteo: SELECT COUNT(*) AS total_activos FROM v_personal_resumen WHERE estado = 'ACTIVO'
 
 2. v_novedades_detalle:
    Columnas: id_registro, cedula, nombre, estado, fecha_reporte, novedad, descripcion, fecha_inicio, fecha_final
    - Úsala para consultar historial de ausencias, permisos, vacaciones, incapacidades o reportes diarios.
-   - Ejemplo por persona: SELECT cedula, nombre, fecha_reporte, novedad, descripcion FROM v_novedades_detalle WHERE UPPER(nombre) LIKE '%JORGE%PEÑA%' ORDER BY fecha_reporte DESC LIMIT 20
+   - Ejemplo por persona: SELECT cedula, nombre, fecha_reporte, novedad, descripcion FROM v_novedades_detalle WHERE UPPER(nombre) LIKE '%JORGE%' AND UPPER(nombre) LIKE '%PEÑA%' ORDER BY fecha_reporte DESC LIMIT 20
    - Ejemplo por novedad: SELECT cedula, nombre, fecha_reporte, descripcion FROM v_novedades_detalle WHERE UPPER(novedad) LIKE '%VACACIONES%' ORDER BY fecha_reporte DESC LIMIT 50
 
 3. v_conteo_novedades:
@@ -48,7 +48,12 @@ TABLAS BASE (SÓLO SI ES ESTRICTAMENTE NECESARIO):
 REGLAS CRÍTICAS DE SQL:
 - Solo genera consultas SELECT. NUNCA generes INSERT, UPDATE, DELETE, DROP, ALTER, TRUNCATE.
 - Prioriza SIEMPRE las vistas `v_personal_resumen` y `v_novedades_detalle` porque ya tienen los JOINs resueltos e indexados.
-- Para buscar por nombre: UPPER(nombre) LIKE '%TERMINO1%TERMINO2%'.
+- REGLA DE ORO PARA BÚSQUEDA DE PERSONAS:
+  En la base militar, los nombres están registrados en formato "APELLIDOS NOMBRES" (ej: "PEÑA MUÑOZ JORGE ENRIQUE").
+  NUNCA concatenes palabras en un solo LIKE ordenado como '%JORGE%PEÑA%' (fallará porque el apellido va antes del nombre).
+  SIEMPRE separa cada palabra en condiciones independientes con AND:
+  `WHERE UPPER(nombre) LIKE '%JORGE%' AND UPPER(nombre) LIKE '%PEÑA%'`
+  (O si busca un solo término: `WHERE UPPER(nombre) LIKE '%PEÑA%'`).
 - Para buscar por cédula: CAST(cedula AS TEXT) LIKE '%TERMINO%'.
 - Si la consulta no tiene LIMIT, incluye siempre LIMIT 50 para evitar sobrecarga.
 """
@@ -162,6 +167,55 @@ def validate_sql(sql: str) -> tuple[bool, str]:
     return True, sql
 
 
+def relax_name_search_query(sql: str) -> Optional[str]:
+    """
+    Descompone búsquedas por nombre con orden rígido (ej: LIKE '%JORGE%PEÑA%') 
+    en condiciones independientes con AND (ej: UPPER(nombre) LIKE '%JORGE%' AND UPPER(nombre) LIKE '%PEÑA%').
+    Además expande variantes de tildes y N/Ñ para tolerancia a discrepancias ortográficas.
+    """
+    pattern = re.compile(
+        r"(?:UPPER\s*\(\s*nombre\s*\)|nombre)\s+(?:I?LIKE)\s*'([^']+)'",
+        re.IGNORECASE
+    )
+    match = pattern.search(sql)
+    if not match:
+        return None
+
+    raw_content = match.group(1)
+    raw_tokens = re.split(r"[%_\s]+", raw_content)
+    stop_words = {"DE", "DEL", "LA", "LAS", "LOS", "Y", "EL", "SAN", "SANTA"}
+    terms = [t.strip().upper() for t in raw_tokens if len(t.strip()) > 1 and t.strip().upper() not in stop_words]
+    
+    if not terms:
+        return None
+
+    def strip_accents(s: str) -> str:
+        for a, b in [('Á', 'A'), ('É', 'E'), ('Í', 'I'), ('Ó', 'O'), ('Ú', 'U')]:
+            s = s.replace(a, b)
+        return s
+
+    clauses = []
+    for t in terms:
+        unacc = strip_accents(t)
+        alts = {t, unacc}
+        if "Ñ" in t:
+            alts.add(t.replace("Ñ", "N"))
+            alts.add(unacc.replace("Ñ", "N"))
+        elif "N" in t:
+            alts.add(t.replace("N", "Ñ"))
+            alts.add(unacc.replace("N", "Ñ"))
+
+        alts_list = [a for a in alts if a]
+        if len(alts_list) == 1:
+            clauses.append(f"UPPER(nombre) LIKE '%{alts_list[0]}%'")
+        else:
+            sub = " OR ".join(f"UPPER(nombre) LIKE '%{a}%'" for a in sorted(alts_list))
+            clauses.append(f"({sub})")
+
+    replacement = " AND ".join(clauses)
+    return sql[:match.start()] + replacement + sql[match.end():]
+
+
 def execute_safe_query(db, sql: str) -> Dict[str, Any]:
     """Ejecuta una consulta SQL validada contra PostgreSQL y retorna datos serializables."""
     cursor = db.cursor()
@@ -254,7 +308,7 @@ Eres el motor Text-to-SQL de BIMEH. Tu misión principal es responder mediante c
 EJEMPLOS DE REFERENCIA (FEW-SHOT):
 Usuario: "informacion sobre jorge peña muñoz"
 Respuesta:
-{{"tipo": "sql", "sql": "SELECT cedula, nombre, estado, fecha_retiro, total_novedades_historicas FROM v_personal_resumen WHERE UPPER(nombre) LIKE '%JORGE%PEÑA%' LIMIT 10", "explicacion": "Consultando registro y estado militar de Jorge Peña"}}
+{{"tipo": "sql", "sql": "SELECT cedula, nombre, estado, fecha_retiro, total_novedades_historicas FROM v_personal_resumen WHERE UPPER(nombre) LIKE '%JORGE%' AND UPPER(nombre) LIKE '%PEÑA%' LIMIT 10", "explicacion": "Consultando registro y estado militar de Jorge Peña"}}
 
 Usuario: "cuantos militares activos hay en total"
 Respuesta:
@@ -383,6 +437,20 @@ Responde ÚNICAMENTE en formato JSON válido:
             "total_records": 0,
             "model": model
         }
+
+    # Si la consulta no dio error pero devolvió 0 registros, verificar si fue una búsqueda por nombre
+    # que falló por orden militar de apellidos/nombres o por tildes/ñ:
+    if query_result and query_result["total"] == 0:
+        relaxed_sql = relax_name_search_query(validated_sql)
+        if relaxed_sql and relaxed_sql != validated_sql:
+            try:
+                relaxed_res = execute_safe_query(db, relaxed_sql)
+                if relaxed_res["total"] > 0:
+                    logger.info(f"Búsqueda relajada por nombres encontró {relaxed_res['total']} coincidencias: {relaxed_sql}")
+                    query_result = relaxed_res
+                    validated_sql = relaxed_sql
+            except Exception as relax_err:
+                logger.debug(f"No se pudo ejecutar consulta relajada: {relax_err}")
 
     # Sintetizar los resultados con la IA (o reporte directo si 0 registros)
     if query_result["total"] == 0:
