@@ -207,7 +207,13 @@ def execute_safe_query(db, sql: str) -> Dict[str, Any]:
     }
 
 
-def query_ollama(prompt: str, system: Optional[str] = None, timeout: float = 90.0) -> str:
+def query_ollama(
+    prompt: str,
+    system: Optional[str] = None,
+    format: Optional[str] = None,
+    temperature: float = 0.1,
+    timeout: float = 90.0
+) -> str:
     """Envía un prompt a Ollama y retorna la respuesta de texto."""
     model = get_configured_model()
     base_url = get_ollama_base_url()
@@ -217,10 +223,12 @@ def query_ollama(prompt: str, system: Optional[str] = None, timeout: float = 90.
         "prompt": prompt,
         "stream": False,
         "options": {
-            "temperature": 0.2,
+            "temperature": temperature,
             "top_p": 0.9
         }
     }
+    if format:
+        payload["format"] = format
     if system:
         payload["system"] = system
 
@@ -242,7 +250,7 @@ def process_user_query(user_message: str, db) -> Dict[str, Any]:
     Procesa un mensaje en lenguaje natural:
     1. Determina si requiere consulta de base de datos.
     2. Si requiere SQL, lo genera y valida.
-    3. Ejecuta la consulta en PostgreSQL de forma segura.
+    3. Ejecuta la consulta en PostgreSQL con auto-corrección (Self-Healing).
     4. Solicita a la IA que sintetice los resultados en lenguaje militar claro.
     """
     model = get_configured_model()
@@ -250,19 +258,40 @@ def process_user_query(user_message: str, db) -> Dict[str, Any]:
     system_intent = f"""
 {DATABASE_SCHEMA_CONTEXT}
 
-INSTRUCCIÓN ESPECÍFICA:
-Analiza la solicitud del usuario:
-- Si el usuario saluda, hace una pregunta general sobre el sistema o solicita ayuda conceptual, responde en formato JSON:
-  {{"tipo": "conversacion", "respuesta": "Texto de respuesta respetuoso militarmente..."}}
+DIRECTIVAS Y REGLAS DE DECISIÓN OBLIGATORIAS:
+Eres el motor Text-to-SQL de BIMEH. Tu misión principal es responder mediante consultas SQL PostgreSQL.
 
-- Si el usuario pide datos, conteos, nombres, reportes, estadísticas o novedades de personal de BIMEH, genera la consulta SQL PostgreSQL exacta y responde en formato JSON:
-  {{"tipo": "sql", "sql": "SELECT ...", "explicacion": "Breve nota de lo que busca la consulta"}}
+1. REGLA FUNDAMENTAL DE CONSULTA A BASE DE DATOS:
+- SI la solicitud del usuario menciona nombres o apellidos de personas (ej: 'jorge peña', 'rodriguez', etc.), números de cédula, novedades (permisos, vacaciones, excusas, etc.), ausencias, fechas, conteos de personal, listas o preguntas sobre el estado militar:
+  DEBES responder OBLIGATORIAMENTE con {{"tipo": "sql", "sql": "SELECT ...", "explicacion": "..."}}.
+- NUNCA respondas que no tienes información de un militar ni pidas más detalles. TÚ NO CONOCES AL PERSONAL EN MEMORIA, tu deber es buscarlo en la base de datos usando SQL en la tabla PERSONAL.
+- En la consulta SQL para buscar personas por nombre, usa siempre: `UPPER(p.nombre) LIKE '%PALABRA1%PALABRA2%'`.
 
-Responde ÚNICAMENTE un objeto JSON válido, sin texto adicional antes o después.
+2. REGLA DE CONVERSACIÓN SIMPLE:
+- ÚNICAMENTE clasifica como {{"tipo": "conversacion", "respuesta": "..."}} si el usuario envía un saludo simple (ej: 'hola', 'buenos días', 'saludos') o un agradecimiento ('gracias', 'hasta luego') o pregunta 'qué puedes hacer'.
+
+EJEMPLOS DE REFERENCIA (FEW-SHOT):
+Usuario: "informacion sobre jorge peña muñoz"
+Respuesta:
+{{"tipo": "sql", "sql": "SELECT p.cedula, p.nombre, CASE WHEN (p.fecha_retiro IS NULL OR p.fecha_retiro = '') THEN 'ACTIVO' ELSE 'RETIRADO' END AS estado, p.fecha_retiro, COUNT(rp.id) AS total_novedades FROM PERSONAL p LEFT JOIN REGISTRO_PERSONAL rp ON rp.id_personal = p.id WHERE UPPER(p.nombre) LIKE '%JORGE%PEÑA%' GROUP BY p.cedula, p.nombre, p.fecha_retiro LIMIT 10", "explicacion": "Consultando registro y estado militar de Jorge Peña"}}
+
+Usuario: "cuantos militares activos hay en total"
+Respuesta:
+{{"tipo": "sql", "sql": "SELECT COUNT(*) AS total_activos FROM PERSONAL WHERE fecha_retiro IS NULL OR fecha_retiro = ''", "explicacion": "Contando total de efectivos activos"}}
+
+Usuario: "quienes estan en vacaciones"
+Respuesta:
+{{"tipo": "sql", "sql": "SELECT p.cedula, p.nombre, sn.nombre AS novedad, r.fecha, rp.descripcion FROM PERSONAL p JOIN REGISTRO_PERSONAL rp ON rp.id_personal = p.id JOIN REPORTES r ON r.id = rp.id_reporte JOIN SUB_NOVEDADES sn ON sn.id = rp.id_sub_novedad WHERE UPPER(sn.nombre) LIKE '%VACACIONES%' ORDER BY r.fecha DESC LIMIT 50", "explicacion": "Personal con novedad de vacaciones"}}
+
+Usuario: "hola, que puedes hacer?"
+Respuesta:
+{{"tipo": "conversacion", "respuesta": "Un cordial saludo militar. Soy el Asistente de Inteligencia de BIMEJ 12. Puedo consultar en la base de datos el estado de cualquier militar, verificar novedades del día, contar efectivos activos y generar partes de fuerza disponible."}}
+
+Devuelve ÚNICAMENTE un objeto JSON válido.
 """
 
     prompt = f"Solicitud del usuario: \"{user_message}\""
-    raw_response = query_ollama(prompt=prompt, system=system_intent)
+    raw_response = query_ollama(prompt=prompt, system=system_intent, format="json", temperature=0.0)
 
     # Intentar parsear JSON
     tipo = "conversacion"
@@ -270,7 +299,6 @@ Responde ÚNICAMENTE un objeto JSON válido, sin texto adicional antes o despué
     direct_answer = ""
 
     try:
-        # Extraer bloque JSON si vino entre backticks
         clean_json = raw_response
         json_match = re.search(r"\{[\s\S]*\}", raw_response)
         if json_match:
@@ -281,7 +309,6 @@ Responde ÚNICAMENTE un objeto JSON válido, sin texto adicional antes o despué
         generated_sql = parsed.get("sql")
         direct_answer = parsed.get("respuesta") or parsed.get("explicacion") or ""
     except Exception:
-        # Fallback si no retornó JSON estricto: buscar si hay un SELECT en el texto
         extracted = extract_sql_from_text(raw_response)
         if extracted and "SELECT" in extracted.upper():
             tipo = "sql"
@@ -346,7 +373,7 @@ Responde ÚNICAMENTE en formato JSON válido:
 {{"tipo": "sql", "sql": "SELECT ...", "explicacion": "Explicación de cómo corregiste el error..."}}
 """
                 try:
-                    fix_response = query_ollama(prompt=fix_prompt)
+                    fix_response = query_ollama(prompt=fix_prompt, format="json", temperature=0.0)
                     json_match = re.search(r"\{[\s\S]*\}", fix_response)
                     if json_match:
                         parsed_fix = json.loads(json_match.group(0))
@@ -372,10 +399,14 @@ Responde ÚNICAMENTE en formato JSON válido:
             "model": model
         }
 
-    # Sintetizar los resultados con la IA
-    synthesis_prompt = f"""
+    # Sintetizar los resultados con la IA (o reporte directo si 0 registros)
+    if query_result["total"] == 0:
+        synthesis = f"Se consultó la base de datos de BIMEJ 12 para su solicitud, pero **no se encontraron registros coincidentes**."
+    else:
+        synthesis_prompt = f"""
+Eres el Asistente Militar de BIMEJ 12.
 El usuario preguntó: "{user_message}"
-Se ejecutó la consulta SQL:
+Se ejecutó con éxito la consulta SQL en PostgreSQL:
 {validated_sql}
 
 Resultados obtenidos ({query_result['total']} registros encontrados):
@@ -385,10 +416,10 @@ Por favor, redacta una respuesta clara, concisa y formal (estilo parte militar p
 Resume los hallazgos principales, totales y casos más destacados si los hay.
 No repitas toda la tabla registro por registro si son muchos, ya que se le mostrará la tabla completa al usuario en pantalla.
 """
-    try:
-        synthesis = query_ollama(prompt=synthesis_prompt)
-    except Exception:
-        synthesis = f"Se encontraron **{query_result['total']} registros** que coinciden con su consulta."
+        try:
+            synthesis = query_ollama(prompt=synthesis_prompt, temperature=0.3)
+        except Exception:
+            synthesis = f"Se encontraron **{query_result['total']} registros** que coinciden con su consulta."
 
     return {
         "type": "data",
