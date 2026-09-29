@@ -322,7 +322,6 @@ import {
   Bot,
   X,
   Sparkles,
-  AlertTriangle,
   ShieldCheck,
   ArrowRight,
   Database,
@@ -366,15 +365,15 @@ const guardarConfigUrl = async () => {
   configSuccessMsg.value = null
   try {
     const res = await iaService.actualizarConfig(customBaseUrl.value.trim())
-    status.value = res.status
-    if (res.status.online) {
-      configSuccessMsg.value = `¡Conectado exitosamente con ${res.status.model_configured}!`
+    status.value = res
+    if (res.online) {
+      configSuccessMsg.value = `¡Conectado exitosamente con ${res.model_configured}!`
       setTimeout(() => {
         mostrarConfig.value = false
         configSuccessMsg.value = null
       }, 1500)
     } else {
-      configErrorMsg.value = res.status.error || 'No se pudo conectar a la URL ingresada. Verifique que Ollama y el túnel estén activos.'
+      configErrorMsg.value = res.error || 'No se pudo conectar a la URL ingresada. Verifique que Ollama y el túnel estén activos.'
     }
   } catch (err: any) {
     console.error('Error al actualizar endpoint de Ollama:', err)
