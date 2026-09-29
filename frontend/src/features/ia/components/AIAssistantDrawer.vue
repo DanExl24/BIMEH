@@ -426,7 +426,20 @@ const cambiarModelo = async () => {
 
 // Cronómetro en vivo y fases de razonamiento
 const tiempoTranscurrido = ref(0)
+const ultimoMensajeUsuario = ref('')
 let timerInterval: any = null
+
+const esConversacionSimple = computed(() => {
+  const q = ultimoMensajeUsuario.value.toLowerCase().trim()
+  if (!q) return false
+  const patronesConversacion = [
+    /^(hola|buen(as|os)?(\s+(dias|tardes|noches))?|saludos|que\s+tal|hey)\b/i,
+    /^(gracias|muchas\s+gracias|mil\s+gracias|vale|de\s+acuerdo|perfecto|ok|listo)\b/i,
+    /^(que\s+puedes\s+hacer|quien\s+eres|como\s+te\s+llamas|como\s+funcionas|ayuda)\b/i,
+    /^(chao|adios|hasta\s+luego|hasta\s+pronto)\b/i
+  ]
+  return patronesConversacion.some(p => p.test(q))
+})
 
 const iniciarTimer = () => {
   tiempoTranscurrido.value = 0
@@ -441,12 +454,26 @@ const detenerTimer = () => {
 }
 
 const faseCargaTexto = computed(() => {
+  if (isLoadingApreciacion.value) {
+    return 'Generando Apreciación de Situación de Personal...'
+  }
+
+  if (esConversacionSimple.value) {
+    if (tiempoTranscurrido.value < 8) {
+      return 'Procesando respuesta del Asistente...'
+    } else if (tiempoTranscurrido.value < 20) {
+      return `Consultando modelo local ${status.value?.model_configured || 'Ollama'}...`
+    } else {
+      return 'Finalizando respuesta...'
+    }
+  }
+
   if (tiempoTranscurrido.value < 8) {
-    return 'Analizando intención y estructurando SQL...'
+    return 'Analizando consulta militar...'
   } else if (tiempoTranscurrido.value < 22) {
     return `Consultando modelo local ${status.value?.model_configured || 'Ollama'}...`
   } else if (tiempoTranscurrido.value < 40) {
-    return 'Ejecutando SQL en PostgreSQL del Batallón...'
+    return 'Consultando base de datos PostgreSQL...'
   } else {
     return 'Sintetizando informe militar final...'
   }
@@ -527,6 +554,8 @@ const enviarMensajeDirecto = (texto: string) => {
 const enviarMensaje = async () => {
   const query = inputTexto.value.trim()
   if (!query || isEnviando.value) return
+
+  ultimoMensajeUsuario.value = query
 
   const userMsg: IAChatMessage = {
     id: String(Date.now()),

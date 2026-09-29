@@ -8,6 +8,7 @@ import os
 import re
 import json
 import logging
+import unicodedata
 import httpx
 from typing import Dict, Any, List, Optional
 from datetime import datetime
@@ -280,6 +281,46 @@ def query_ollama(
         raise RuntimeError("El modelo de Ollama tardó demasiado en responder (tiempo de espera agotado).")
 
 
+def get_fast_conversational_reply(text: str) -> tuple[Optional[str], Optional[str]]:
+    """
+    Detecta saludos, agradecimientos y consultas de capacidades militares comunes
+    para responder en milisegundos sin sobrecargar el procesador del host.
+    """
+    if not text:
+        return None, None
+
+    # Normalizar texto (sin tildes, minúsculas, sin puntuación)
+    t = text.lower().strip()
+    norm = "".join(c for c in unicodedata.normalize("NFD", t) if unicodedata.category(c) != "Mn")
+    clean = re.sub(r"[^\w\s]", "", norm).strip()
+    words = clean.split()
+
+    capacidades_phrases = ["que puedes hacer", "que sabes hacer", "quien eres", "como funcionas", "que funciones tienes", "ayuda"]
+    if any(p in clean for p in capacidades_phrases):
+        return "capacidades", (
+            "Un cordial saludo militar. Como Asistente de Inteligencia de BIMEJ 12 puedo apoyarlo en:\n\n"
+            "* **Consulta de Personal:** Estado militar de cualquier efectivo por nombre, apellido o cedula (activo o retirado).\n"
+            "* **Novedades y Ausencias:** Historial y detalle de permisos, vacaciones, excusas o incapacidades medicas.\n"
+            "* **Fuerza Disponible y Conteos:** Totales de efectivos activos y clasificacion de novedades mas frecuentes.\n"
+            "* **Apreciacion de Personal:** Generacion de informes consolidados de personal militar para el comando.\n\n"
+            "¿Que verificacion militar desea efectuar hoy?"
+        )
+
+    saludo_prefixes = ("hola", "buen dia", "buenos dias", "buenas tardes", "buenas noches", "saludos", "que tal", "hola bimej")
+    if clean in {"hola", "buenas", "buen dia", "buenos dias", "buenas tardes", "buenas noches", "saludos", "que tal", "hola bimej"} or (any(clean.startswith(s) for s in saludo_prefixes) and len(words) <= 4):
+        return "saludo", "¡Un cordial saludo militar mi comando! Soy el Asistente de Inteligencia de BIMEJ 12. Estoy a su disposición para consultar en tiempo real el estado del personal militar, verificar novedades del día, contar efectivos activos o estructurar partes de fuerza disponible. ¿Qué verificación militar desea efectuar hoy?"
+
+    agradecimiento_prefixes = ("gracias", "muchas gracias", "mil gracias", "agradecido", "excelente gracias")
+    if clean in {"gracias", "muchas gracias", "mil gracias", "agradecido", "excelente gracias"} or (any(clean.startswith(a) for a in agradecimiento_prefixes) and len(words) <= 4):
+        return "agradecimiento", "A la orden mi comando. Firme para apoyar la gestión, novedades y control de personal del Batallón BIMEJ 12. Quedo atento a nuevas consultas."
+
+    despedida_prefixes = ("adios", "chao", "hasta luego", "hasta pronto", "nos vemos")
+    if clean in {"adios", "chao", "hasta luego", "hasta pronto", "nos vemos"} or (any(clean.startswith(d) for d in despedida_prefixes) and len(words) <= 4):
+        return "despedida", "Entendido mi comando. Quedo atento y a su entera disposición ante cualquier requerimiento operativo o administrativo del personal."
+
+    return None, None
+
+
 def process_user_query(user_message: str, db) -> Dict[str, Any]:
     """
     Procesa un mensaje en lenguaje natural:
@@ -289,6 +330,19 @@ def process_user_query(user_message: str, db) -> Dict[str, Any]:
     4. Solicita a la IA que sintetice los resultados en lenguaje militar claro.
     """
     model = get_configured_model()
+
+    # Respuesta ultrarrápida para saludos y cortesía militar (0.01s sin saturar CPU)
+    conv_tipo, fast_reply = get_fast_conversational_reply(user_message)
+    if conv_tipo and fast_reply:
+        return {
+            "type": "conversation",
+            "answer": fast_reply,
+            "sql": None,
+            "columns": [],
+            "rows": [],
+            "total_records": 0,
+            "model": model
+        }
 
     system_intent = f"""
 {DATABASE_SCHEMA_CONTEXT}
@@ -303,7 +357,9 @@ Eres el motor Text-to-SQL de BIMEH. Tu misión principal es responder mediante c
 - Prioriza SIEMPRE las vistas `v_personal_resumen` y `v_novedades_detalle` porque ya tienen los datos combinados e indexados.
 
 2. REGLA DE CONVERSACIÓN SIMPLE:
-- ÚNICAMENTE clasifica como {{"tipo": "conversacion", "respuesta": "..."}} si el usuario envía un saludo simple (ej: 'hola', 'buenos días', 'saludos') o un agradecimiento ('gracias', 'hasta luego') o pregunta 'qué puedes hacer'.
+- Si el usuario saluda, agradece o conversa sin solicitar datos específicos de la base de datos:
+  Clasifica como {{"tipo": "conversacion", "respuesta": "..."}}.
+  Responde con cortesía militar breve, formal y directa, poniéndote a disposición para consultas de personal del batallón.
 
 EJEMPLOS DE REFERENCIA (FEW-SHOT):
 Usuario: "informacion sobre jorge peña muñoz"
@@ -322,9 +378,13 @@ Usuario: "que novedades son las que mas se presentan"
 Respuesta:
 {{"tipo": "sql", "sql": "SELECT novedad, total_dias_registrados, total_personal_afectado FROM v_conteo_novedades ORDER BY total_dias_registrados DESC LIMIT 10", "explicacion": "Ranking de novedades más frecuentes"}}
 
-Usuario: "hola, que puedes hacer?"
+Usuario: "buenos días mi comando"
 Respuesta:
-{{"tipo": "conversacion", "respuesta": "Un cordial saludo militar. Soy el Asistente de Inteligencia de BIMEJ 12. Puedo consultar en la base de datos el estado de cualquier militar, verificar novedades del día, contar efectivos activos y generar partes de fuerza disponible."}}
+{{"tipo": "conversacion", "respuesta": "¡Muy buenos días mi comando! Asistente de BIMEJ 12 a su entera disposición para consultas y novedades de personal. ¿Qué verificación militar requiere hoy?"}}
+
+Usuario: "muchas gracias por la ayuda"
+Respuesta:
+{{"tipo": "conversacion", "respuesta": "A la orden mi comando. Firme a su disposición para apoyar la gestión del personal militar."}}
 
 Devuelve ÚNICAMENTE un objeto JSON válido.
 """
