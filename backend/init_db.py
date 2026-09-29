@@ -117,6 +117,10 @@ def inicializar_base_de_datos():
         conn.commit()
         print("✅ Tablas creadas/verificadas correctamente.")
 
+        # 9. Crear índices de rendimiento y vistas analíticas
+        from app.database import asegurar_optimizaciones_db
+        asegurar_optimizaciones_db()
+
         # Insertar Rol ADMINISTRATIVO
         cursor.execute("""
             INSERT INTO ROL (nombre, descripcion)

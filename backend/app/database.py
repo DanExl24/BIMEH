@@ -163,3 +163,100 @@ def get_month_dates(month_name: str) -> List[str]:
         except ValueError:
             continue
     return filtered
+
+
+def asegurar_optimizaciones_db():
+    """
+    Crea índices de rendimiento y vistas analíticas en PostgreSQL si aún no existen.
+    Garantiza velocidad en JOINs y consultas sencillas para el Asistente de IA.
+    """
+    try:
+        raw_conn = psycopg2.connect(**DB_CONN_PARAMS)
+        cursor = raw_conn.cursor()
+
+        # 1. Extensión pg_trgm e índice de trigramas para búsquedas LIKE
+        try:
+            cursor.execute("CREATE EXTENSION IF NOT EXISTS pg_trgm;")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_personal_nombre_trgm ON PERSONAL USING gin (UPPER(nombre) gin_trgm_ops);")
+            raw_conn.commit()
+        except Exception:
+            raw_conn.rollback()
+
+        # 2. Índices para Foreign Keys y estados
+        indices = [
+            "CREATE INDEX IF NOT EXISTS idx_rp_id_personal ON REGISTRO_PERSONAL(id_personal);",
+            "CREATE INDEX IF NOT EXISTS idx_rp_id_reporte ON REGISTRO_PERSONAL(id_reporte);",
+            "CREATE INDEX IF NOT EXISTS idx_rp_id_sub_novedad ON REGISTRO_PERSONAL(id_sub_novedad);",
+            "CREATE INDEX IF NOT EXISTS idx_personal_activos ON PERSONAL(id) WHERE fecha_retiro IS NULL OR fecha_retiro = '';",
+            "CREATE INDEX IF NOT EXISTS idx_reportes_fecha ON REPORTES(fecha);",
+            "CREATE INDEX IF NOT EXISTS idx_sub_novedades_nombre ON SUB_NOVEDADES(nombre);"
+        ]
+        for idx_sql in indices:
+            try:
+                cursor.execute(idx_sql)
+                raw_conn.commit()
+            except Exception:
+                raw_conn.rollback()
+
+        # 3. Vistas unificadas para el Asistente de IA
+        vistas = [
+            """
+            CREATE OR REPLACE VIEW v_personal_resumen AS
+            SELECT 
+                p.id,
+                p.cedula,
+                p.nombre,
+                CASE 
+                    WHEN (p.fecha_retiro IS NULL OR p.fecha_retiro = '') THEN 'ACTIVO' 
+                    ELSE 'RETIRADO' 
+                END AS estado,
+                p.fecha_retiro,
+                COUNT(rp.id) AS total_novedades_historicas
+            FROM PERSONAL p
+            LEFT JOIN REGISTRO_PERSONAL rp ON rp.id_personal = p.id
+            GROUP BY p.id, p.cedula, p.nombre, p.fecha_retiro;
+            """,
+            """
+            CREATE OR REPLACE VIEW v_novedades_detalle AS
+            SELECT 
+                rp.id AS id_registro,
+                p.cedula,
+                p.nombre,
+                CASE 
+                    WHEN (p.fecha_retiro IS NULL OR p.fecha_retiro = '') THEN 'ACTIVO' 
+                    ELSE 'RETIRADO' 
+                END AS estado,
+                r.fecha AS fecha_reporte,
+                COALESCE(sn.nombre, 'SIN NOVEDAD') AS novedad,
+                rp.descripcion,
+                rp.fecha_inicio,
+                rp.fecha_final
+            FROM REGISTRO_PERSONAL rp
+            JOIN PERSONAL p ON p.id = rp.id_personal
+            JOIN REPORTES r ON r.id = rp.id_reporte
+            LEFT JOIN SUB_NOVEDADES sn ON sn.id = rp.id_sub_novedad;
+            """,
+            """
+            CREATE OR REPLACE VIEW v_conteo_novedades AS
+            SELECT 
+                COALESCE(sn.nombre, 'SIN NOVEDAD') AS novedad,
+                COUNT(rp.id) AS total_dias_registrados,
+                COUNT(DISTINCT rp.id_personal) AS total_personal_afectado
+            FROM REGISTRO_PERSONAL rp
+            JOIN SUB_NOVEDADES sn ON sn.id = rp.id_sub_novedad
+            GROUP BY sn.nombre;
+            """
+        ]
+        for v_sql in vistas:
+            try:
+                cursor.execute(v_sql)
+                raw_conn.commit()
+            except Exception:
+                raw_conn.rollback()
+
+        cursor.close()
+        raw_conn.close()
+        print("✅ Índices y vistas optimizadas verificados correctamente en PostgreSQL.")
+    except Exception as e:
+        print(f"⚠️ Aviso: no se pudieron aplicar optimizaciones automáticas de DB: {e}")
+

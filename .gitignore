@@ -42,6 +42,7 @@ redeploy.ps1
 *.tar.gz
 init_scripts/*.sql
 !init_scripts/01_schema.sql
+!init_scripts/02_optimizaciones_vistas.sql
 backend/decode/
 backend/listadoMeses/
 backend/listado_meses.json

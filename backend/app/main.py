@@ -16,6 +16,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.on_event("startup")
+def startup_event():
+    from app.database import asegurar_optimizaciones_db
+    asegurar_optimizaciones_db()
+
 @app.get("/")
 def read_root():
     return {"status": "ok", "message": "BIMEH API Online", "docs": "/docs"}

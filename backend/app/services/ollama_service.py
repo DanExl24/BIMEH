@@ -21,54 +21,35 @@ DATABASE_SCHEMA_CONTEXT = """
 Eres el Asistente de Inteligencia de Personal Militar para el batallón BIMEJ 12.
 Tienes acceso de SOLO LECTURA a la base de datos PostgreSQL de BIMEH.
 
-TABLAS Y ESQUEMA REAL:
-1. PERSONAL:
-   - id (INTEGER PRIMARY KEY)
-   - cedula (BIGINT, documento de identidad único)
-   - nombre (VARCHAR, apellidos y nombres del integrante militar)
-   - fecha_retiro (VARCHAR, NULL o vacío si el militar está ACTIVO; contiene fecha si está RETIRADO)
-   * REGLA ESTRICTA: La tabla PERSONAL ÚNICAMENTE tiene id, cedula, nombre, fecha_retiro. NO contiene compania, cargo, rango ni motivo_retiro. NUNCA hagas SELECT p.compania ni SELECT p.cargo.
+VISTAS RECOMENDADAS (PRIORIZA SIEMPRE ESTAS VISTAS PARA MÁXIMA RAPIDEZ Y PRECISIÓN):
+1. v_personal_resumen:
+   Columnas: id, cedula, nombre, estado ('ACTIVO'/'RETIRADO'), fecha_retiro, total_novedades_historicas
+   - Úsala para buscar a cualquier militar por nombre o cédula, o para contar activos y retirados.
+   - Ejemplo búsqueda: SELECT cedula, nombre, estado, fecha_retiro, total_novedades_historicas FROM v_personal_resumen WHERE UPPER(nombre) LIKE '%JORGE%PEÑA%' LIMIT 10
+   - Ejemplo conteo: SELECT COUNT(*) AS total_activos FROM v_personal_resumen WHERE estado = 'ACTIVO'
 
-2. REPORTES:
-   - id (INTEGER PRIMARY KEY)
-   - fecha (VARCHAR formato 'YYYY-MM-DD', representa el día del reporte diario)
-   - archivo (VARCHAR)
+2. v_novedades_detalle:
+   Columnas: id_registro, cedula, nombre, estado, fecha_reporte, novedad, descripcion, fecha_inicio, fecha_final
+   - Úsala para consultar historial de ausencias, permisos, vacaciones, incapacidades o reportes diarios.
+   - Ejemplo por persona: SELECT cedula, nombre, fecha_reporte, novedad, descripcion FROM v_novedades_detalle WHERE UPPER(nombre) LIKE '%JORGE%PEÑA%' ORDER BY fecha_reporte DESC LIMIT 20
+   - Ejemplo por novedad: SELECT cedula, nombre, fecha_reporte, descripcion FROM v_novedades_detalle WHERE UPPER(novedad) LIKE '%VACACIONES%' ORDER BY fecha_reporte DESC LIMIT 50
 
-3. SUB_NOVEDADES:
-   - id (INTEGER PRIMARY KEY)
-   - nombre (VARCHAR, nombre de la novedad: ej. 'VACACIONES', 'PERMISO', 'INCAPACIDAD MEDICA', 'COMISION DEL SERVICIO', 'LICENCIA', 'HOSPITALIZADO', 'AISLAMIENTO', 'EXCUSA DE SERVICIO', 'SANCION DISCIPLINARIA', etc.)
+3. v_conteo_novedades:
+   Columnas: novedad, total_dias_registrados, total_personal_afectado
+   - Úsala para consultar estadísticas generales de cuáles son las novedades más frecuentes.
+   - Ejemplo: SELECT * FROM v_conteo_novedades ORDER BY total_dias_registrados DESC LIMIT 10
 
-4. REGISTRO_PERSONAL:
-   - id (INTEGER PRIMARY KEY)
-   - id_reporte (INTEGER REFERENCES REPORTES.id)
-   - id_personal (INTEGER REFERENCES PERSONAL.id)
-   - id_sub_novedad (INTEGER REFERENCES SUB_NOVEDADES.id)
-   - descripcion (TEXT, detalles, diagnóstico o justificación de la novedad)
-   - fecha_inicio (VARCHAR)
-   - fecha_final (VARCHAR)
+TABLAS BASE (SÓLO SI ES ESTRICTAMENTE NECESARIO):
+- PERSONAL (id, cedula, nombre, fecha_retiro)
+- REPORTES (id, fecha, archivo)
+- SUB_NOVEDADES (id, nombre)
+- REGISTRO_PERSONAL (id, id_reporte, id_personal, id_sub_novedad, descripcion, fecha_inicio, fecha_final)
 
 REGLAS CRÍTICAS DE SQL:
 - Solo genera consultas SELECT. NUNCA generes INSERT, UPDATE, DELETE, DROP, ALTER, TRUNCATE.
-- Militar ACTIVO: (p.fecha_retiro IS NULL OR p.fecha_retiro = '').
-- Militar RETIRADO: (p.fecha_retiro IS NOT NULL AND p.fecha_retiro != '').
-- Para buscar por nombre: UPPER(p.nombre) LIKE '%TERMINO%' (si buscan nombres y apellidos ej: 'JORGE PEÑA', busca '%JORGE%PEÑA%').
-- Para buscar por cédula: CAST(p.cedula AS TEXT) LIKE '%TERMINO%'.
-- Para consultar información o estado de un militar específico (ej: 'jorge peña'):
-  SELECT p.cedula, p.nombre, CASE WHEN (p.fecha_retiro IS NULL OR p.fecha_retiro = '') THEN 'ACTIVO' ELSE 'RETIRADO' END AS estado, p.fecha_retiro, COUNT(rp.id) as total_novedades_registradas
-  FROM PERSONAL p
-  LEFT JOIN REGISTRO_PERSONAL rp ON rp.id_personal = p.id
-  WHERE UPPER(p.nombre) LIKE '%JORGE%PEÑA%'
-  GROUP BY p.cedula, p.nombre, p.fecha_retiro;
-- Para ver historial de novedades o ausencias de un militar:
-  SELECT p.cedula, p.nombre, r.fecha, sn.nombre AS novedad, rp.descripcion, rp.fecha_inicio, rp.fecha_final
-  FROM PERSONAL p
-  JOIN REGISTRO_PERSONAL rp ON rp.id_personal = p.id
-  JOIN REPORTES r ON r.id = rp.id_reporte
-  LEFT JOIN SUB_NOVEDADES sn ON sn.id = rp.id_sub_novedad
-  WHERE UPPER(p.nombre) LIKE '%JORGE%PEÑA%'
-  ORDER BY r.fecha DESC LIMIT 20;
-- Para contar días acumulados de una novedad: COUNT(rp.id) o COUNT(DISTINCT r.fecha).
-- Para ordenar por mayor incidencia usa ORDER BY COUNT(rp.id) DESC.
+- Prioriza SIEMPRE las vistas `v_personal_resumen` y `v_novedades_detalle` porque ya tienen los JOINs resueltos e indexados.
+- Para buscar por nombre: UPPER(nombre) LIKE '%TERMINO1%TERMINO2%'.
+- Para buscar por cédula: CAST(cedula AS TEXT) LIKE '%TERMINO%'.
 - Si la consulta no tiene LIMIT, incluye siempre LIMIT 50 para evitar sobrecarga.
 """
 
@@ -264,8 +245,8 @@ Eres el motor Text-to-SQL de BIMEH. Tu misión principal es responder mediante c
 1. REGLA FUNDAMENTAL DE CONSULTA A BASE DE DATOS:
 - SI la solicitud del usuario menciona nombres o apellidos de personas (ej: 'jorge peña', 'rodriguez', etc.), números de cédula, novedades (permisos, vacaciones, excusas, etc.), ausencias, fechas, conteos de personal, listas o preguntas sobre el estado militar:
   DEBES responder OBLIGATORIAMENTE con {{"tipo": "sql", "sql": "SELECT ...", "explicacion": "..."}}.
-- NUNCA respondas que no tienes información de un militar ni pidas más detalles. TÚ NO CONOCES AL PERSONAL EN MEMORIA, tu deber es buscarlo en la base de datos usando SQL en la tabla PERSONAL.
-- En la consulta SQL para buscar personas por nombre, usa siempre: `UPPER(p.nombre) LIKE '%PALABRA1%PALABRA2%'`.
+- NUNCA respondas que no tienes información de un militar ni pidas más detalles. TÚ NO CONOCES AL PERSONAL EN MEMORIA, tu deber es buscarlo en las vistas o tablas de la base de datos.
+- Prioriza SIEMPRE las vistas `v_personal_resumen` y `v_novedades_detalle` porque ya tienen los datos combinados e indexados.
 
 2. REGLA DE CONVERSACIÓN SIMPLE:
 - ÚNICAMENTE clasifica como {{"tipo": "conversacion", "respuesta": "..."}} si el usuario envía un saludo simple (ej: 'hola', 'buenos días', 'saludos') o un agradecimiento ('gracias', 'hasta luego') o pregunta 'qué puedes hacer'.
@@ -273,15 +254,19 @@ Eres el motor Text-to-SQL de BIMEH. Tu misión principal es responder mediante c
 EJEMPLOS DE REFERENCIA (FEW-SHOT):
 Usuario: "informacion sobre jorge peña muñoz"
 Respuesta:
-{{"tipo": "sql", "sql": "SELECT p.cedula, p.nombre, CASE WHEN (p.fecha_retiro IS NULL OR p.fecha_retiro = '') THEN 'ACTIVO' ELSE 'RETIRADO' END AS estado, p.fecha_retiro, COUNT(rp.id) AS total_novedades FROM PERSONAL p LEFT JOIN REGISTRO_PERSONAL rp ON rp.id_personal = p.id WHERE UPPER(p.nombre) LIKE '%JORGE%PEÑA%' GROUP BY p.cedula, p.nombre, p.fecha_retiro LIMIT 10", "explicacion": "Consultando registro y estado militar de Jorge Peña"}}
+{{"tipo": "sql", "sql": "SELECT cedula, nombre, estado, fecha_retiro, total_novedades_historicas FROM v_personal_resumen WHERE UPPER(nombre) LIKE '%JORGE%PEÑA%' LIMIT 10", "explicacion": "Consultando registro y estado militar de Jorge Peña"}}
 
 Usuario: "cuantos militares activos hay en total"
 Respuesta:
-{{"tipo": "sql", "sql": "SELECT COUNT(*) AS total_activos FROM PERSONAL WHERE fecha_retiro IS NULL OR fecha_retiro = ''", "explicacion": "Contando total de efectivos activos"}}
+{{"tipo": "sql", "sql": "SELECT COUNT(*) AS total_activos FROM v_personal_resumen WHERE estado = 'ACTIVO'", "explicacion": "Contando total de efectivos activos"}}
 
 Usuario: "quienes estan en vacaciones"
 Respuesta:
-{{"tipo": "sql", "sql": "SELECT p.cedula, p.nombre, sn.nombre AS novedad, r.fecha, rp.descripcion FROM PERSONAL p JOIN REGISTRO_PERSONAL rp ON rp.id_personal = p.id JOIN REPORTES r ON r.id = rp.id_reporte JOIN SUB_NOVEDADES sn ON sn.id = rp.id_sub_novedad WHERE UPPER(sn.nombre) LIKE '%VACACIONES%' ORDER BY r.fecha DESC LIMIT 50", "explicacion": "Personal con novedad de vacaciones"}}
+{{"tipo": "sql", "sql": "SELECT cedula, nombre, fecha_reporte, novedad, descripcion FROM v_novedades_detalle WHERE UPPER(novedad) LIKE '%VACACIONES%' ORDER BY fecha_reporte DESC LIMIT 50", "explicacion": "Personal con novedad de vacaciones"}}
+
+Usuario: "que novedades son las que mas se presentan"
+Respuesta:
+{{"tipo": "sql", "sql": "SELECT novedad, total_dias_registrados, total_personal_afectado FROM v_conteo_novedades ORDER BY total_dias_registrados DESC LIMIT 10", "explicacion": "Ranking de novedades más frecuentes"}}
 
 Usuario: "hola, que puedes hacer?"
 Respuesta:
