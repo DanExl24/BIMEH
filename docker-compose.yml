@@ -22,6 +22,8 @@ services:
       - DB_PASSWORD=${DB_PASSWORD:-postgres}
       - ALLOW_ORIGINS=${ALLOW_ORIGINS:-https://bimeh.adsoproject.dev,https://api-bimeh.adsoproject.dev,http://localhost:5173,http://localhost:80}
       - GOOGLE_CREDENTIALS_JSON=${GOOGLE_CREDENTIALS_JSON:-}
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://127.0.0.1:11434}
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-llama3.1:8b}
     volumes:
       - ./backend/config:/app/config
     depends_on:

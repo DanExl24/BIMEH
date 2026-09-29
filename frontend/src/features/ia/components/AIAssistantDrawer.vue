@@ -35,14 +35,15 @@
                 <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
                 {{ status.model_configured }}
               </span>
-              <span 
+              <button 
                 v-else 
-                class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wider uppercase bg-rose-500/15 text-rose-300 border border-rose-500/30"
-                title="Ollama desconectado"
+                @click="mostrarConfig = !mostrarConfig"
+                class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wider uppercase bg-rose-500/15 text-rose-300 border border-rose-500/30 hover:bg-rose-500/25 cursor-pointer transition-all"
+                title="Ollama desconectado. Clic para configurar URL de conexión"
               >
                 <span class="w-1.5 h-1.5 rounded-full bg-rose-400"></span>
                 Offline
-              </span>
+              </button>
             </div>
             <p class="text-[11px] text-slate-400 leading-tight">
               Inteligencia Local • Consultas y Apreciación de Personal
@@ -88,7 +89,7 @@
 
       <!-- Panel Desplegable de Configuración de URL / Túnel Cloudflare -->
       <div 
-        v-if="mostrarConfig || (!status?.online && !isLoadingStatus)" 
+        v-if="mostrarConfig" 
         class="bg-slate-950 border-b border-darkBorder px-4 py-3 space-y-2 text-xs shrink-0 animate-in fade-in duration-200"
       >
         <div class="flex items-center justify-between text-slate-300 font-bold">
@@ -96,7 +97,7 @@
             <Globe class="w-3.5 h-3.5" />
             Conexión Ollama (Local o Cloudflare Tunnel)
           </span>
-          <button @click="mostrarConfig = false" class="text-slate-500 hover:text-slate-300 p-0.5" title="Ocultar">
+          <button @click="mostrarConfig = false" class="text-slate-500 hover:text-slate-300 p-0.5 cursor-pointer" title="Cerrar configuración">
             <X class="w-3.5 h-3.5" />
           </button>
         </div>
@@ -109,7 +110,7 @@
           <input
             v-model="customBaseUrl"
             type="text"
-            placeholder="http://127.0.0.1:11434 o https://...trycloudflare.com"
+            placeholder="https://...trycloudflare.com o http://127.0.0.1:11434"
             class="flex-1 bg-slate-900 border border-darkBorder hover:border-cyan-500/40 focus:border-cyan-400 text-slate-100 rounded-xl px-3 py-1.5 text-xs font-mono outline-none"
           />
           <button
@@ -120,6 +121,16 @@
             <Loader2 v-if="isGuardandoConfig" class="w-3 h-3 animate-spin" />
             <span>Conectar</span>
           </button>
+        </div>
+
+        <!-- Mensajes de feedback -->
+        <div v-if="configSuccessMsg" class="flex items-center gap-1.5 text-emerald-400 text-[11px] bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-2">
+          <Check class="w-3.5 h-3.5 shrink-0" />
+          <span>{{ configSuccessMsg }}</span>
+        </div>
+        <div v-if="configErrorMsg" class="flex items-center gap-1.5 text-rose-400 text-[11px] bg-rose-500/10 border border-rose-500/20 rounded-lg p-2">
+          <AlertCircle class="w-3.5 h-3.5 shrink-0" />
+          <span>{{ configErrorMsg }}</span>
         </div>
 
         <div class="flex items-center justify-between text-[10px] text-slate-500 pt-0.5">
@@ -319,7 +330,9 @@ import {
   Loader2,
   Send,
   Settings,
-  Globe
+  Globe,
+  Check,
+  AlertCircle
 } from 'lucide-vue-next'
 
 import type { IAStatusResponse, IAChatMessage } from '../types/ia.types'
@@ -343,15 +356,29 @@ const mensajes = ref<IAChatMessage[]>([])
 const mostrarConfig = ref(false)
 const customBaseUrl = ref('')
 const isGuardandoConfig = ref(false)
+const configErrorMsg = ref<string | null>(null)
+const configSuccessMsg = ref<string | null>(null)
 
 const guardarConfigUrl = async () => {
   if (!customBaseUrl.value) return
   isGuardandoConfig.value = true
+  configErrorMsg.value = null
+  configSuccessMsg.value = null
   try {
     const res = await iaService.actualizarConfig(customBaseUrl.value.trim())
     status.value = res.status
+    if (res.status.online) {
+      configSuccessMsg.value = `¡Conectado exitosamente con ${res.status.model_configured}!`
+      setTimeout(() => {
+        mostrarConfig.value = false
+        configSuccessMsg.value = null
+      }, 1500)
+    } else {
+      configErrorMsg.value = res.status.error || 'No se pudo conectar a la URL ingresada. Verifique que Ollama y el túnel estén activos.'
+    }
   } catch (err: any) {
     console.error('Error al actualizar endpoint de Ollama:', err)
+    configErrorMsg.value = err.response?.data?.detail || err.message || 'Error al comunicarse con el backend del servidor.'
   } finally {
     isGuardandoConfig.value = false
     await verificarEstado()
