@@ -22,12 +22,31 @@ class ApreciacionRequest(BaseModel):
     mes: Optional[str] = Field("TODOS", description="Nombre del mes operacional o TODOS para consolidado")
 
 
+class IAConfigRequest(BaseModel):
+    base_url: Optional[str] = Field(None, description="URL de Ollama o Cloudflare Tunnel (ej. https://...trycloudflare.com)")
+    model: Optional[str] = Field(None, description="Modelo de Ollama (ej. llama3.1:8b)")
+
+
 @router.get("/status")
 def get_ia_status():
     """
     Verifica si el servidor de Ollama está online localmente y reporta
     el modelo configurado y los modelos instalados.
     """
+    return ollama_service.check_ollama_status()
+
+
+@router.post("/config")
+def update_ia_config(req: IAConfigRequest):
+    """
+    Actualiza dinámicamente la URL base de Ollama (útil para Cloudflare Tunnel)
+    o el modelo en tiempo de ejecución.
+    """
+    import os
+    if req.base_url:
+        os.environ["OLLAMA_BASE_URL"] = req.base_url.strip().rstrip("/")
+    if req.model:
+        os.environ["OLLAMA_MODEL"] = req.model.strip()
     return ollama_service.check_ollama_status()
 
 

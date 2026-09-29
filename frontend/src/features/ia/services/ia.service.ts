@@ -25,5 +25,12 @@ export const iaService = {
    */
   generarApreciacion: async (mes: string = 'TODOS'): Promise<IAApreciacionResponse> => {
     return http.post<IAApreciacionResponse>('/api/ia/apreciacion', { mes })
+  },
+
+  /**
+   * Actualiza la URL de Ollama / Cloudflare Tunnel en el backend
+   */
+  actualizarConfig: async (baseUrl: string, model?: string): Promise<IAStatusResponse> => {
+    return http.post<IAStatusResponse>('/api/ia/config', { base_url: baseUrl, model })
   }
 }

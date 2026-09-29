@@ -50,7 +50,18 @@
           </div>
         </div>
 
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-1.5">
+          <!-- Botón Configuración de Conexión -->
+          <button
+            type="button"
+            @click="mostrarConfig = !mostrarConfig"
+            class="p-2 rounded-xl text-slate-400 hover:text-cyan-300 hover:bg-slate-800 transition-colors cursor-pointer"
+            :class="mostrarConfig ? 'text-cyan-400 bg-cyan-500/10 border border-cyan-500/30' : ''"
+            title="Configurar URL de Ollama / Cloudflare Tunnel"
+          >
+            <Settings class="w-4 h-4" />
+          </button>
+
           <!-- Botón de Generar Apreciación Rápida -->
           <button
             type="button"
@@ -75,24 +86,51 @@
         </div>
       </div>
 
-      <!-- Alerta si Ollama está Desconectado -->
+      <!-- Panel Desplegable de Configuración de URL / Túnel Cloudflare -->
       <div 
-        v-if="!status?.online && !isLoadingStatus" 
-        class="bg-amber-500/10 border-b border-amber-500/20 px-4 py-2.5 text-xs text-amber-300 flex items-start gap-2.5 shrink-0"
+        v-if="mostrarConfig || (!status?.online && !isLoadingStatus)" 
+        class="bg-slate-950 border-b border-darkBorder px-4 py-3 space-y-2 text-xs shrink-0 animate-in fade-in duration-200"
       >
-        <AlertTriangle class="w-4 h-4 shrink-0 text-amber-400 mt-0.5" />
-        <div class="flex-1">
-          <p class="font-bold">Ollama no detectado en ejecución</p>
-          <p class="text-[11px] text-amber-200/80 mt-0.5">
-            Abra su terminal y ejecute: <code class="px-1.5 py-0.5 rounded bg-amber-950/60 font-mono text-amber-200">ollama run {{ status?.model_configured || 'llama3.1:8b' }}</code>. Luego presione verificar.
-          </p>
+        <div class="flex items-center justify-between text-slate-300 font-bold">
+          <span class="flex items-center gap-1.5 text-cyan-400">
+            <Globe class="w-3.5 h-3.5" />
+            Conexión Ollama (Local o Cloudflare Tunnel)
+          </span>
+          <button @click="mostrarConfig = false" class="text-slate-500 hover:text-slate-300 p-0.5" title="Ocultar">
+            <X class="w-3.5 h-3.5" />
+          </button>
         </div>
-        <button
-          @click="verificarEstado"
-          class="px-2 py-1 bg-amber-500/20 hover:bg-amber-500/30 rounded-lg text-[10px] font-bold uppercase transition-colors shrink-0"
-        >
-          Reintentar
-        </button>
+
+        <p class="text-[11px] text-slate-400 leading-snug">
+          Si está usando la web en la nube, pegue aquí la URL pública de su túnel Cloudflare (ej. <code class="text-cyan-300 font-mono">https://...trycloudflare.com</code>):
+        </p>
+
+        <div class="flex items-center gap-2">
+          <input
+            v-model="customBaseUrl"
+            type="text"
+            placeholder="http://127.0.0.1:11434 o https://...trycloudflare.com"
+            class="flex-1 bg-slate-900 border border-darkBorder hover:border-cyan-500/40 focus:border-cyan-400 text-slate-100 rounded-xl px-3 py-1.5 text-xs font-mono outline-none"
+          />
+          <button
+            @click="guardarConfigUrl"
+            :disabled="isGuardandoConfig"
+            class="px-3 py-1.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 text-xs font-bold transition-all cursor-pointer disabled:opacity-50 flex items-center gap-1 shrink-0"
+          >
+            <Loader2 v-if="isGuardandoConfig" class="w-3 h-3 animate-spin" />
+            <span>Conectar</span>
+          </button>
+        </div>
+
+        <div class="flex items-center justify-between text-[10px] text-slate-500 pt-0.5">
+          <span>Actual: <strong class="text-slate-400 font-mono">{{ status?.base_url || 'http://127.0.0.1:11434' }}</strong></span>
+          <button 
+            @click="customBaseUrl = 'http://127.0.0.1:11434'; guardarConfigUrl()" 
+            class="text-cyan-400/80 hover:text-cyan-300 underline cursor-pointer"
+          >
+            Restablecer localhost
+          </button>
+        </div>
       </div>
 
       <!-- 2. Área de Mensajes del Chat (Scrollable) -->
@@ -279,7 +317,9 @@ import {
   Database,
   Table2,
   Loader2,
-  Send
+  Send,
+  Settings,
+  Globe
 } from 'lucide-vue-next'
 
 import type { IAStatusResponse, IAChatMessage } from '../types/ia.types'
@@ -299,6 +339,24 @@ const isEnviando = ref(false)
 const isLoadingApreciacion = ref(false)
 const inputTexto = ref('')
 const mensajes = ref<IAChatMessage[]>([])
+
+const mostrarConfig = ref(false)
+const customBaseUrl = ref('')
+const isGuardandoConfig = ref(false)
+
+const guardarConfigUrl = async () => {
+  if (!customBaseUrl.value) return
+  isGuardandoConfig.value = true
+  try {
+    const res = await iaService.actualizarConfig(customBaseUrl.value.trim())
+    status.value = res.status
+  } catch (err: any) {
+    console.error('Error al actualizar endpoint de Ollama:', err)
+  } finally {
+    isGuardandoConfig.value = false
+    await verificarEstado()
+  }
+}
 
 const chatContainer = ref<HTMLElement | null>(null)
 const inputRef = ref<HTMLInputElement | null>(null)
@@ -321,6 +379,9 @@ const verificarEstado = async () => {
   isLoadingStatus.value = true
   try {
     status.value = await iaService.obtenerEstado()
+    if (status.value?.base_url && !customBaseUrl.value) {
+      customBaseUrl.value = status.value.base_url
+    }
   } catch (err) {
     status.value = {
       online: false,

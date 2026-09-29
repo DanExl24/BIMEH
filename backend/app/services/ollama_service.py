@@ -64,13 +64,18 @@ BANNED_SQL_KEYWORDS = re.compile(
 )
 
 
+def get_ollama_base_url() -> str:
+    return os.getenv("OLLAMA_BASE_URL", "http://127.0.0.1:11434").rstrip("/")
+
+
 def get_configured_model() -> str:
     return os.getenv("OLLAMA_MODEL", OLLAMA_DEFAULT_MODEL)
 
 
 def check_ollama_status() -> Dict[str, Any]:
     """Verifica si Ollama está levantado y qué modelos tiene disponibles."""
-    url = f"{OLLAMA_BASE_URL}/api/tags"
+    base_url = get_ollama_base_url()
+    url = f"{base_url}/api/tags"
     model_name = get_configured_model()
     try:
         with httpx.Client(timeout=4.0) as client:
@@ -85,7 +90,7 @@ def check_ollama_status() -> Dict[str, Any]:
                 )
                 return {
                     "online": True,
-                    "base_url": OLLAMA_BASE_URL,
+                    "base_url": base_url,
                     "model_configured": model_name,
                     "model_available": model_found,
                     "models_installed": models,
@@ -94,7 +99,7 @@ def check_ollama_status() -> Dict[str, Any]:
             else:
                 return {
                     "online": False,
-                    "base_url": OLLAMA_BASE_URL,
+                    "base_url": base_url,
                     "model_configured": model_name,
                     "model_available": False,
                     "models_installed": [],
@@ -103,11 +108,11 @@ def check_ollama_status() -> Dict[str, Any]:
     except Exception as e:
         return {
             "online": False,
-            "base_url": OLLAMA_BASE_URL,
+            "base_url": base_url,
             "model_configured": model_name,
             "model_available": False,
             "models_installed": [],
-            "error": f"No se pudo conectar a Ollama en {OLLAMA_BASE_URL}. Asegúrese de ejecutar 'ollama run {model_name}'"
+            "error": f"No se pudo conectar a Ollama en {base_url}. Asegúrese de que Ollama o el túnel estén activos."
         }
 
 
@@ -191,7 +196,8 @@ def execute_safe_query(db, sql: str) -> Dict[str, Any]:
 def query_ollama(prompt: str, system: Optional[str] = None, timeout: float = 90.0) -> str:
     """Envía un prompt a Ollama y retorna la respuesta de texto."""
     model = get_configured_model()
-    url = f"{OLLAMA_BASE_URL}/api/generate"
+    base_url = get_ollama_base_url()
+    url = f"{base_url}/api/generate"
     payload = {
         "model": model,
         "prompt": prompt,
@@ -212,7 +218,7 @@ def query_ollama(prompt: str, system: Optional[str] = None, timeout: float = 90.
             else:
                 raise RuntimeError(f"Error de Ollama ({res.status_code}): {res.text}")
     except httpx.ConnectError:
-        raise RuntimeError(f"No fue posible conectarse a Ollama en {OLLAMA_BASE_URL}. Asegúrate de que Ollama esté en ejecución.")
+        raise RuntimeError(f"No fue posible conectarse a Ollama en {base_url}. Asegúrate de que Ollama o el túnel estén activos.")
     except httpx.ReadTimeout:
         raise RuntimeError("El modelo de Ollama tardó demasiado en responder (tiempo de espera agotado).")
 
