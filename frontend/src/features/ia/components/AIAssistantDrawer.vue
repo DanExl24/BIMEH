@@ -197,6 +197,12 @@
               <span class="font-bold uppercase">{{ msg.sender === 'user' ? 'Usted' : 'Asistente IA' }}</span>
               <span>•</span>
               <span>{{ msg.timestamp }}</span>
+              <template v-if="msg.elapsed_seconds">
+                <span>•</span>
+                <span class="text-cyan-400 font-semibold bg-cyan-500/10 px-1.5 py-0.5 rounded border border-cyan-500/20">
+                  ⏱️ {{ msg.elapsed_seconds }}s
+                </span>
+              </template>
             </div>
 
             <!-- Burbuja de Mensaje -->
@@ -266,10 +272,18 @@
             </div>
           </div>
 
-          <!-- Spinner Pensando -->
-          <div v-if="isEnviando" class="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-950/60 border border-darkBorder/60 w-fit text-xs text-slate-400 animate-pulse">
-            <Loader2 class="w-4 h-4 animate-spin text-cyan-400" />
-            <span>Consultando base de datos con {{ status?.model_configured || 'Ollama' }}...</span>
+          <!-- Spinner Pensando con Cronómetro Dinámico y Fases -->
+          <div v-if="isEnviando || isLoadingApreciacion" class="flex flex-col gap-1.5 p-3 rounded-2xl bg-slate-950/80 border border-cyan-500/25 w-fit max-w-sm text-xs text-slate-300 shadow-lg shadow-cyan-500/5 animate-in fade-in">
+            <div class="flex items-center gap-2">
+              <Loader2 class="w-4 h-4 animate-spin text-cyan-400 shrink-0" />
+              <span class="font-medium text-slate-200">{{ faseCargaTexto }}</span>
+            </div>
+            <div class="flex items-center justify-between gap-4 text-[10px] text-slate-400 font-mono pl-6">
+              <span>Modelo: <strong class="text-cyan-300">{{ status?.model_configured || 'Ollama' }}</strong></span>
+              <span class="px-1.5 py-0.5 rounded bg-slate-900 text-cyan-400 font-semibold border border-darkBorder">
+                ⏱️ {{ tiempoTranscurrido }}s
+              </span>
+            </div>
           </div>
         </template>
       </div>
@@ -317,7 +331,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, nextTick, onMounted } from 'vue'
+import { ref, watch, nextTick, onMounted, onUnmounted, computed } from 'vue'
 import {
   Bot,
   X,
@@ -357,6 +371,34 @@ const customBaseUrl = ref('')
 const isGuardandoConfig = ref(false)
 const configErrorMsg = ref<string | null>(null)
 const configSuccessMsg = ref<string | null>(null)
+
+// Cronómetro en vivo y fases de razonamiento
+const tiempoTranscurrido = ref(0)
+let timerInterval: any = null
+
+const iniciarTimer = () => {
+  tiempoTranscurrido.value = 0
+  clearInterval(timerInterval)
+  timerInterval = setInterval(() => {
+    tiempoTranscurrido.value++
+  }, 1000)
+}
+
+const detenerTimer = () => {
+  clearInterval(timerInterval)
+}
+
+const faseCargaTexto = computed(() => {
+  if (tiempoTranscurrido.value < 8) {
+    return 'Analizando intención y estructurando SQL...'
+  } else if (tiempoTranscurrido.value < 22) {
+    return `Consultando modelo local ${status.value?.model_configured || 'Ollama'}...`
+  } else if (tiempoTranscurrido.value < 40) {
+    return 'Ejecutando SQL en PostgreSQL del Batallón...'
+  } else {
+    return 'Sintetizando informe militar final...'
+  }
+})
 
 const guardarConfigUrl = async () => {
   if (!customBaseUrl.value) return
@@ -441,6 +483,7 @@ const enviarMensaje = async () => {
   mensajes.value.push(userMsg)
   inputTexto.value = ''
   isEnviando.value = true
+  iniciarTimer()
   scrollAlFondo()
 
   try {
@@ -454,6 +497,7 @@ const enviarMensaje = async () => {
       columns: res.columns,
       rows: res.rows,
       total_records: res.total_records,
+      elapsed_seconds: res.elapsed_seconds || tiempoTranscurrido.value,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       isError: res.type === 'error'
     }
@@ -469,6 +513,7 @@ const enviarMensaje = async () => {
     }
     mensajes.value.push(errorMsg)
   } finally {
+    detenerTimer()
     isEnviando.value = false
     scrollAlFondo()
   }
@@ -477,6 +522,7 @@ const enviarMensaje = async () => {
 const generarApreciacionDirecta = async () => {
   if (isLoadingApreciacion.value) return
   isLoadingApreciacion.value = true
+  iniciarTimer()
 
   const userMsg: IAChatMessage = {
     id: String(Date.now()),
@@ -494,6 +540,7 @@ const generarApreciacionDirecta = async () => {
       sender: 'assistant',
       text: res.apreciacion,
       type: 'data',
+      elapsed_seconds: tiempoTranscurrido.value,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     }
     mensajes.value.push(assistantMsg)
@@ -508,6 +555,7 @@ const generarApreciacionDirecta = async () => {
     }
     mensajes.value.push(errorMsg)
   } finally {
+    detenerTimer()
     isLoadingApreciacion.value = false
     scrollAlFondo()
   }
@@ -535,5 +583,9 @@ watch(
 
 onMounted(() => {
   verificarEstado()
+})
+
+onUnmounted(() => {
+  detenerTimer()
 })
 </script>

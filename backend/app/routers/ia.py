@@ -4,6 +4,7 @@ Provee endpoints de estado, chat conversacional con Text-to-SQL y generación
 de apreciaciones de comandancia.
 """
 
+import time
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any
@@ -67,10 +68,13 @@ def chat_with_ia(req: ChatMessageRequest, db = Depends(get_db)):
             )
         )
 
+    start_time = time.time()
     try:
         resultado = ollama_service.process_user_query(req.message, db)
+        elapsed = round(time.time() - start_time, 1)
         return {
             "status": "success",
+            "elapsed_seconds": elapsed,
             **resultado
         }
     except Exception as e:
@@ -96,10 +100,13 @@ def generar_apreciacion_comandancia(req: ApreciacionRequest, db = Depends(get_db
             )
         )
 
+    start_time = time.time()
     try:
         resultado = ollama_service.generate_executive_briefing(req.mes, db)
+        elapsed = round(time.time() - start_time, 1)
         return {
             "status": "success",
+            "elapsed_seconds": elapsed,
             **resultado
         }
     except Exception as e:

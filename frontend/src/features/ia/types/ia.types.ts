@@ -17,6 +17,7 @@ export interface IAChatMessage {
   rows?: Record<string, any>[]
   total_records?: number
   timestamp: string
+  elapsed_seconds?: number
   isError?: boolean
 }
 
@@ -29,6 +30,7 @@ export interface IAChatResponse {
   rows: Record<string, any>[]
   total_records: number
   model: string
+  elapsed_seconds?: number
 }
 
 export interface IAApreciacionKpis {
