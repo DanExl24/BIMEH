@@ -59,6 +59,21 @@
         </router-link>
       </nav>
 
+      <!-- Botón Asistente IA en Sidebar -->
+      <div class="px-3 pb-2 border-t border-darkBorder/40 pt-3">
+        <button
+          @click="$emit('open-ia'); $emit('close')"
+          class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 text-cyan-300 cursor-pointer text-left shadow-sm"
+        >
+          <Bot class="w-5 h-5 text-cyan-400 transition-transform duration-200 group-hover:scale-110 shrink-0" />
+          <div class="flex-1 min-w-0">
+            <span class="text-xs font-bold block leading-tight">Asistente IA</span>
+            <span class="text-[10px] text-cyan-400/80 font-mono block">Ollama Local</span>
+          </div>
+          <Sparkles class="w-3.5 h-3.5 text-amber-400 shrink-0" />
+        </button>
+      </div>
+
       <!-- Logout Button -->
       <div class="px-3 py-2 border-t border-darkBorder/40">
         <button 
@@ -95,7 +110,9 @@ import {
   Upload,
   LogOut,
   X,
-  Shield
+  Shield,
+  Bot,
+  Sparkles
 } from 'lucide-vue-next'
 import { useAuthStore } from '../../stores/authStore'
 import { useRouter } from 'vue-router'
@@ -104,7 +121,7 @@ defineProps<{
   isOpen?: boolean
 }>()
 
-defineEmits(['close'])
+defineEmits(['close', 'open-ia'])
 
 const authStore = useAuthStore()
 const router = useRouter()

@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime
 import traceback
 
-from app.routers import dashboard, personal, stats, alertas, exportar, sincronizar, auth, novedades
+from app.routers import dashboard, personal, stats, alertas, exportar, sincronizar, auth, novedades, ia
 
 app = FastAPI(title="BIMEJ12 - Sistema de Reportes de Personal", version="1.0.0")
 
@@ -50,6 +50,7 @@ app.include_router(exportar.router)
 app.include_router(sincronizar.router)
 app.include_router(auth.router)
 app.include_router(novedades.router)
+app.include_router(ia.router)
 
 if __name__ == "__main__":
     import uvicorn

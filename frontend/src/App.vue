@@ -2,6 +2,7 @@
 import { onMounted, ref } from 'vue'
 import Sidebar from './components/layout/Sidebar.vue'
 import ReportGenerationModal from './components/modals/ReportGenerationModal.vue'
+import AIAssistantDrawer from './features/ia/components/AIAssistantDrawer.vue'
 
 import { 
   Menu, 
@@ -11,7 +12,9 @@ import {
   CheckCircle2, 
   AlertCircle, 
   X, 
-  Square
+  Square,
+  Bot,
+  Sparkles
 } from 'lucide-vue-next'
 
 import { useAppStore } from './stores/appStore'
@@ -21,6 +24,7 @@ const appStore = useAppStore()
 const authStore = useAuthStore()
 
 const isMobileMenuOpen = ref(false)
+const isAIAssistantOpen = ref(false)
 
 onMounted(async () => {
   await appStore.fetchAvailableDates()
@@ -68,10 +72,20 @@ onMounted(async () => {
         </div>
       </div>
 
-      <!-- Quick status indicator in mobile top bar -->
-      <div v-if="appStore.syncStatus === 'running'" class="flex items-center gap-1.5 bg-cyan-500/10 border border-cyan-500/20 px-2.5 py-1 rounded-lg">
-        <Loader2 class="w-3.5 h-3.5 text-cyan-400 animate-spin" />
-        <span class="text-[11px] font-mono text-cyan-300 font-bold">Sync...</span>
+      <!-- Quick actions in mobile top bar -->
+      <div class="flex items-center gap-2">
+        <button
+          @click="isAIAssistantOpen = true"
+          class="p-2 text-cyan-400 hover:text-cyan-300 rounded-xl bg-cyan-500/10 border border-cyan-500/25 transition-all cursor-pointer"
+          title="Abrir Asistente IA"
+        >
+          <Bot class="w-4 h-4" />
+        </button>
+
+        <div v-if="appStore.syncStatus === 'running'" class="flex items-center gap-1.5 bg-cyan-500/10 border border-cyan-500/20 px-2.5 py-1 rounded-lg">
+          <Loader2 class="w-3.5 h-3.5 text-cyan-400 animate-spin" />
+          <span class="text-[11px] font-mono text-cyan-300 font-bold">Sync...</span>
+        </div>
       </div>
     </header>
 
@@ -80,6 +94,7 @@ onMounted(async () => {
       v-if="$route.name !== 'login'" 
       :isOpen="isMobileMenuOpen" 
       @close="isMobileMenuOpen = false" 
+      @open-ia="isAIAssistantOpen = true"
     />
 
     <!-- Main Content Area -->
@@ -175,6 +190,18 @@ onMounted(async () => {
                 </select>
               </div>
             </div>
+
+            <!-- Botón Asistente IA Global en Header -->
+            <button
+              @click="isAIAssistantOpen = true"
+              type="button"
+              class="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-gradient-to-r from-cyan-500/15 via-blue-500/15 to-cyan-500/15 hover:from-cyan-500/25 hover:to-blue-500/25 border border-cyan-500/40 text-cyan-300 text-xs font-bold transition-all shadow-md shadow-cyan-500/10 cursor-pointer active:scale-95 group shrink-0"
+              title="Abrir Asistente IA (Ollama Local)"
+            >
+              <Bot class="w-4 h-4 text-cyan-400 group-hover:rotate-12 transition-transform" />
+              <span>Asistente IA</span>
+              <span class="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span>
+            </button>
           </div>
         </header>
 
@@ -247,6 +274,12 @@ onMounted(async () => {
 
     <!-- Global Report Generation Modal Dialog -->
     <ReportGenerationModal />
+
+    <!-- Drawer Asistente IA Local (Ollama) -->
+    <AIAssistantDrawer 
+      :isOpen="isAIAssistantOpen" 
+      @close="isAIAssistantOpen = false" 
+    />
   </div>
 </template>
 
