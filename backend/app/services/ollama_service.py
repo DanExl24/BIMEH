@@ -12,6 +12,7 @@ import unicodedata
 import httpx
 from typing import Dict, Any, List, Optional
 from datetime import datetime
+from app.services.query_catalog import match_catalog
 
 logger = logging.getLogger(__name__)
 
@@ -427,6 +428,74 @@ def process_user_query(
             "model": model,
             "active_militar": active_militar
         }
+
+    # --- FAST PATH: Catálogo de consultas pre-definidas -------------------
+    # Si el mensaje coincide con una plantilla conocida, ejecutamos el SQL
+    # directamente sin llamar al LLM para generación. Ahorra ~40-80s.
+    is_followup_pre = should_apply_militar_context(user_message, active_militar)
+    catalog_active_militar = active_militar if is_followup_pre else None
+    catalog_sql, catalog_desc = match_catalog(
+        user_message,
+        active_militar=catalog_active_militar,
+        current_year=datetime.now().year
+    )
+    if catalog_sql:
+        logger.info(f"[Catálogo] Fast-path activado: {catalog_desc} | SQL: {catalog_sql[:80]}...")
+        try:
+            catalog_result = execute_safe_query(db, catalog_sql)
+        except Exception as cat_err:
+            try:
+                db.rollback()
+            except Exception:
+                pass
+            logger.warning(f"[Catálogo] SQL del catálogo falló: {cat_err}. Cayendo al LLM.")
+            catalog_result = None
+
+        if catalog_result is not None:
+            if catalog_result["total"] == 0:
+                catalog_synthesis = (
+                    f"Se consultó la base de datos de BIMEJ 12 para su solicitud, "
+                    f"pero **no se encontraron registros coincidentes**."
+                )
+            else:
+                synthesis_prompt = (
+                    f"Eres el Asistente Militar de BIMEJ 12.\n"
+                    f"El usuario preguntó: \"{user_message}\"\n"
+                    f"Se ejecutó: {catalog_sql}\n"
+                    f"Resultados ({catalog_result['total']} registros): "
+                    f"{json.dumps(catalog_result['rows'][:8], ensure_ascii=False)}\n"
+                    f"Redacta un resumen militar claro y conciso en máximo 2 oraciones."
+                )
+                try:
+                    catalog_synthesis = query_ollama(
+                        prompt=synthesis_prompt, temperature=0.2,
+                        num_predict=120, timeout=30.0
+                    )
+                except Exception:
+                    catalog_synthesis = f"Se encontraron **{catalog_result['total']} registros** coincidentes."
+
+            # Detectar militar en foco a partir de resultados
+            detected_m = catalog_active_militar
+            if catalog_result.get("rows"):
+                first = catalog_result["rows"][0]
+                cedulas = {str(r.get("cedula")) for r in catalog_result["rows"] if r.get("cedula")}
+                if "cedula" in first and len(cedulas) == 1:
+                    detected_m = {
+                        "cedula": str(first.get("cedula")),
+                        "nombre": str(first.get("nombre") or (active_militar.get("nombre") if active_militar else "")).strip()
+                    }
+
+            return {
+                "type": "data",
+                "answer": catalog_synthesis,
+                "sql": catalog_sql,
+                "columns": catalog_result["columns"],
+                "rows": catalog_result["rows"],
+                "total_records": catalog_result["total"],
+                "model": f"{model} (catálogo)",
+                "active_militar": detected_m
+            }
+    # --- FIN FAST PATH ----------------------------------------------------
 
     # Detectar si hay un militar en contexto activo y si la pregunta se refiere a él
     militar_context = ""
