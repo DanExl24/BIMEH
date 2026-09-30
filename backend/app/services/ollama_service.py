@@ -349,29 +349,68 @@ def process_user_query(
             "active_militar": active_militar
         }
 
+def should_apply_militar_context(user_message: str, active_militar: Optional[Dict[str, Any]]) -> bool:
+    """
+    Determina si la consulta del usuario es un seguimiento del militar en contexto
+    o si está cambiando de tema / buscando a otra persona o al batallón general.
+    """
+    if not active_militar or not active_militar.get("cedula"):
+        return False
+
+    msg = user_message.lower().strip()
+    active_cedula = str(active_militar.get("cedula"))
+    active_nombre = str(active_militar.get("nombre", "")).lower()
+
+    # 1. Si el usuario escribió una cédula numérica explícita:
+    cedulas_encontradas = re.findall(r"\b\d{6,10}\b", msg)
+    if cedulas_encontradas:
+        # Si coincide con la actual, es seguimiento; si es otra cédula, es un cambio de persona
+        return all(c == active_cedula for c in cedulas_encontradas)
+
+    # 2. Si pregunta por métricas globales de toda la unidad:
+    global_triggers = [
+        "todo el personal", "todo el batallon", "todo el batallón",
+        "todos los militares", "total de personal", "en total", "general",
+        "cuantos militares hay", "cuántos militares hay", "fuerza disponible"
+    ]
+    if any(gt in msg for gt in global_triggers):
+        return False
+
+    # 3. Si pregunta por OTRA persona (ej: 'quién es Carlos', 'ahora de Pérez', 'buscar a Rodríguez'):
+    search_new_person = [
+        "quien es ", "quién es ", "buscar a ", "busca a ", "informacion sobre ",
+        "información sobre ", "informacion de ", "información de ", "datos de ",
+        "que sabes de ", "qué sabes de ", "ahora de ", "y de ", "y sobre "
+    ]
+    for snp in search_new_person:
+        if snp in msg:
+            remainder = msg.split(snp, 1)[1].strip()
+            # Si el resto no son pronombres relativos ('él', 'este militar', 'su')
+            if not remainder.startswith(("el ", "él", "su ", "este ", "dicho ")):
+                active_tokens = {t for t in re.split(r"\W+", active_nombre) if len(t) > 2}
+                remainder_tokens = {t for t in re.split(r"\W+", remainder) if len(t) > 2}
+                if remainder_tokens and not remainder_tokens.intersection(active_tokens):
+                    return False  # Nueva persona detectada
+
+    # 4. Palabras clave inequívocas de seguimiento ("su", "sus", "él", "novedad", etc.)
+    followup_keywords = [
+        "su ", "sus ", "él", "este militar", "dicho militar",
+        "este soldado", "este efectivo", "este personal", "novedad", "novedades",
+        "permiso", "permisos", "vacacion", "vacaciones", "excusa", "incapacidad",
+        "falta", "faltas", "ausencia", "reporte", "dias", "días", "cuantas", "cuántas",
+        "cuanto", "cuánto", "cual", "cuál", "cuando", "cuándo", "donde", "dónde",
+        "estado", "activo", "retirado", "historial"
+    ]
+    return any(k in msg for k in followup_keywords)
+
+
     # Detectar si hay un militar en contexto activo y si la pregunta se refiere a él
     militar_context = ""
-    is_followup = False
-    if active_militar and active_militar.get("cedula"):
-        msg_lower = user_message.lower().strip()
-        keywords = [
-            "su ", "sus ", "él", "el ", "ella", "este militar", "dicho militar",
-            "este soldado", "este efectivo", "este personal", "novedad", "novedades",
-            "permiso", "permisos", "vacacion", "vacaciones", "excusa", "incapacidad",
-            "falta", "faltas", "ausencia", "reporte", "dias", "días", "cuantas", "cuántas",
-            "cuanto", "cuánto", "cual", "cuál", "cuando", "cuándo", "donde", "dónde",
-            "estado", "activo", "retirado", "historial"
-        ]
-        global_keywords = [
-            "todo el personal", "todo el batallon", "todo el batallón",
-            "todos los militares", "total de personal", "en total", "general"
-        ]
-        if not any(gk in msg_lower for gk in global_keywords):
-            if any(k in msg_lower for k in keywords) or len(msg_lower.split()) <= 6:
-                is_followup = True
-                ced_val = active_militar.get("cedula")
-                nom_val = active_militar.get("nombre", "")
-                militar_context = f"""
+    is_followup = should_apply_militar_context(user_message, active_militar)
+    if is_followup:
+        ced_val = active_militar.get("cedula")
+        nom_val = active_militar.get("nombre", "")
+        militar_context = f"""
 ATENCIÓN - MILITAR EN CONTEXTO ACTIVO:
 Nombre: {nom_val}
 Cédula: {ced_val}
