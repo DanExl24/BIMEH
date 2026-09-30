@@ -320,35 +320,6 @@ def get_fast_conversational_reply(text: str) -> tuple[Optional[str], Optional[st
     return None, None
 
 
-def process_user_query(
-    user_message: str,
-    db,
-    history: Optional[List[Dict[str, Any]]] = None,
-    active_militar: Optional[Dict[str, Any]] = None
-) -> Dict[str, Any]:
-    """
-    Procesa un mensaje en lenguaje natural:
-    1. Determina si requiere consulta de base de datos.
-    2. Si requiere SQL, lo genera y valida teniendo en cuenta el historial y el militar en contexto.
-    3. Ejecuta la consulta en PostgreSQL con auto-corrección (Self-Healing).
-    4. Solicita a la IA que sintetice los resultados en lenguaje militar conciso.
-    """
-    model = get_configured_model()
-
-    # Respuesta ultrarrápida para saludos y cortesía militar (0.01s sin saturar CPU)
-    conv_tipo, fast_reply = get_fast_conversational_reply(user_message)
-    if conv_tipo and fast_reply:
-        return {
-            "type": "conversation",
-            "answer": fast_reply,
-            "sql": None,
-            "columns": [],
-            "rows": [],
-            "total_records": 0,
-            "model": model,
-            "active_militar": active_militar
-        }
-
 def should_apply_militar_context(user_message: str, active_militar: Optional[Dict[str, Any]]) -> bool:
     """
     Determina si la consulta del usuario es un seguimiento del militar en contexto
@@ -403,6 +374,35 @@ def should_apply_militar_context(user_message: str, active_militar: Optional[Dic
     ]
     return any(k in msg for k in followup_keywords)
 
+
+def process_user_query(
+    user_message: str,
+    db,
+    history: Optional[List[Dict[str, Any]]] = None,
+    active_militar: Optional[Dict[str, Any]] = None
+) -> Dict[str, Any]:
+    """
+    Procesa un mensaje en lenguaje natural:
+    1. Determina si requiere consulta de base de datos.
+    2. Si requiere SQL, lo genera y valida teniendo en cuenta el historial y el militar en contexto.
+    3. Ejecuta la consulta en PostgreSQL con auto-corrección (Self-Healing).
+    4. Solicita a la IA que sintetice los resultados en lenguaje militar conciso.
+    """
+    model = get_configured_model()
+
+    # Respuesta ultrarrápida para saludos y cortesía militar (0.01s sin saturar CPU)
+    conv_tipo, fast_reply = get_fast_conversational_reply(user_message)
+    if conv_tipo and fast_reply:
+        return {
+            "type": "conversation",
+            "answer": fast_reply,
+            "sql": None,
+            "columns": [],
+            "rows": [],
+            "total_records": 0,
+            "model": model,
+            "active_militar": active_militar
+        }
 
     # Detectar si hay un militar en contexto activo y si la pregunta se refiere a él
     militar_context = ""
@@ -460,9 +460,13 @@ Eres el motor Text-to-SQL de BIMEH. Tu misión principal es responder mediante c
   Responde con cortesía militar breve, formal y directa, poniéndote a disposición para consultas de personal del batallón.
 
 EJEMPLOS DE REFERENCIA (FEW-SHOT):
-Usuario: "informacion sobre jorge peña muñoz"
+Usuario: "sabes quien es jorge peña muñoz"
 Respuesta:
-{{"tipo": "sql", "sql": "SELECT cedula, nombre, estado, fecha_retiro, total_novedades_historicas FROM v_personal_resumen WHERE UPPER(nombre) LIKE '%JORGE%' AND UPPER(nombre) LIKE '%PEÑA%' LIMIT 10", "explicacion": "Consultando registro y estado militar de Jorge Peña"}}
+{{"tipo": "sql", "sql": "SELECT cedula, nombre, estado, fecha_retiro, total_novedades_historicas FROM v_personal_resumen WHERE UPPER(nombre) LIKE '%JORGE%' AND UPPER(nombre) LIKE '%PEÑA%' LIMIT 10", "explicacion": "Buscando información militar de Jorge Peña Muñoz"}}
+
+Usuario: "quien es el soldado rodriguez"
+Respuesta:
+{{"tipo": "sql", "sql": "SELECT cedula, nombre, estado, fecha_retiro, total_novedades_historicas FROM v_personal_resumen WHERE UPPER(nombre) LIKE '%RODRIGUEZ%' LIMIT 10", "explicacion": "Buscando al militar Rodríguez"}}
 
 Usuario: "cuales son las novedades mas presentes en este militar?"
 (Contexto previo del militar Jorge Peña / cédula 6804683)
@@ -480,14 +484,6 @@ Respuesta:
 Usuario: "que novedades son las que mas se presentan"
 Respuesta:
 {{"tipo": "sql", "sql": "SELECT novedad, total_dias_registrados, total_personal_afectado FROM v_conteo_novedades ORDER BY total_dias_registrados DESC LIMIT 10", "explicacion": "Ranking de novedades más frecuentes"}}
-
-Usuario: "buenos días mi comando"
-Respuesta:
-{{"tipo": "conversacion", "respuesta": "¡Muy buenos días mi comando! Asistente de BIMEJ 12 a su entera disposición para consultas y novedades de personal. ¿Qué verificación militar requiere hoy?"}}
-
-Usuario: "muchas gracias por la ayuda"
-Respuesta:
-{{"tipo": "conversacion", "respuesta": "A la orden mi comando. Firme a su disposición para apoyar la gestión del personal militar."}}
 
 Devuelve ÚNICAMENTE un objeto JSON válido.
 """
@@ -520,6 +516,13 @@ Devuelve ÚNICAMENTE un objeto JSON válido.
         tipo = parsed.get("tipo", "conversacion")
         generated_sql = parsed.get("sql")
         direct_answer = parsed.get("respuesta") or parsed.get("explicacion") or ""
+
+        # Rescate de SQL si el modelo colocó la sentencia SELECT dentro de su respuesta de texto
+        if not generated_sql or tipo == "conversacion":
+            candidate = extract_sql_from_text(direct_answer) or extract_sql_from_text(raw_response)
+            if candidate and "SELECT" in candidate.upper():
+                tipo = "sql"
+                generated_sql = candidate
     except Exception:
         extracted = extract_sql_from_text(raw_response)
         if extracted and "SELECT" in extracted.upper():
