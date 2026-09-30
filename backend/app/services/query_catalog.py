@@ -108,19 +108,52 @@ def _extract_novedad_type(msg_norm: str) -> Optional[str]:
 
 def _extract_name_tokens(msg_norm: str) -> List[str]:
     stopwords = {
+        # articulos y preposiciones
         "el", "la", "los", "las", "un", "una", "de", "del", "al",
         "en", "con", "por", "que", "se", "su", "sus", "es", "son",
-        "hay", "y", "o", "a", "me", "te", "nos", "cuantos", "cuantas",
+        "hay", "y", "o", "a", "me", "te", "nos",
+        # pronombres / interrogativos
+        "cuantos", "cuantas", "quien", "quienes", "cual", "cuales",
+        "como", "donde", "cuando", "este", "esta", "ese", "esa",
+        # verbos comunes que confunden con nombres
+        "sabes", "conoces", "tiene", "tienes", "sabe", "conoce",
+        "puedes", "podrias", "quiero", "quieres", "puedo",
+        "decir", "decime", "dime", "ver", "saber", "conocer",
+        "buscar", "busca", "dame", "mostrar", "listar", "lista",
+        "informacion", "datos", "historia", "historial",
+        "novedades", "novedad",
+        # rangos militares (no son nombres propios)
         "personal", "militar", "soldado", "cabo", "sargento", "teniente",
         "mayor", "coronel", "capitan", "suboficial", "efectivo",
-        "informacion", "datos", "historia", "historial", "novedades",
-        "novedad", "decir", "decime", "dime", "quien", "cual", "cuales",
-        "como", "donde", "cuando", "puedes", "podrias", "quiero", "ver",
-        "saber", "conocer", "buscar", "busca", "dame", "mostrar",
+        # otros
         "estado", "activo", "retirado", "bimej", "batallon",
+        "para", "del", "sobre", "acerca",
     }
     words = msg_norm.split()
     return [w for w in words if len(w) >= 3 and w not in stopwords and not w.isdigit()]
+
+
+def _name_like_clause(token: str) -> str:
+    """
+    Genera una condicion LIKE tolerante a N/N variantes para PostgreSQL.
+    Ej: 'MUNOZ' -> "(UPPER(nombre) LIKE '%MUNOZ%' OR UPPER(nombre) LIKE '%MUNOZ%')"
+    Como PostgreSQL mantiene la N en UPPER(), generamos ambas variantes:
+      MUNOZ  <-> MUNOZ (N en el token, puede estar como N en DB)
+      MUNOZ  <-> MUNOZ (N en DB puede haberse normalizado sin tilde)
+    La clave es generar el LIKE con N y con N, ya que la DB puede tener ambos.
+    """
+    t = token.upper()
+    # Generar variante con N->N y N->N para maxima cobertura
+    t_with_n = t.replace("N", "N")  # identidad (token ya normalizado sin tildes)
+    # Variante con N (puede estar en la DB como caracter con tilde)
+    t_with_enie = t.replace("N", "\u00d1")  # N -> N (unicode N)
+    if t_with_enie != t:
+        return f"(UPPER(nombre) LIKE '%{t}%' OR UPPER(nombre) LIKE '%{t_with_enie}%')"
+    # Si el token ya tiene N, generar variante sin ella
+    t_without_enie = t.replace("\u00d1", "N")
+    if t_without_enie != t:
+        return f"(UPPER(nombre) LIKE '%{t}%' OR UPPER(nombre) LIKE '%{t_without_enie}%')"
+    return f"UPPER(nombre) LIKE '%{t}%'"
 
 
 # ---------------------------------------------------------------------------
@@ -405,14 +438,16 @@ def match_catalog(
     # ------------------------------------------------------------------
     buscar_triggers = [
         "quien es", "buscar a", "busca a", "informacion de",
-        "datos de", "que sabes de", "mostrar personal", "buscar personal"
+        "datos de", "que sabes de", "mostrar personal", "buscar personal",
+        "sabes quien es", "dime quien es",
     ]
     for trigger in buscar_triggers:
         if trigger in msg:
-            tokens = _extract_name_tokens(msg.replace(trigger, "").strip())
+            remainder = msg.replace(trigger, "").strip()
+            tokens = _extract_name_tokens(remainder)
             if tokens:
                 like_clauses = " AND ".join(
-                    f"UPPER(nombre) LIKE '%{t.upper()}%'" for t in tokens[:3]
+                    _name_like_clause(t) for t in tokens[:4]
                 )
                 return (
                     f"SELECT cedula, nombre, estado, fecha_retiro, total_novedades_historicas "
