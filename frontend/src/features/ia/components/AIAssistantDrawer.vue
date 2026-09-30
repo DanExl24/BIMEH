@@ -323,13 +323,34 @@
 
       <!-- 3. Footer con Input de Mensajes -->
       <div class="p-3 sm:p-4 border-t border-darkBorder/80 bg-gradient-to-r from-slate-900/95 via-darkCard/95 to-slate-900/95 shrink-0 space-y-2">
+        <!-- Pastilla de Contexto Activo de Militar -->
+        <div 
+          v-if="activeMilitar"
+          class="flex items-center justify-between gap-2 px-3 py-1.5 rounded-xl bg-cyan-950/80 border border-cyan-500/40 text-[11px] text-cyan-200 shadow-sm animate-in fade-in"
+        >
+          <div class="flex items-center gap-1.5 truncate">
+            <span class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse shrink-0"></span>
+            <span class="text-cyan-400 font-bold shrink-0">Militar en contexto:</span>
+            <span class="font-semibold truncate text-white uppercase">{{ activeMilitar.nombre }}</span>
+            <span class="font-mono text-cyan-300 text-[10px] shrink-0">(C.C. {{ activeMilitar.cedula }})</span>
+          </div>
+          <button 
+            type="button"
+            @click="limpiarMilitarActivo"
+            class="p-0.5 rounded text-cyan-400/80 hover:text-white hover:bg-cyan-900/80 transition-colors cursor-pointer shrink-0"
+            title="Liberar contexto militar (consultar todo el batallón)"
+          >
+            <X class="w-3.5 h-3.5" />
+          </button>
+        </div>
+
         <form @submit.prevent="enviarMensaje" class="flex items-center gap-2">
           <input
             ref="inputRef"
             v-model="inputTexto"
             type="text"
             :disabled="isEnviando || !status?.online"
-            placeholder="Pregunte sobre personal, novedades, fuerza disponible o días de ausencia..."
+            :placeholder="activeMilitar ? `Pregunte sobre ${activeMilitar.nombre} (ej: ¿cuál es su novedad más frecuente?)...` : 'Pregunte sobre personal, novedades, fuerza disponible o días de ausencia...'"
             class="flex-1 bg-slate-950 border border-darkBorder hover:border-cyan-500/40 focus:border-cyan-400 text-slate-100 rounded-xl px-3.5 py-2.5 text-xs font-medium focus:outline-none transition-all placeholder:text-slate-600 disabled:opacity-50"
           />
 
@@ -381,7 +402,7 @@ import {
   AlertCircle
 } from 'lucide-vue-next'
 
-import type { IAStatusResponse, IAChatMessage } from '../types/ia.types'
+import type { IAStatusResponse, IAChatMessage, ActiveMilitar } from '../types/ia.types'
 import { iaService } from '../services/ia.service'
 import { marked } from 'marked'
 
@@ -413,6 +434,11 @@ const isEnviando = ref(false)
 const isLoadingApreciacion = ref(false)
 const inputTexto = ref('')
 const mensajes = ref<IAChatMessage[]>([])
+const activeMilitar = ref<ActiveMilitar | null>(null)
+
+const limpiarMilitarActivo = () => {
+  activeMilitar.value = null
+}
 
 const mostrarConfig = ref(false)
 const customBaseUrl = ref('')
@@ -423,7 +449,7 @@ const configSuccessMsg = ref<string | null>(null)
 
 const availableModels = computed(() => {
   const installed = status.value?.models_installed || []
-  const defaults = ['llama3.2:3b', 'llama3.1:8b']
+  const defaults = ['llama3.2:3b']
   return Array.from(new Set([...installed, ...defaults]))
 })
 
@@ -559,7 +585,7 @@ const verificarEstado = async () => {
     status.value = {
       online: false,
       base_url: 'http://127.0.0.1:11434',
-      model_configured: 'llama3.1:8b',
+      model_configured: 'llama3.2:3b',
       model_available: false,
       models_installed: [],
       error: 'Error de conexión con el backend'
@@ -597,7 +623,10 @@ const enviarMensaje = async () => {
     .map(m => ({ sender: m.sender, text: m.text }))
 
   try {
-    const res = await iaService.enviarMensaje(query, historyPayload)
+    const res = await iaService.enviarMensaje(query, historyPayload, activeMilitar.value)
+    if (res.active_militar !== undefined) {
+      activeMilitar.value = res.active_militar
+    }
     const assistantMsg: IAChatMessage = {
       id: String(Date.now() + 1),
       sender: 'assistant',
@@ -673,6 +702,7 @@ const generarApreciacionDirecta = async () => {
 
 const limpiarChat = () => {
   mensajes.value = []
+  activeMilitar.value = null
 }
 
 const cerrar = () => {

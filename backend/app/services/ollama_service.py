@@ -16,7 +16,7 @@ from datetime import datetime
 logger = logging.getLogger(__name__)
 
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://127.0.0.1:11434").rstrip("/")
-OLLAMA_DEFAULT_MODEL = os.getenv("OLLAMA_MODEL", "llama3.1:8b")
+OLLAMA_DEFAULT_MODEL = os.getenv("OLLAMA_MODEL", "llama3.2:3b")
 
 DATABASE_SCHEMA_CONTEXT = """
 Eres el Asistente de Inteligencia de Personal Militar para el batallón BIMEJ 12.
@@ -320,11 +320,16 @@ def get_fast_conversational_reply(text: str) -> tuple[Optional[str], Optional[st
     return None, None
 
 
-def process_user_query(user_message: str, db, history: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Any]:
+def process_user_query(
+    user_message: str,
+    db,
+    history: Optional[List[Dict[str, Any]]] = None,
+    active_militar: Optional[Dict[str, Any]] = None
+) -> Dict[str, Any]:
     """
     Procesa un mensaje en lenguaje natural:
     1. Determina si requiere consulta de base de datos.
-    2. Si requiere SQL, lo genera y valida teniendo en cuenta el historial previo.
+    2. Si requiere SQL, lo genera y valida teniendo en cuenta el historial y el militar en contexto.
     3. Ejecuta la consulta en PostgreSQL con auto-corrección (Self-Healing).
     4. Solicita a la IA que sintetice los resultados en lenguaje militar conciso.
     """
@@ -340,10 +345,48 @@ def process_user_query(user_message: str, db, history: Optional[List[Dict[str, A
             "columns": [],
             "rows": [],
             "total_records": 0,
-            "model": model
+            "model": model,
+            "active_militar": active_militar
         }
 
-    # Extraer contexto conversacional previo (para preguntas como 'en este militar', 'sus novedades', etc.)
+    # Detectar si hay un militar en contexto activo y si la pregunta se refiere a él
+    militar_context = ""
+    is_followup = False
+    if active_militar and active_militar.get("cedula"):
+        msg_lower = user_message.lower().strip()
+        keywords = [
+            "su ", "sus ", "él", "el ", "ella", "este militar", "dicho militar",
+            "este soldado", "este efectivo", "este personal", "novedad", "novedades",
+            "permiso", "permisos", "vacacion", "vacaciones", "excusa", "incapacidad",
+            "falta", "faltas", "ausencia", "reporte", "dias", "días", "cuantas", "cuántas",
+            "cuanto", "cuánto", "cual", "cuál", "cuando", "cuándo", "donde", "dónde",
+            "estado", "activo", "retirado", "historial"
+        ]
+        global_keywords = [
+            "todo el personal", "todo el batallon", "todo el batallón",
+            "todos los militares", "total de personal", "en total", "general"
+        ]
+        if not any(gk in msg_lower for gk in global_keywords):
+            if any(k in msg_lower for k in keywords) or len(msg_lower.split()) <= 6:
+                is_followup = True
+                ced_val = active_militar.get("cedula")
+                nom_val = active_militar.get("nombre", "")
+                militar_context = f"""
+ATENCIÓN - MILITAR EN CONTEXTO ACTIVO:
+Nombre: {nom_val}
+Cédula: {ced_val}
+El usuario está haciendo una pregunta de seguimiento ("su", "sus", "él", "sus novedades") sobre ESTE militar específico.
+REGLA ESTRICTA: Tu consulta SQL DEBE filtrar obligatoriamente por: cedula = {ced_val}
+- Si pregunta por su novedad más registrada o sus novedades frecuentes:
+  SELECT novedad, COUNT(*) AS total_dias FROM v_novedades_detalle WHERE cedula = {ced_val} GROUP BY novedad ORDER BY total_dias DESC LIMIT 5
+- Si pregunta por el listado de sus novedades o historial:
+  SELECT fecha_reporte, novedad, descripcion FROM v_novedades_detalle WHERE cedula = {ced_val} ORDER BY fecha_reporte DESC LIMIT 20
+- Si pregunta por su estado o datos personales:
+  SELECT cedula, nombre, estado, fecha_retiro, total_novedades_historicas FROM v_personal_resumen WHERE cedula = {ced_val}
+NUNCA consultes v_conteo_novedades (vista general del batallón) para preguntas de este militar.
+"""
+
+    # Extraer contexto conversacional previo
     contexto_previo = ""
     if history:
         valid_items = [h for h in history if h.get("text")][-3:]
@@ -356,12 +399,13 @@ def process_user_query(user_message: str, db, history: Optional[List[Dict[str, A
             contexto_previo = (
                 "CONTEXTO DE LA CONVERSACIÓN PREVIA:\n"
                 + "\n".join(lineas)
-                + "\n(IMPORTANTE: Si el usuario usa expresiones como 'este militar', 'él', 'sus novedades' o 'este personal', deduce el militar o cédula correspondiente de este historial previo).\n\n"
+                + "\n\n"
             )
 
     system_intent = f"""
 {DATABASE_SCHEMA_CONTEXT}
 
+{militar_context}
 {contexto_previo}DIRECTIVAS Y REGLAS DE DECISIÓN OBLIGATORIAS:
 Eres el motor Text-to-SQL de BIMEH. Tu misión principal es responder mediante consultas SQL PostgreSQL.
 
@@ -410,6 +454,9 @@ Devuelve ÚNICAMENTE un objeto JSON válido.
 """
 
     prompt = f"Solicitud del usuario: \"{user_message}\""
+    if militar_context:
+        prompt = f"{militar_context.strip()}\n\nSolicitud del usuario: \"{user_message}\""
+
     raw_response = query_ollama(
         prompt=prompt,
         system=system_intent,
@@ -452,7 +499,8 @@ Devuelve ÚNICAMENTE un objeto JSON válido.
             "columns": [],
             "rows": [],
             "total_records": 0,
-            "model": model
+            "model": model,
+            "active_militar": active_militar
         }
 
     # Si es SQL, validar y ejecutar con bucle de auto-corrección (Self-Healing SQL)
@@ -522,7 +570,8 @@ Responde ÚNICAMENTE en formato JSON válido:
             "columns": [],
             "rows": [],
             "total_records": 0,
-            "model": model
+            "model": model,
+            "active_militar": active_militar
         }
 
     # Si la consulta no dio error pero devolvió 0 registros, verificar si fue una búsqueda por nombre
@@ -560,6 +609,19 @@ Menciona los totales o el hallazgo principal sin repetir toda la tabla.
         except Exception:
             synthesis = f"Se encontraron **{query_result['total']} registros** que coinciden con su consulta."
 
+    # Detectar o mantener militar en foco
+    detected_militar = active_militar if is_followup else None
+    if query_result and query_result.get("rows"):
+        first_row = query_result["rows"][0]
+        if "cedula" in first_row and first_row.get("cedula"):
+            cedulas = {str(r.get("cedula")) for r in query_result["rows"] if r.get("cedula")}
+            if len(cedulas) == 1:
+                row_nombre = str(first_row.get("nombre") or first_row.get("nombres") or (active_militar.get("nombre") if active_militar else "")).strip()
+                detected_militar = {
+                    "cedula": str(first_row.get("cedula")),
+                    "nombre": row_nombre
+                }
+
     return {
         "type": "data",
         "answer": synthesis,
@@ -567,7 +629,8 @@ Menciona los totales o el hallazgo principal sin repetir toda la tabla.
         "columns": query_result["columns"],
         "rows": query_result["rows"],
         "total_records": query_result["total"],
-        "model": model
+        "model": model,
+        "active_militar": detected_militar
     }
 
 

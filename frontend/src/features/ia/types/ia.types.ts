@@ -21,6 +21,11 @@ export interface IAChatMessage {
   isError?: boolean
 }
 
+export interface ActiveMilitar {
+  cedula: string | number
+  nombre: string
+}
+
 export interface IAChatResponse {
   status: 'success' | 'error'
   type: 'conversation' | 'data' | 'error'
@@ -31,6 +36,7 @@ export interface IAChatResponse {
   total_records: number
   model: string
   elapsed_seconds?: number
+  active_militar?: ActiveMilitar | null
 }
 
 export interface IAApreciacionKpis {

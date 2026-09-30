@@ -2,7 +2,8 @@ import { http } from '@services/http'
 import type {
   IAStatusResponse,
   IAChatResponse,
-  IAApreciacionResponse
+  IAApreciacionResponse,
+  ActiveMilitar
 } from '../types/ia.types'
 
 export const iaService = {
@@ -14,10 +15,18 @@ export const iaService = {
   },
 
   /**
-   * Envía una consulta en lenguaje natural al Asistente IA junto con historial previo
+   * Envía una consulta en lenguaje natural al Asistente IA junto con historial previo y militar en contexto
    */
-  enviarMensaje: async (message: string, history?: any[]): Promise<IAChatResponse> => {
-    return http.post<IAChatResponse>('/api/ia/chat', { message, history })
+  enviarMensaje: async (
+    message: string,
+    history?: any[],
+    activeMilitar?: ActiveMilitar | null
+  ): Promise<IAChatResponse> => {
+    return http.post<IAChatResponse>('/api/ia/chat', {
+      message,
+      history,
+      active_militar: activeMilitar
+    })
   },
 
   /**
