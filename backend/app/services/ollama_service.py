@@ -596,6 +596,13 @@ Devuelve ÚNICAMENTE un objeto JSON válido.
             break  # ¡Consulta ejecutada con éxito!
         except Exception as sql_err:
             last_sql_err = sql_err
+            # CRÍTICO: PostgreSQL deja la transacción en estado "aborted" tras un error.
+            # Hay que hacer rollback ANTES de cualquier reintento, o todas las queries
+            # siguientes fallarán con "current transaction is aborted".
+            try:
+                db.rollback()
+            except Exception:
+                pass
             logger.warning(
                 f"[Auto-Corrección IA] Intento {intento + 1}/{max_retries + 1} falló al ejecutar SQL: {sql_err}. "
                 "Enviando feedback de error a Ollama para auto-reparación..."
@@ -656,6 +663,7 @@ Responde ÚNICAMENTE en formato JSON válido:
         relaxed_sql = relax_name_search_query(validated_sql)
         if relaxed_sql and relaxed_sql != validated_sql:
             try:
+                db.rollback()  # limpiar cualquier estado residual antes de reintentar
                 relaxed_res = execute_safe_query(db, relaxed_sql)
                 if relaxed_res["total"] > 0:
                     logger.info(f"Búsqueda relajada por nombres encontró {relaxed_res['total']} coincidencias: {relaxed_sql}")
