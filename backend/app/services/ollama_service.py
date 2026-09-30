@@ -40,15 +40,9 @@ VISTAS RECOMENDADAS (PRIORIZA SIEMPRE ESTAS VISTAS PARA MÁXIMA RAPIDEZ Y PRECIS
    - Úsala para consultar estadísticas generales de cuáles son las novedades más frecuentes.
    - Ejemplo: SELECT * FROM v_conteo_novedades ORDER BY total_dias_registrados DESC LIMIT 10
 
-TABLAS BASE (SÓLO SI ES ESTRICTAMENTE NECESARIO):
-- PERSONAL (id, cedula, nombre, fecha_retiro)
-- REPORTES (id, fecha, archivo)
-- SUB_NOVEDADES (id, nombre)
-- REGISTRO_PERSONAL (id, id_reporte, id_personal, id_sub_novedad, descripcion, fecha_inicio, fecha_final)
-
 REGLAS CRÍTICAS DE SQL:
 - Solo genera consultas SELECT. NUNCA generes INSERT, UPDATE, DELETE, DROP, ALTER, TRUNCATE.
-- Prioriza SIEMPRE las vistas `v_personal_resumen` y `v_novedades_detalle` porque ya tienen los JOINs resueltos e indexados.
+- Prioriza SIEMPRE las vistas `v_personal_resumen` y `v_novedades_detalle` porque ya tienen los datos combinados e indexados.
 - REGLA DE ORO PARA BÚSQUEDA DE PERSONAS:
   En la base militar, los nombres están registrados en formato "APELLIDOS NOMBRES" (ej: "PEÑA MUÑOZ JORGE ENRIQUE").
   NUNCA concatenes palabras en un solo LIKE ordenado como '%JORGE%PEÑA%' (fallará porque el apellido va antes del nombre).
@@ -248,20 +242,25 @@ def query_ollama(
     system: Optional[str] = None,
     format: Optional[str] = None,
     temperature: float = 0.1,
+    num_predict: Optional[int] = None,
     timeout: float = 90.0
 ) -> str:
     """Envía un prompt a Ollama y retorna la respuesta de texto."""
     model = get_configured_model()
     base_url = get_ollama_base_url()
     url = f"{base_url}/api/generate"
+    options_payload: Dict[str, Any] = {
+        "temperature": temperature,
+        "top_p": 0.9
+    }
+    if num_predict:
+        options_payload["num_predict"] = num_predict
+
     payload = {
         "model": model,
         "prompt": prompt,
         "stream": False,
-        "options": {
-            "temperature": temperature,
-            "top_p": 0.9
-        }
+        "options": options_payload
     }
     if format:
         payload["format"] = format
@@ -321,13 +320,13 @@ def get_fast_conversational_reply(text: str) -> tuple[Optional[str], Optional[st
     return None, None
 
 
-def process_user_query(user_message: str, db) -> Dict[str, Any]:
+def process_user_query(user_message: str, db, history: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Any]:
     """
     Procesa un mensaje en lenguaje natural:
     1. Determina si requiere consulta de base de datos.
-    2. Si requiere SQL, lo genera y valida.
+    2. Si requiere SQL, lo genera y valida teniendo en cuenta el historial previo.
     3. Ejecuta la consulta en PostgreSQL con auto-corrección (Self-Healing).
-    4. Solicita a la IA que sintetice los resultados en lenguaje militar claro.
+    4. Solicita a la IA que sintetice los resultados en lenguaje militar conciso.
     """
     model = get_configured_model()
 
@@ -344,10 +343,26 @@ def process_user_query(user_message: str, db) -> Dict[str, Any]:
             "model": model
         }
 
+    # Extraer contexto conversacional previo (para preguntas como 'en este militar', 'sus novedades', etc.)
+    contexto_previo = ""
+    if history:
+        valid_items = [h for h in history if h.get("text")][-3:]
+        lineas = []
+        for h in valid_items:
+            remitente = "Usuario" if h.get("sender") == "user" else "Asistente"
+            texto_limpio = h.get("text", "").replace("\n", " ")[:180]
+            lineas.append(f"{remitente}: {texto_limpio}")
+        if lineas:
+            contexto_previo = (
+                "CONTEXTO DE LA CONVERSACIÓN PREVIA:\n"
+                + "\n".join(lineas)
+                + "\n(IMPORTANTE: Si el usuario usa expresiones como 'este militar', 'él', 'sus novedades' o 'este personal', deduce el militar o cédula correspondiente de este historial previo).\n\n"
+            )
+
     system_intent = f"""
 {DATABASE_SCHEMA_CONTEXT}
 
-DIRECTIVAS Y REGLAS DE DECISIÓN OBLIGATORIAS:
+{contexto_previo}DIRECTIVAS Y REGLAS DE DECISIÓN OBLIGATORIAS:
 Eres el motor Text-to-SQL de BIMEH. Tu misión principal es responder mediante consultas SQL PostgreSQL.
 
 1. REGLA FUNDAMENTAL DE CONSULTA A BASE DE DATOS:
@@ -365,6 +380,11 @@ EJEMPLOS DE REFERENCIA (FEW-SHOT):
 Usuario: "informacion sobre jorge peña muñoz"
 Respuesta:
 {{"tipo": "sql", "sql": "SELECT cedula, nombre, estado, fecha_retiro, total_novedades_historicas FROM v_personal_resumen WHERE UPPER(nombre) LIKE '%JORGE%' AND UPPER(nombre) LIKE '%PEÑA%' LIMIT 10", "explicacion": "Consultando registro y estado militar de Jorge Peña"}}
+
+Usuario: "cuales son las novedades mas presentes en este militar?"
+(Contexto previo del militar Jorge Peña / cédula 6804683)
+Respuesta:
+{{"tipo": "sql", "sql": "SELECT novedad, COUNT(*) AS total_dias FROM v_novedades_detalle WHERE cedula = 6804683 GROUP BY novedad ORDER BY total_dias DESC LIMIT 10", "explicacion": "Consultando el ranking de novedades del militar en contexto"}}
 
 Usuario: "cuantos militares activos hay en total"
 Respuesta:
@@ -390,7 +410,14 @@ Devuelve ÚNICAMENTE un objeto JSON válido.
 """
 
     prompt = f"Solicitud del usuario: \"{user_message}\""
-    raw_response = query_ollama(prompt=prompt, system=system_intent, format="json", temperature=0.0)
+    raw_response = query_ollama(
+        prompt=prompt,
+        system=system_intent,
+        format="json",
+        temperature=0.0,
+        num_predict=100,
+        timeout=120.0
+    )
 
     # Intentar parsear JSON
     tipo = "conversacion"
@@ -523,14 +550,13 @@ Se ejecutó con éxito la consulta SQL en PostgreSQL:
 {validated_sql}
 
 Resultados obtenidos ({query_result['total']} registros encontrados):
-{json.dumps(query_result['rows'][:15], ensure_ascii=False)}
+{json.dumps(query_result['rows'][:8], ensure_ascii=False)}
 
-Por favor, redacta una respuesta clara, concisa y formal (estilo parte militar para BIMEJ 12).
-Resume los hallazgos principales, totales y casos más destacados si los hay.
-No repitas toda la tabla registro por registro si son muchos, ya que se le mostrará la tabla completa al usuario en pantalla.
+Por favor, redacta un resumen militar claro, conciso y formal en máximo 2 a 3 oraciones.
+Menciona los totales o el hallazgo principal sin repetir toda la tabla.
 """
         try:
-            synthesis = query_ollama(prompt=synthesis_prompt, temperature=0.3)
+            synthesis = query_ollama(prompt=synthesis_prompt, temperature=0.2, num_predict=130, timeout=30.0)
         except Exception:
             synthesis = f"Se encontraron **{query_result['total']} registros** que coinciden con su consulta."
 

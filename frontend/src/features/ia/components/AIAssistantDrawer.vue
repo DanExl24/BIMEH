@@ -568,10 +568,13 @@ const enviarMensaje = async () => {
   inputTexto.value = ''
   isEnviando.value = true
   iniciarTimer()
-  scrollAlFondo()
+  const historyPayload = mensajes.value
+    .filter(m => !m.isError && m.text !== query)
+    .slice(-4)
+    .map(m => ({ sender: m.sender, text: m.text }))
 
   try {
-    const res = await iaService.enviarMensaje(query)
+    const res = await iaService.enviarMensaje(query, historyPayload)
     const assistantMsg: IAChatMessage = {
       id: String(Date.now() + 1),
       sender: 'assistant',

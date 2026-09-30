@@ -17,6 +17,7 @@ router = APIRouter(prefix="/api/ia", tags=["IA"])
 
 class ChatMessageRequest(BaseModel):
     message: str = Field(..., min_length=1, description="Pregunta o solicitud en lenguaje natural para la IA")
+    history: Optional[List[Dict[str, Any]]] = Field(default=None, description="Historial previo de mensajes")
 
 
 class ApreciacionRequest(BaseModel):
@@ -70,7 +71,7 @@ def chat_with_ia(req: ChatMessageRequest, db = Depends(get_db)):
 
     start_time = time.time()
     try:
-        resultado = ollama_service.process_user_query(req.message, db)
+        resultado = ollama_service.process_user_query(req.message, db, req.history)
         elapsed = round(time.time() - start_time, 1)
         return {
             "status": "success",

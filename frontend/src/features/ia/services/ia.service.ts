@@ -14,10 +14,10 @@ export const iaService = {
   },
 
   /**
-   * Envía una consulta en lenguaje natural al Asistente IA
+   * Envía una consulta en lenguaje natural al Asistente IA junto con historial previo
    */
-  enviarMensaje: async (message: string): Promise<IAChatResponse> => {
-    return http.post<IAChatResponse>('/api/ia/chat', { message })
+  enviarMensaje: async (message: string, history?: any[]): Promise<IAChatResponse> => {
+    return http.post<IAChatResponse>('/api/ia/chat', { message, history })
   },
 
   /**
