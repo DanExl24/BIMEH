@@ -78,11 +78,20 @@ def check_ollama_status() -> Dict[str, Any]:
             if res.status_code == 200:
                 data = res.json()
                 models = [m.get("name", "") for m in data.get("models", [])]
-                # Buscar coincidencia exacta o por prefijo (ej: llama3.1:8b o llama3.1:latest)
+                # Buscar coincidencia exacta o por prefijo (ej: llama3.2:3b)
                 model_found = any(
                     m == model_name or m.startswith(model_name.split(":")[0]) 
                     for m in models
                 )
+                # AUTO-CONMUTACIÓN: Si el modelo configurado (ej: 8b) no existe pero hay modelos instalados,
+                # usar automáticamente el modelo instalado (ej: llama3.2:3b)
+                if not model_found and models:
+                    preferred = next((m for m in models if "3.2" in m or "llama" in m), models[0])
+                    logger.warning(f"Modelo configurado '{model_name}' no existe en Ollama. Auto-conmutando a '{preferred}'.")
+                    os.environ["OLLAMA_MODEL"] = preferred
+                    model_name = preferred
+                    model_found = True
+
                 return {
                     "online": True,
                     "base_url": base_url,
@@ -267,9 +276,24 @@ def query_ollama(
     if system:
         payload["system"] = system
 
+    # Si el modelo configurado contiene 8b, verificar estado para auto-conmutar a 3b
+    if "8b" in model:
+        status_info = check_ollama_status()
+        model = status_info.get("model_configured", "llama3.2:3b")
+        payload["model"] = model
+
     try:
         with httpx.Client(timeout=timeout) as client:
             res = client.post(url, json=payload)
+            if res.status_code == 404:
+                # El modelo solicitado no existe en Ollama (ej. llama3.1:8b fue borrado)
+                # Auto-conmutar con los modelos disponibles
+                status_info = check_ollama_status()
+                auto_model = status_info.get("model_configured")
+                if auto_model and auto_model != model:
+                    logger.warning(f"Reintentando query_ollama con modelo auto-detectado: '{auto_model}'")
+                    payload["model"] = auto_model
+                    res = client.post(url, json=payload)
             if res.status_code == 200:
                 return res.json().get("response", "").strip()
             else:
@@ -441,8 +465,18 @@ NUNCA consultes v_conteo_novedades (vista general del batallón) para preguntas 
                 + "\n\n"
             )
 
+    fecha_actual = datetime.now()
+    fecha_str = fecha_actual.strftime("%d de %B de %Y")  # ej: "29 de septiembre de 2026"
+    anio_actual = fecha_actual.year
+    mes_actual = fecha_actual.month
+    dia_actual = fecha_actual.day
+
     system_intent = f"""
 {DATABASE_SCHEMA_CONTEXT}
+
+FECHA Y HORA ACTUAL DEL SISTEMA: {fecha_str} (año {anio_actual}, mes {mes_actual}, día {dia_actual}).
+REGLA CRÍTICA DE FECHAS: Cuando el usuario NO especifique el año en su consulta (ej: "en julio", "del 20 al 30", "en mayo"),
+DEBES asumir SIEMPRE el año actual ({anio_actual}). NUNCA uses años anteriores como 2023 o 2024 si no se mencionan explícitamente.
 
 {militar_context}
 {contexto_previo}DIRECTIVAS Y REGLAS DE DECISIÓN OBLIGATORIAS:
