@@ -213,10 +213,41 @@ def match_catalog(
     day_range = _extract_day_range(msg)
     anio = _extract_year(msg, year)
 
+    # Extraer umbral de dias: "mas de 10 dias", "mas de 5 dias", etc.
+    min_days_match = re.search(r"m[aá]s\s+de\s+(\d+)\s+d[ií]as?", msg)
+    min_days = int(min_days_match.group(1)) if min_days_match else None
+
+    # ------------------------------------------------------------------
+    # 6-EXTRA. PERSONAL CON MAS DE N DIAS DE [NOVEDAD]
+    # "listar personal con mas de 10 dias de incapacidad"
+    # ------------------------------------------------------------------
+    if min_days is not None and novedad_type:
+        return (
+            f"SELECT cedula, nombre, COUNT(*) AS total_dias "
+            f"FROM v_novedades_detalle "
+            f"WHERE UPPER(novedad) LIKE '%{novedad_type}%' "
+            f"GROUP BY cedula, nombre "
+            f"HAVING COUNT(*) > {min_days} "
+            f"ORDER BY total_dias DESC LIMIT 50",
+            f"Personal con mas de {min_days} dias de {novedad_type}"
+        )
+
+    # Si hay umbral de dias pero sin tipo de novedad: agrupar todas las novedades
+    if min_days is not None:
+        return (
+            f"SELECT cedula, nombre, novedad, COUNT(*) AS total_dias "
+            f"FROM v_novedades_detalle "
+            f"GROUP BY cedula, nombre, novedad "
+            f"HAVING COUNT(*) > {min_days} "
+            f"ORDER BY total_dias DESC LIMIT 50",
+            f"Personal con mas de {min_days} dias de cualquier novedad"
+        )
+
     # ------------------------------------------------------------------
     # 6. PERSONAL CON TIPO DE NOVEDAD + FILTROS DE FECHA
     # ------------------------------------------------------------------
     if novedad_type:
+
         if mes_num and day_range:
             d1, d2 = day_range
             fi = f"{anio}-{mes_num:02d}-{d1:02d}"

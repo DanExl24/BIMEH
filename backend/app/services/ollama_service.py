@@ -400,6 +400,58 @@ def should_apply_militar_context(user_message: str, active_militar: Optional[Dic
     return any(k in msg for k in followup_keywords)
 
 
+REFUSAL_PHRASES = [
+    "lo siento", "no puedo", "cannot", "i'm sorry", "i cannot",
+    "no me es posible", "no estoy en capacidad", "disculpa",
+    "no tengo acceso", "no puedo proporcionar", "unable to",
+    "no puedo resumir", "no puedo generar", "no puedo ofrecer",
+]
+
+
+def _is_refusal(text: str) -> bool:
+    """Detecta si el LLM respondio con una negativa en lugar del resumen."""
+    t = text.lower().strip()
+    return any(p in t for p in REFUSAL_PHRASES)
+
+
+def _auto_synthesize(user_message: str, query_result: Dict[str, Any]) -> str:
+    """
+    Genera un resumen militar automatico a partir de los resultados sin usar el LLM.
+    Se usa como fallback cuando el modelo se niega a responder.
+    """
+    total = query_result["total"]
+    rows = query_result["rows"]
+    cols = query_result["columns"]
+
+    # Caso 1: resultado de conteo (una sola fila, una sola columna numerica)
+    if total == 1 and len(cols) == 1:
+        val = list(rows[0].values())[0]
+        col = cols[0]
+        return f"Segun la base de datos de BIMEJ 12, el resultado de la consulta es: **{col}** = **{val}**."
+
+    # Caso 2: multiples filas con cedula/nombre (listado de personal)
+    if "cedula" in cols and "nombre" in cols:
+        nombres = list({r.get("nombre", "") for r in rows[:5] if r.get("nombre")})
+        muestra = ", ".join(nombres[:3])
+        resto = f" y {total - 3} mas" if total > 3 else ""
+        return (
+            f"Se encontraron **{total} registros** en la base de datos de BIMEJ 12. "
+            f"Entre el personal identificado: {muestra}{resto}."
+        )
+
+    # Caso 3: ranking de novedades
+    if "novedad" in cols and "total_dias" in cols:
+        top = rows[0]
+        return (
+            f"La novedad mas registrada es **{top.get('novedad', '')}** "
+            f"con **{top.get('total_dias', '')} dias**. "
+            f"Se encontraron {total} tipos de novedad en total."
+        )
+
+    # Caso generico
+    return f"Se encontraron **{total} registros** que coinciden con la consulta en la base de datos de BIMEJ 12."
+
+
 def process_user_query(
     user_message: str,
     db,
@@ -471,8 +523,12 @@ def process_user_query(
                         prompt=synthesis_prompt, temperature=0.2,
                         num_predict=120, timeout=30.0
                     )
+                    # Si el modelo se nego a responder, usar resumen automatico
+                    if _is_refusal(catalog_synthesis):
+                        logger.warning("[Sintesis] El modelo se nego a responder. Usando auto-sintesis.")
+                        catalog_synthesis = _auto_synthesize(user_message, catalog_result)
                 except Exception:
-                    catalog_synthesis = f"Se encontraron **{catalog_result['total']} registros** coincidentes."
+                    catalog_synthesis = _auto_synthesize(user_message, catalog_result)
 
             # Detectar militar en foco a partir de resultados
             detected_m = catalog_active_militar
@@ -759,8 +815,12 @@ Menciona los totales o el hallazgo principal sin repetir toda la tabla.
 """
         try:
             synthesis = query_ollama(prompt=synthesis_prompt, temperature=0.2, num_predict=130, timeout=30.0)
+            # Si el modelo se nego a responder, usar resumen automatico
+            if _is_refusal(synthesis):
+                logger.warning("[Sintesis] El modelo se nego a responder. Usando auto-sintesis.")
+                synthesis = _auto_synthesize(user_message, query_result)
         except Exception:
-            synthesis = f"Se encontraron **{query_result['total']} registros** que coinciden con su consulta."
+            synthesis = _auto_synthesize(user_message, query_result)
 
     # Detectar o mantener militar en foco
     detected_militar = active_militar if is_followup else None
