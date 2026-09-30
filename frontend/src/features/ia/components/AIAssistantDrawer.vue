@@ -240,7 +240,15 @@
                   : 'bg-slate-950/90 border border-darkBorder/80 text-slate-200 rounded-tl-xs'"
             >
               <!-- Texto Markdown/Formato -->
-              <div class="whitespace-pre-wrap leading-relaxed select-text space-y-1.5">
+              <div 
+                v-if="msg.sender === 'assistant'"
+                class="markdown-content text-xs sm:text-[13px] leading-relaxed select-text space-y-1.5 text-slate-200"
+                v-html="renderMarkdown(msg.text)"
+              ></div>
+              <div 
+                v-else
+                class="whitespace-pre-wrap text-xs sm:text-[13px] leading-relaxed select-text space-y-1.5"
+              >
                 {{ msg.text }}
               </div>
 
@@ -375,6 +383,21 @@ import {
 
 import type { IAStatusResponse, IAChatMessage } from '../types/ia.types'
 import { iaService } from '../services/ia.service'
+import { marked } from 'marked'
+
+marked.setOptions({
+  breaks: true,
+  gfm: true
+})
+
+const renderMarkdown = (text: string): string => {
+  if (!text) return ''
+  try {
+    return marked.parse(text) as string
+  } catch {
+    return text
+  }
+}
 
 const props = defineProps<{
   isOpen: boolean
@@ -676,3 +699,103 @@ onUnmounted(() => {
   detenerTimer()
 })
 </script>
+
+<style scoped>
+:deep(.markdown-content) {
+  line-height: 1.6;
+}
+
+:deep(.markdown-content p) {
+  margin-bottom: 0.6rem;
+}
+
+:deep(.markdown-content p:last-child) {
+  margin-bottom: 0;
+}
+
+:deep(.markdown-content strong) {
+  font-weight: 700;
+  color: #f8fafc;
+}
+
+:deep(.markdown-content h1),
+:deep(.markdown-content h2),
+:deep(.markdown-content h3),
+:deep(.markdown-content h4) {
+  font-weight: 700;
+  color: #38bdf8;
+  margin-top: 0.75rem;
+  margin-bottom: 0.35rem;
+}
+
+:deep(.markdown-content h1) {
+  font-size: 1rem;
+}
+
+:deep(.markdown-content h2) {
+  font-size: 0.925rem;
+}
+
+:deep(.markdown-content h3) {
+  font-size: 0.85rem;
+}
+
+:deep(.markdown-content ul) {
+  list-style-type: disc;
+  padding-left: 1.25rem;
+  margin-top: 0.35rem;
+  margin-bottom: 0.6rem;
+}
+
+:deep(.markdown-content ol) {
+  list-style-type: decimal;
+  padding-left: 1.25rem;
+  margin-top: 0.35rem;
+  margin-bottom: 0.6rem;
+}
+
+:deep(.markdown-content li) {
+  margin-bottom: 0.25rem;
+}
+
+:deep(.markdown-content code) {
+  background-color: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  color: #7dd3fc;
+  padding: 0.1rem 0.3rem;
+  border-radius: 0.25rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.8em;
+}
+
+:deep(.markdown-content pre) {
+  background-color: #020617;
+  border: 1px solid rgba(56, 189, 248, 0.2);
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  overflow-x: auto;
+  margin: 0.5rem 0;
+}
+
+:deep(.markdown-content pre code) {
+  background: transparent;
+  border: none;
+  padding: 0;
+  color: #e2e8f0;
+}
+
+:deep(.markdown-content blockquote) {
+  border-left: 3px solid #06b6d4;
+  padding-left: 0.75rem;
+  color: #94a3b8;
+  font-style: italic;
+  margin: 0.5rem 0;
+}
+
+:deep(.markdown-content hr) {
+  border: none;
+  border-top: 1px solid rgba(51, 65, 85, 0.6);
+  margin: 0.75rem 0;
+}
+</style>
+
