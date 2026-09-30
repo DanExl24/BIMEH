@@ -180,6 +180,47 @@ def match_catalog(
     ced = str(active_militar.get("cedula", "")) if active_militar else ""
     nom = str(active_militar.get("nombre", "")) if active_militar else ""
 
+    # Extraer variables de fecha aqui para usarlas en block 0
+    _mes_early = _extract_month(msg)
+    _anio_early = _extract_year(msg, year)
+
+    # ------------------------------------------------------------------
+    # 0. CEDULA EXPLICITA EN EL MENSAJE (maxima prioridad)
+    # Cuando el usuario escribe una cedula directamente en el texto,
+    # ignoramos el contexto activo y resolvemos desde el mensaje.
+    # Ej: "busca a este personal 1006524181"
+    #     "novedades de julio de cedula 1006524181"
+    # ------------------------------------------------------------------
+    cedula_en_msg = re.search(r"\b(\d{7,10})\b", user_message)
+    if cedula_en_msg:
+        cv = cedula_en_msg.group(1)
+        # 0a. Cedula + novedades + mes
+        if _mes_early and re.search(r"\b(novedades?|historial|reporte|ausencias?)\b", msg):
+            return (
+                f"SELECT fecha_reporte, novedad, descripcion "
+                f"FROM v_novedades_detalle "
+                f"WHERE cedula = {cv} "
+                f"AND EXTRACT(MONTH FROM fecha_reporte) = {_mes_early} "
+                f"AND EXTRACT(YEAR FROM fecha_reporte) = {_anio_early} "
+                f"ORDER BY fecha_reporte ASC LIMIT 50",
+                f"Novedades de cedula {cv} en mes {_mes_early}/{_anio_early}"
+            )
+        # 0b. Cedula + novedades (sin mes -> historial completo)
+        if re.search(r"\b(novedades?|historial|reporte|ausencias?)\b", msg):
+            return (
+                f"SELECT fecha_reporte, novedad, descripcion "
+                f"FROM v_novedades_detalle "
+                f"WHERE cedula = {cv} "
+                f"ORDER BY fecha_reporte DESC LIMIT 30",
+                f"Historial de novedades de cedula {cv}"
+            )
+        # 0c. Busqueda pura de la persona por cedula
+        return (
+            f"SELECT cedula, nombre, estado, fecha_retiro, total_novedades_historicas "
+            f"FROM v_personal_resumen WHERE cedula = {cv} LIMIT 5",
+            f"Busqueda de personal por cedula {cv}"
+        )
+
     # ------------------------------------------------------------------
     # 1. TOTAL PERSONAL ACTIVO
     # ------------------------------------------------------------------
