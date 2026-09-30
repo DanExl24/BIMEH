@@ -318,7 +318,24 @@ def match_catalog(
             "su novedad", "ultima novedad",
         ]
         if any(kw in msg for kw in followup_kw):
-            if re.search(r"\b(frecuentes?|comunes?|mas\s+tiene|ranking)\b", msg):
+            # Patron ampliado: "mas frecuente", "mas registro", "mas tiene", "mas registrada", "ranking"
+            es_frecuentes = re.search(
+                r"\b(frecuentes?|comunes?|mas\s+tiene|mas\s+registro|mas\s+registrada?|ranking|mayor\s+cantidad)\b",
+                msg
+            )
+            if es_frecuentes:
+                # Con filtro de mes: "novedad con mas registro en julio"
+                if mes_num:
+                    return (
+                        f"SELECT novedad, COUNT(*) AS total_dias "
+                        f"FROM v_novedades_detalle "
+                        f"WHERE cedula = {ced} "
+                        f"AND EXTRACT(MONTH FROM fecha_reporte) = {mes_num} "
+                        f"AND EXTRACT(YEAR FROM fecha_reporte) = {anio} "
+                        f"GROUP BY novedad ORDER BY total_dias DESC LIMIT 10",
+                        f"Novedades mas frecuentes de {nom} en mes {mes_num}/{anio}"
+                    )
+                # Sin filtro de mes: historial completo
                 return (
                     f"SELECT novedad, COUNT(*) AS total_dias "
                     f"FROM v_novedades_detalle "
@@ -332,6 +349,17 @@ def match_catalog(
                     f"FROM v_personal_resumen WHERE cedula = {ced}",
                     f"Estado general de {nom}"
                 )
+            # Historial con filtro de mes si se menciona
+            if mes_num:
+                return (
+                    f"SELECT fecha_reporte, novedad, descripcion "
+                    f"FROM v_novedades_detalle "
+                    f"WHERE cedula = {ced} "
+                    f"AND EXTRACT(MONTH FROM fecha_reporte) = {mes_num} "
+                    f"AND EXTRACT(YEAR FROM fecha_reporte) = {anio} "
+                    f"ORDER BY fecha_reporte ASC LIMIT 50",
+                    f"Novedades de {nom} en mes {mes_num}/{anio}"
+                )
             return (
                 f"SELECT fecha_reporte, novedad, descripcion "
                 f"FROM v_novedades_detalle "
@@ -339,6 +367,7 @@ def match_catalog(
                 f"ORDER BY fecha_reporte DESC LIMIT 30",
                 f"Historial de novedades de {nom}"
             )
+
 
     # ------------------------------------------------------------------
     # 9. BUSQUEDA DE PERSONAL POR NOMBRE/APELLIDO
