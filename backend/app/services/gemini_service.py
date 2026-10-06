@@ -115,16 +115,16 @@ def query_gemini(prompt, system=None, temperature=0.1, max_tokens=512, json_mode
     primary_model = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
     live_models = get_live_gemini_models(client)
 
-    # Solo el modelo principal y como maximo 1 fallback valido (evitar bucles de decenas de modelos)
+    # Armar lista con el modelo principal y hasta 2 alternativas
     models_to_try = [primary_model]
-    for fallback in ["gemini-2.5-pro", "gemini-3.8-pro"]:
+    for fallback in ["gemini-2.5-pro", "gemini-3.8-pro", "gemini-2.0-flash-001"]:
         if fallback in live_models and fallback not in models_to_try:
             models_to_try.append(fallback)
-            break
+            if len(models_to_try) >= 3:
+                break
 
-    last_transient_error = None
+    last_error_detail = None
     for idx, model_name in enumerate(models_to_try):
-        # Maximo 2 intentos para el modelo principal (1s wait), 1 para fallback
         max_attempts = 2 if idx == 0 else 1
         for attempt in range(max_attempts):
             try:
@@ -136,33 +136,39 @@ def query_gemini(prompt, system=None, temperature=0.1, max_tokens=512, json_mode
                 return response.text.strip() if response.text else ""
             except Exception as e:
                 err_str = str(e).upper()
-                is_transient = "503" in err_str or "UNAVAILABLE" in err_str or "429" in err_str or "HIGH DEMAND" in err_str
+                last_error_detail = e
+                is_quota = "RESOURCE_EXHAUSTED" in err_str or "QUOTA" in err_str or "429" in err_str
+                is_transient = ("503" in err_str or "UNAVAILABLE" in err_str or "HIGH DEMAND" in err_str) and not is_quota
                 is_unsupported = "404" in err_str or "NOT_FOUND" in err_str or "MODALIT" in err_str or "NOT SUPPORTED" in err_str or "INVALID_ARGUMENT" in err_str
 
-                if is_transient:
-                    last_transient_error = e
+                if is_quota:
+                    logger.warning(f"[Gemini] Cuota agotada en '{model_name}'. Probando siguiente modelo...")
+                    break
+                elif is_transient:
                     if attempt < max_attempts - 1:
-                        backoff = 1.0
-                        logger.warning(
-                            f"[Gemini] Saturación temporal (503/429) en '{model_name}'. Reintentando en {backoff}s..."
-                        )
-                        time.sleep(backoff)
+                        logger.warning(f"[Gemini] Saturación temporal (503) en '{model_name}'. Reintentando en 1s...")
+                        time.sleep(1.0)
                     else:
                         break
                 elif is_unsupported:
-                    logger.warning(f"[Gemini] Modelo '{model_name}' no soportado o no disponible ({e}). Omitiendo.")
+                    logger.warning(f"[Gemini] Modelo '{model_name}' no soportado ({e}). Omitiendo.")
                     break
                 else:
                     if idx < len(models_to_try) - 1:
                         logger.warning(f"[Gemini] Error con '{model_name}': {e}. Probando fallback...")
                         break
-                    logger.error(f"[Gemini] Error no recuperable con modelo '{model_name}': {e}")
+                    logger.error(f"[Gemini] Error no recuperable con '{model_name}': {e}")
                     raise RuntimeError(f"Error de Gemini: {e}")
 
-    logger.error(f"[Gemini] Modelos no respondieron: {last_transient_error}")
+    err_str = str(last_error_detail).upper()
+    if "RESOURCE_EXHAUSTED" in err_str or "QUOTA" in err_str or "429" in err_str:
+        raise RuntimeError(
+            "La cuota gratuita diaria de la API de Google Gemini (20 consultas/día en Free Tier) ha sido alcanzada por hoy. "
+            "Las consultas operacionales y tablas del catálogo militar continúan 100% operativas."
+        )
     raise RuntimeError(
         f"El servicio de Gemini está experimentando alta demanda momentánea en Google Cloud. "
-        f"Por favor intente nuevamente en unos segundos. (Detalle: {last_transient_error})"
+        f"Por favor intente nuevamente en unos segundos. (Detalle: {last_error_detail})"
     )
 
 
@@ -275,6 +281,19 @@ def get_fast_conversational_reply(text):
             "• **Historial individual:** Búsqueda por nombre o cédula (ej: *'Novedades de Gómez en julio'* o *'Historial de cédula 123456'*).\n"
             "• **Ranking:** Novedades más recurrentes (ej: *'¿Cuál es la novedad más frecuente en el batallón?'*).\n"
             "• **Apreciación militar:** Boletín de situación general (puede usar el botón 'Apreciación' superior)."
+        )
+
+    aclaracion_triggers = [
+        "por que", "porque", "por que no", "a que se debe",
+        "por que motivo", "por que razon", "explicame", "explica"
+    ]
+    clean_msg = msg.strip("?¿! .")
+    if clean_msg in aclaracion_triggers:
+        return "aclaracion", (
+            "Mi Comandante, cuando no se encuentran registros para una consulta específica, "
+            "se debe a que en los partes oficiales de BIMEJ 12 la persona no presenta esa novedad en ese período "
+            "(se encontraba disponible/en servicio ordinario, o la novedad corresponde a otro mes). "
+            "Puede consultar su historial completo diciendo: *'Historial de novedades de [Nombre o Cédula]'*."
         )
 
     despedidas = ["adios", "chao", "hasta luego", "hasta pronto", "nos vemos"]
