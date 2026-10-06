@@ -20,20 +20,25 @@ export const iaService = {
   enviarMensaje: async (
     message: string,
     history?: any[],
-    activeMilitar?: ActiveMilitar | null
+    activeMilitar?: ActiveMilitar | null,
+    signal?: AbortSignal
   ): Promise<IAChatResponse> => {
-    return http.post<IAChatResponse>('/api/ia/chat', {
-      message,
-      history,
-      active_militar: activeMilitar
-    })
+    return http.post<IAChatResponse>(
+      '/api/ia/chat',
+      {
+        message,
+        history,
+        active_militar: activeMilitar
+      },
+      { signal }
+    )
   },
 
   /**
    * Genera una Apreciación de Situación de Personal para la Comandancia
    */
-  generarApreciacion: async (mes: string = 'TODOS'): Promise<IAApreciacionResponse> => {
-    return http.post<IAApreciacionResponse>('/api/ia/apreciacion', { mes })
+  generarApreciacion: async (mes: string = 'TODOS', signal?: AbortSignal): Promise<IAApreciacionResponse> => {
+    return http.post<IAApreciacionResponse>('/api/ia/apreciacion', { mes }, { signal })
   },
 
   /**

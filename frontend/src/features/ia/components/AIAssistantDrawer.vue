@@ -169,22 +169,55 @@
         <!-- Lista de Mensajes -->
         <template v-else>
           <div 
-            v-for="msg in mensajes" 
+            v-for="(msg, msgIdx) in mensajes" 
             :key="msg.id" 
-            class="flex flex-col space-y-2 animate-in fade-in duration-200"
+            class="flex flex-col space-y-1.5 animate-in fade-in duration-200 group/msg"
             :class="msg.sender === 'user' ? 'items-end' : 'items-start'"
           >
-            <!-- Header del mensaje -->
-            <div class="flex items-center gap-1.5 px-1 text-[10px] text-slate-500 font-mono">
-              <span class="font-bold uppercase">{{ msg.sender === 'user' ? 'Usted' : 'Asistente IA' }}</span>
-              <span>•</span>
-              <span>{{ msg.timestamp }}</span>
-              <template v-if="msg.elapsed_seconds">
+            <!-- Header del mensaje con botones de acción -->
+            <div 
+              class="flex items-center gap-1.5 px-1 text-[10px] text-slate-500 font-mono w-full"
+              :class="msg.sender === 'user' ? 'justify-end' : 'justify-between'"
+            >
+              <div class="flex items-center gap-1.5">
+                <span class="font-bold uppercase">{{ msg.sender === 'user' ? 'Usted' : 'Asistente IA' }}</span>
                 <span>•</span>
-                <span class="text-cyan-400 font-semibold bg-cyan-500/10 px-1.5 py-0.5 rounded border border-cyan-500/20">
-                  ⏱️ {{ msg.elapsed_seconds }}s
-                </span>
-              </template>
+                <span>{{ msg.timestamp }}</span>
+                <template v-if="msg.elapsed_seconds">
+                  <span>•</span>
+                  <span class="text-cyan-400 font-semibold bg-cyan-500/10 px-1.5 py-0.5 rounded border border-cyan-500/20">
+                    ⏱️ {{ msg.elapsed_seconds }}s
+                  </span>
+                </template>
+              </div>
+
+              <!-- Botones de Acción (Copiar / Editar) -->
+              <div class="flex items-center gap-1 opacity-70 group-hover/msg:opacity-100 transition-opacity">
+                <!-- Botón Copiar -->
+                <button
+                  type="button"
+                  @click="copiarTexto(msg.id, msg.text)"
+                  class="p-1 rounded-md hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition-colors cursor-pointer flex items-center gap-1"
+                  :class="mensajeCopiadoId === msg.id ? 'text-emerald-400 bg-emerald-500/10' : ''"
+                  :title="mensajeCopiadoId === msg.id ? '¡Copiado en portapapeles!' : 'Copiar mensaje'"
+                >
+                  <Check v-if="mensajeCopiadoId === msg.id" class="w-3.5 h-3.5 text-emerald-400" />
+                  <Copy v-else class="w-3.5 h-3.5" />
+                  <span v-if="mensajeCopiadoId === msg.id" class="text-[9px] font-bold text-emerald-400">Copiado</span>
+                </button>
+
+                <!-- Botón Editar (Solo para el mensaje del usuario) -->
+                <button
+                  v-if="msg.sender === 'user'"
+                  type="button"
+                  @click="iniciarEdicion(msg)"
+                  :disabled="isEnviando || isLoadingApreciacion"
+                  class="p-1 rounded-md hover:bg-slate-800 text-slate-400 hover:text-cyan-300 transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                  title="Editar mensaje"
+                >
+                  <Pencil class="w-3.5 h-3.5" />
+                </button>
+              </div>
             </div>
 
             <!-- Burbuja de Mensaje -->
@@ -196,77 +229,136 @@
                   ? 'bg-rose-950/40 border border-rose-500/30 text-rose-200 rounded-tl-xs'
                   : 'bg-slate-950/90 border border-darkBorder/80 text-slate-200 rounded-tl-xs'"
             >
-              <!-- Texto Markdown/Formato -->
-              <div 
-                v-if="msg.sender === 'assistant'"
-                class="markdown-content text-xs sm:text-[13px] leading-relaxed select-text space-y-1.5 text-slate-200"
-                v-html="renderMarkdown(msg.text)"
-              ></div>
-              <div 
-                v-else
-                class="whitespace-pre-wrap text-xs sm:text-[13px] leading-relaxed select-text space-y-1.5"
-              >
-                {{ msg.text }}
+              <!-- Modo Edición para el Mensaje de Usuario -->
+              <div v-if="editandoMensajeId === msg.id" class="space-y-2 min-w-[240px] sm:min-w-[340px]">
+                <textarea
+                  v-model="textoEdicion"
+                  rows="3"
+                  class="w-full bg-slate-900/95 text-slate-100 rounded-xl p-3 text-xs font-normal border border-cyan-400 focus:outline-none focus:ring-1 focus:ring-cyan-400 resize-none shadow-inner"
+                  placeholder="Edite su mensaje..."
+                  @keydown.enter.exact.prevent="guardarYReenviarEdicion(msgIdx)"
+                  @keydown.esc="cancelarEdicion"
+                ></textarea>
+                <div class="flex items-center justify-between gap-2">
+                  <span class="text-[10px] text-slate-900/90 font-medium">Enter para enviar · Esc cancelar</span>
+                  <div class="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      @click="cancelarEdicion"
+                      class="px-2.5 py-1 rounded-lg bg-black/25 hover:bg-black/40 text-slate-950 font-bold text-[11px] transition-colors cursor-pointer"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="button"
+                      @click="guardarYReenviarEdicion(msgIdx)"
+                      :disabled="!textoEdicion.trim() || isEnviando"
+                      class="px-3 py-1 rounded-lg bg-slate-950 hover:bg-slate-900 text-cyan-300 font-bold text-[11px] transition-colors cursor-pointer shadow flex items-center gap-1 disabled:opacity-50"
+                    >
+                      <Check class="w-3 h-3 text-cyan-400" />
+                      Guardar y enviar
+                    </button>
+                  </div>
+                </div>
               </div>
 
-              <!-- Código SQL Generado (Collapsible) -->
-              <div v-if="msg.sql" class="mt-3 pt-2.5 border-t border-darkBorder/60">
-                <details class="group cursor-pointer">
-                  <summary class="text-[10px] font-mono font-bold uppercase tracking-wider text-cyan-400 hover:text-cyan-300 flex items-center gap-1 select-none">
-                    <Database class="w-3 h-3" />
-                    <span>Consulta SQL Ejecutada en PostgreSQL</span>
-                  </summary>
-                  <pre class="mt-2 p-2.5 rounded-xl bg-slate-900 border border-darkBorder/80 text-[10px] font-mono text-cyan-200/90 overflow-x-auto whitespace-pre-wrap select-all">{{ msg.sql }}</pre>
-                </details>
-              </div>
-
-              <!-- Mini Tabla de Datos si retornó registros -->
-              <div v-if="msg.rows && msg.rows.length > 0" class="mt-3 pt-2.5 border-t border-darkBorder/60 space-y-2">
-                <div class="flex items-center justify-between text-[11px] font-semibold text-slate-400">
-                  <span class="flex items-center gap-1.5 text-cyan-400">
-                    <Table2 class="w-3.5 h-3.5" />
-                    Resultados ({{ msg.total_records }} registros):
-                  </span>
-                  <span v-if="msg.rows.length > 10" class="text-[10px] text-slate-500">
-                    Mostrando primeros 10
-                  </span>
+              <!-- Contenido Normal del Mensaje -->
+              <template v-else>
+                <!-- Texto Markdown/Formato -->
+                <div 
+                  v-if="msg.sender === 'assistant'"
+                  class="markdown-content text-xs sm:text-[13px] leading-relaxed select-text space-y-1.5 text-slate-200"
+                  v-html="renderMarkdown(msg.text)"
+                ></div>
+                <div 
+                  v-else
+                  class="whitespace-pre-wrap text-xs sm:text-[13px] leading-relaxed select-text space-y-1.5"
+                >
+                  {{ msg.text }}
                 </div>
 
-                <div class="overflow-x-auto rounded-xl border border-darkBorder/70 max-h-56 scrollbar-thin">
-                  <table class="w-full text-left text-[11px] border-collapse bg-slate-900/90">
-                    <thead>
-                      <tr class="border-b border-darkBorder/80 bg-slate-950/80 sticky top-0 text-[10px] font-mono text-slate-400 uppercase">
-                        <th v-for="col in msg.columns" :key="col" class="px-2.5 py-1.5 font-bold">
-                          {{ col }}
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody class="divide-y divide-darkBorder/40">
-                      <tr 
-                        v-for="(row, idx) in msg.rows.slice(0, 10)" 
-                        :key="idx"
-                        class="hover:bg-cyan-500/5 transition-colors"
+                <!-- Código SQL Generado (Collapsible) -->
+                <div v-if="msg.sql" class="mt-3 pt-2.5 border-t border-darkBorder/60">
+                  <details class="group cursor-pointer">
+                    <summary class="text-[10px] font-mono font-bold uppercase tracking-wider text-cyan-400 hover:text-cyan-300 flex items-center justify-between gap-1 select-none">
+                      <span class="flex items-center gap-1">
+                        <Database class="w-3 h-3" />
+                        <span>Consulta SQL Ejecutada en PostgreSQL</span>
+                      </span>
+                      <button
+                        type="button"
+                        @click.stop="copiarTexto(msg.id + '-sql', msg.sql)"
+                        class="p-1 rounded hover:bg-slate-800 text-slate-400 hover:text-cyan-300 transition-colors cursor-pointer font-normal normal-case text-[10px] flex items-center gap-1"
+                        :title="mensajeCopiadoId === (msg.id + '-sql') ? '¡SQL Copiado!' : 'Copiar SQL'"
                       >
-                        <td 
-                          v-for="col in msg.columns" 
-                          :key="col" 
-                          class="px-2.5 py-1.5 text-slate-300 font-mono text-[10px] whitespace-nowrap"
-                        >
-                          {{ row[col] !== null && row[col] !== undefined ? row[col] : '-' }}
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
+                        <Check v-if="mensajeCopiadoId === (msg.id + '-sql')" class="w-3 h-3 text-emerald-400" />
+                        <Copy v-else class="w-3 h-3" />
+                        <span class="hidden sm:inline">{{ mensajeCopiadoId === (msg.id + '-sql') ? 'Copiado' : 'Copiar' }}</span>
+                      </button>
+                    </summary>
+                    <pre class="mt-2 p-2.5 rounded-xl bg-slate-900 border border-darkBorder/80 text-[10px] font-mono text-cyan-200/90 overflow-x-auto whitespace-pre-wrap select-all">{{ msg.sql }}</pre>
+                  </details>
                 </div>
-              </div>
+
+                <!-- Mini Tabla de Datos si retornó registros -->
+                <div v-if="msg.rows && msg.rows.length > 0" class="mt-3 pt-2.5 border-t border-darkBorder/60 space-y-2">
+                  <div class="flex items-center justify-between text-[11px] font-semibold text-slate-400">
+                    <span class="flex items-center gap-1.5 text-cyan-400">
+                      <Table2 class="w-3.5 h-3.5" />
+                      Resultados ({{ msg.total_records }} registros):
+                    </span>
+                    <span v-if="msg.rows.length > 10" class="text-[10px] text-slate-500">
+                      Mostrando primeros 10
+                    </span>
+                  </div>
+
+                  <div class="overflow-x-auto rounded-xl border border-darkBorder/70 max-h-56 scrollbar-thin">
+                    <table class="w-full text-left text-[11px] border-collapse bg-slate-900/90">
+                      <thead>
+                        <tr class="border-b border-darkBorder/80 bg-slate-950/80 sticky top-0 text-[10px] font-mono text-slate-400 uppercase">
+                          <th v-for="col in msg.columns" :key="col" class="px-2.5 py-1.5 font-bold">
+                            {{ col }}
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody class="divide-y divide-darkBorder/40">
+                        <tr 
+                          v-for="(row, idx) in msg.rows.slice(0, 10)" 
+                          :key="idx"
+                          class="hover:bg-cyan-500/5 transition-colors"
+                        >
+                          <td 
+                            v-for="col in msg.columns" 
+                            :key="col" 
+                            class="px-2.5 py-1.5 text-slate-300 font-mono text-[10px] whitespace-nowrap"
+                          >
+                            {{ row[col] !== null && row[col] !== undefined ? row[col] : '-' }}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </template>
             </div>
           </div>
 
-          <!-- Spinner Pensando con Cronómetro Dinámico y Fases -->
-          <div v-if="isEnviando || isLoadingApreciacion" class="flex flex-col gap-1.5 p-3 rounded-2xl bg-slate-950/80 border border-cyan-500/25 w-fit max-w-sm text-xs text-slate-300 shadow-lg shadow-cyan-500/5 animate-in fade-in">
-            <div class="flex items-center gap-2">
-              <Loader2 class="w-4 h-4 animate-spin text-cyan-400 shrink-0" />
-              <span class="font-medium text-slate-200">{{ faseCargaTexto }}</span>
+          <!-- Spinner Pensando con Cronómetro Dinámico, Fases y Botón Detener -->
+          <div v-if="isEnviando || isLoadingApreciacion" class="flex flex-col gap-2 p-3 rounded-2xl bg-slate-950/80 border border-cyan-500/25 w-fit max-w-sm text-xs text-slate-300 shadow-lg shadow-cyan-500/5 animate-in fade-in">
+            <div class="flex items-center justify-between gap-3">
+              <div class="flex items-center gap-2">
+                <Loader2 class="w-4 h-4 animate-spin text-cyan-400 shrink-0" />
+                <span class="font-medium text-slate-200">{{ faseCargaTexto }}</span>
+              </div>
+              <button
+                type="button"
+                @click="detenerGeneracion"
+                class="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-300 text-[10px] font-bold transition-colors cursor-pointer"
+                title="Detener respuesta de la IA"
+              >
+                <Square class="w-2.5 h-2.5 fill-rose-300" />
+                <span>Detener</span>
+              </button>
             </div>
             <div class="flex items-center justify-between gap-4 text-[10px] text-slate-400 font-mono pl-6">
               <span>Modelo: <strong class="text-cyan-300">{{ status?.model_configured || 'Gemini' }}</strong></span>
@@ -301,7 +393,7 @@
           </button>
         </div>
 
-        <form @submit.prevent="enviarMensaje" class="flex items-center gap-2">
+        <form @submit.prevent="enviarMensaje()" class="flex items-center gap-2">
           <input
             ref="inputRef"
             v-model="inputTexto"
@@ -311,9 +403,23 @@
             class="flex-1 bg-slate-950 border border-darkBorder hover:border-cyan-500/40 focus:border-cyan-400 text-slate-100 rounded-xl px-3.5 py-2.5 text-xs font-medium focus:outline-none transition-all placeholder:text-slate-600 disabled:opacity-50"
           />
 
+          <!-- Botón Detener mientras se procesa -->
           <button
+            v-if="isEnviando || isLoadingApreciacion"
+            type="button"
+            @click="detenerGeneracion"
+            class="px-4 py-2.5 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/40 text-rose-300 font-bold text-xs transition-all shadow-md shadow-rose-500/10 cursor-pointer flex items-center gap-1.5 shrink-0 animate-pulse"
+            title="Detener generación de respuesta"
+          >
+            <Square class="w-3.5 h-3.5 fill-rose-300" />
+            <span>Detener</span>
+          </button>
+
+          <!-- Botón Consultar normal -->
+          <button
+            v-else
             type="submit"
-            :disabled="!inputTexto.trim() || isEnviando || !status?.online"
+            :disabled="!inputTexto.trim() || !status?.online"
             class="px-4 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs transition-all shadow-md shadow-cyan-500/20 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 shrink-0"
           >
             <Send class="w-4 h-4" />
@@ -356,7 +462,10 @@ import {
   Settings,
   Globe,
   Check,
-  AlertCircle
+  AlertCircle,
+  Copy,
+  Pencil,
+  Square
 } from 'lucide-vue-next'
 
 import type { IAStatusResponse, IAChatMessage, ActiveMilitar } from '../types/ia.types'
@@ -490,13 +599,101 @@ const verificarEstado = async () => {
   }
 }
 
-const enviarMensajeDirecto = (texto: string) => {
-  inputTexto.value = texto
-  enviarMensaje()
+// ---------------------------------------------------------------------------
+// 1. Funcionalidad: Copiar Mensaje al Portapapeles (con fallback seguro)
+// ---------------------------------------------------------------------------
+const mensajeCopiadoId = ref<string | null>(null)
+let copiadoTimeout: any = null
+
+const copiarTexto = async (msgId: string, texto: string) => {
+  if (!texto) return
+  try {
+    if (navigator?.clipboard?.writeText) {
+      await navigator.clipboard.writeText(texto)
+    } else {
+      const textArea = document.createElement('textarea')
+      textArea.value = texto
+      textArea.style.position = 'fixed'
+      textArea.style.opacity = '0'
+      document.body.appendChild(textArea)
+      textArea.select()
+      document.execCommand('copy')
+      document.body.removeChild(textArea)
+    }
+    mensajeCopiadoId.value = msgId
+    clearTimeout(copiadoTimeout)
+    copiadoTimeout = setTimeout(() => {
+      mensajeCopiadoId.value = null
+    }, 2000)
+  } catch (err) {
+    console.error('Error al copiar al portapapeles:', err)
+  }
 }
 
-const enviarMensaje = async () => {
-  const query = inputTexto.value.trim()
+// ---------------------------------------------------------------------------
+// 2. Funcionalidad: Editar Mensaje del Usuario
+// ---------------------------------------------------------------------------
+const editandoMensajeId = ref<string | null>(null)
+const textoEdicion = ref('')
+
+const iniciarEdicion = (msg: IAChatMessage) => {
+  if (isEnviando.value || isLoadingApreciacion.value) return
+  editandoMensajeId.value = msg.id
+  textoEdicion.value = msg.text
+}
+
+const cancelarEdicion = () => {
+  editandoMensajeId.value = null
+  textoEdicion.value = ''
+}
+
+const guardarYReenviarEdicion = async (msgIdx: number) => {
+  const nuevoTexto = textoEdicion.value.trim()
+  if (!nuevoTexto || isEnviando.value) return
+
+  editandoMensajeId.value = null
+  textoEdicion.value = ''
+
+  // Truncar historial removiendo este mensaje y las respuestas que generó
+  mensajes.value = mensajes.value.slice(0, msgIdx)
+
+  // Re-ejecutar consulta con el nuevo mensaje editado
+  await enviarMensaje(nuevoTexto)
+}
+
+// ---------------------------------------------------------------------------
+// 3. Funcionalidad: Detener / Cancelar Respuesta de IA (AbortController)
+// ---------------------------------------------------------------------------
+const abortController = ref<AbortController | null>(null)
+
+const detenerGeneracion = () => {
+  if (abortController.value) {
+    try {
+      abortController.value.abort()
+    } catch {}
+    abortController.value = null
+  }
+  detenerTimer()
+  isEnviando.value = false
+  isLoadingApreciacion.value = false
+
+  const stoppedMsg: IAChatMessage = {
+    id: String(Date.now()),
+    sender: 'assistant',
+    text: '⏹️ *Generación de respuesta detenida por el usuario.*',
+    type: 'conversation',
+    timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  }
+  mensajes.value.push(stoppedMsg)
+  scrollAlFondo()
+}
+
+const enviarMensajeDirecto = (texto: string) => {
+  enviarMensaje(texto)
+}
+
+const enviarMensaje = async (customQuery?: string) => {
+  const query = (customQuery !== undefined ? customQuery : inputTexto.value).trim()
   if (!query || isEnviando.value) return
 
   ultimoMensajeUsuario.value = query
@@ -509,16 +706,27 @@ const enviarMensaje = async () => {
   }
 
   mensajes.value.push(userMsg)
-  inputTexto.value = ''
+  if (customQuery === undefined) {
+    inputTexto.value = ''
+  }
   isEnviando.value = true
   iniciarTimer()
+  scrollAlFondo()
+
   const historyPayload = mensajes.value
     .filter(m => !m.isError && m.text !== query)
     .slice(-4)
     .map(m => ({ sender: m.sender, text: m.text }))
 
+  abortController.value = new AbortController()
+
   try {
-    const res = await iaService.enviarMensaje(query, historyPayload, activeMilitar.value)
+    const res = await iaService.enviarMensaje(
+      query,
+      historyPayload,
+      activeMilitar.value,
+      abortController.value.signal
+    )
     if (res.active_militar !== undefined) {
       activeMilitar.value = res.active_militar
     }
@@ -537,6 +745,10 @@ const enviarMensaje = async () => {
     }
     mensajes.value.push(assistantMsg)
   } catch (err: any) {
+    if (err.name === 'AbortError' || err.message?.includes('aborted') || err.message?.includes('cancel')) {
+      // Detención controlada por el usuario
+      return
+    }
     const errorMsg: IAChatMessage = {
       id: String(Date.now() + 1),
       sender: 'assistant',
@@ -547,6 +759,7 @@ const enviarMensaje = async () => {
     }
     mensajes.value.push(errorMsg)
   } finally {
+    abortController.value = null
     detenerTimer()
     isEnviando.value = false
     scrollAlFondo()
@@ -554,7 +767,7 @@ const enviarMensaje = async () => {
 }
 
 const generarApreciacionDirecta = async () => {
-  if (isLoadingApreciacion.value) return
+  if (isLoadingApreciacion.value || isEnviando.value) return
   isLoadingApreciacion.value = true
   iniciarTimer()
 
@@ -567,8 +780,10 @@ const generarApreciacionDirecta = async () => {
   mensajes.value.push(userMsg)
   scrollAlFondo()
 
+  abortController.value = new AbortController()
+
   try {
-    const res = await iaService.generarApreciacion('TODOS')
+    const res = await iaService.generarApreciacion('TODOS', abortController.value.signal)
     const assistantMsg: IAChatMessage = {
       id: String(Date.now() + 1),
       sender: 'assistant',
@@ -579,6 +794,9 @@ const generarApreciacionDirecta = async () => {
     }
     mensajes.value.push(assistantMsg)
   } catch (err: any) {
+    if (err.name === 'AbortError' || err.message?.includes('aborted') || err.message?.includes('cancel')) {
+      return
+    }
     const errorMsg: IAChatMessage = {
       id: String(Date.now() + 1),
       sender: 'assistant',
@@ -589,6 +807,7 @@ const generarApreciacionDirecta = async () => {
     }
     mensajes.value.push(errorMsg)
   } finally {
+    abortController.value = null
     detenerTimer()
     isLoadingApreciacion.value = false
     scrollAlFondo()
@@ -601,6 +820,9 @@ const limpiarChat = () => {
 }
 
 const cerrar = () => {
+  if (isEnviando.value || isLoadingApreciacion.value) {
+    detenerGeneracion()
+  }
   emit('close')
 }
 
@@ -622,6 +844,11 @@ onMounted(() => {
 
 onUnmounted(() => {
   detenerTimer()
+  if (abortController.value) {
+    try {
+      abortController.value.abort()
+    } catch {}
+  }
 })
 </script>
 
