@@ -188,17 +188,20 @@ def get_fast_conversational_reply(text):
 
     ayuda_keywords = [
         "que haces", "que puedes hacer", "quien eres", "para que sirves",
-        "como funcionas", "como te llamas", "que sabes hacer", "ayuda", "comandos"
+        "como funcionas", "como te llamas", "que sabes hacer", "ayuda", "comandos",
+        "que consultas", "consultas sql", "que puedo consultar", "que puedo preguntar",
+        "ejemplos", "ejemplos de consultas"
     ]
     if any(k in msg for k in ayuda_keywords):
         return "ayuda", (
-            "A sus órdenes, mi Comandante. Soy el Asistente de Inteligencia de Personal de BIMEJ 12. "
+            "A sus órdenes, mi Comandante. Soy el Asistente de Inteligencia de Personal de BIMEJ 12.\n\n"
             "Puedo responder consultas operacionales en lenguaje natural sobre:\n\n"
-            "• **Efectivos:** Total de personal activo y retirado.\n"
-            "• **Novedades:** Permisos, vacaciones, incapacidades médicas y excusas.\n"
-            "• **Compañías:** Distribución de personal y fuerza disponible.\n"
-            "• **Historial:** Búsqueda individual de militares por nombre o cédula.\n"
-            "• **Apreciación:** Boletín de situación general para el comando militar."
+            "• **Efectivos:** Total de personal activo y retirado (ej: *'¿Cuántos efectivos activos hay?'*).\n"
+            "• **Novedades:** Permisos, vacaciones, incapacidades médicas y excusas (ej: *'Personal con incapacidad este mes'*).\n"
+            "• **Compañías:** Distribución de personal y fuerza disponible (ej: *'Personal activo por compañías'*).\n"
+            "• **Historial individual:** Búsqueda por nombre o cédula (ej: *'Novedades de Gómez en julio'* o *'Historial de cédula 123456'*).\n"
+            "• **Ranking:** Novedades más recurrentes (ej: *'¿Cuál es la novedad más frecuente en el batallón?'*).\n"
+            "• **Apreciación militar:** Boletín de situación general (puede usar el botón 'Apreciación' superior)."
         )
 
     despedidas = ["adios", "chao", "hasta luego", "hasta pronto", "nos vemos"]
@@ -315,7 +318,8 @@ def process_user_query(user_message, db, history=None, active_militar=None):
 
     sql = parsed.get("sql", "").strip()
     if not sql or not is_sql_safe(sql):
-        return {"type": "conversation", "answer": "No pude generar una consulta segura.",
+        answer_text = parsed.get("answer") or "No pude generar una consulta segura para esa solicitud."
+        return {"type": "conversation", "answer": answer_text,
                 "sql": None, "columns": [], "rows": [], "total_records": 0,
                 "model": model_label, "active_militar": active_militar}
 
