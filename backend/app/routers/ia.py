@@ -55,7 +55,7 @@ def get_ia_status():
         api_key_ok = bool(api_key)
         return {
             "backend": "gemini",
-            "model_configured": os.getenv("GEMINI_MODEL", "gemini-3.8-flash"),
+            "model_configured": os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite"),
             "online": api_key_ok,
             "api_key_configured": api_key_ok,
             "error": None if api_key_ok else "GEMINI_API_KEY no encontrada en variables de entorno",

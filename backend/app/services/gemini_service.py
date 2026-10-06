@@ -25,7 +25,7 @@ from app.services.query_catalog import match_catalog
 logger = logging.getLogger(__name__)
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite")
 
 DATABASE_SCHEMA_CONTEXT = """
 Eres el Asistente de Inteligencia de Personal Militar para el batallon BIMEJ 12.
@@ -112,16 +112,26 @@ def query_gemini(prompt, system=None, temperature=0.1, max_tokens=512, json_mode
     if system:
         config_kwargs["system_instruction"] = system
 
-    primary_model = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
+    primary_model = os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite")
     live_models = get_live_gemini_models(client)
 
-    # Armar lista con el modelo principal y hasta 2 alternativas
-    models_to_try = [primary_model]
-    for fallback in ["gemini-2.5-pro", "gemini-3.8-pro", "gemini-2.0-flash-001"]:
-        if fallback in live_models and fallback not in models_to_try:
-            models_to_try.append(fallback)
+    # Priorizar modelos con la mayor cuota gratuita disponible (500 req/dia)
+    high_quota_priority = [
+        primary_model,
+        "gemini-3.5-flash-lite",
+        "gemini-3.1-flash-lite",
+        "gemini-3.5-flash",
+        "gemini-3.7-flash",
+        "gemini-3.8-flash",
+    ]
+    models_to_try = []
+    for m in high_quota_priority:
+        if m in live_models and m not in models_to_try:
+            models_to_try.append(m)
             if len(models_to_try) >= 3:
                 break
+    if not models_to_try:
+        models_to_try = [primary_model]
 
     last_error_detail = None
     for idx, model_name in enumerate(models_to_try):
