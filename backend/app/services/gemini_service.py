@@ -39,8 +39,10 @@ VISTAS DISPONIBLES:
 
 2. v_novedades_detalle:
    Columnas: id_registro, cedula, nombre, estado, fecha_reporte, novedad, descripcion, fecha_inicio, fecha_final
-   Filtrar por mes: EXTRACT(MONTH FROM fecha_reporte) = <numero>
-   Filtrar por anio: EXTRACT(YEAR FROM fecha_reporte) = <numero>
+   NOTA CRITICA: fecha_reporte es tipo VARCHAR ('YYYY-MM-DD').
+   Para filtrar por mes/año usa SIEMPRE:
+     fecha_reporte LIKE '<YYYY>-<MM>-%'  (ej: fecha_reporte LIKE '2026-08-%' para agosto de 2026)
+     o si usas EXTRACT, castea a fecha: EXTRACT(MONTH FROM fecha_reporte::date) = <num>
 
 3. v_conteo_novedades:
    Columnas: novedad, total_dias_registrados, total_personal_afectado
@@ -48,7 +50,7 @@ VISTAS DISPONIBLES:
 REGLAS CRITICAS:
 - Solo genera SELECT. NUNCA INSERT, UPDATE, DELETE, DROP, ALTER, TRUNCATE.
 - Siempre LIMIT <= 50.
-- Para filtrar mes: usa EXTRACT(), NUNCA UPPER(novedad) LIKE '%NOMBRE_MES%'.
+- Para filtrar mes/año usa LIKE 'YYYY-MM-%' (ej: '2026-08-%') o fecha_reporte::date.
 - Cedula exacta: WHERE cedula = <numero> (sin CAST).
 """
 
@@ -113,19 +115,17 @@ def query_gemini(prompt, system=None, temperature=0.1, max_tokens=512, json_mode
     primary_model = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
     live_models = get_live_gemini_models(client)
 
-    # Armar lista ordenada de modelos compatibles para generación de texto
+    # Solo el modelo principal y como maximo 1 fallback valido (evitar bucles de decenas de modelos)
     models_to_try = [primary_model]
-    for lm in live_models:
-        if lm not in models_to_try and "flash" in lm.lower():
-            models_to_try.append(lm)
-    for lm in live_models:
-        if lm not in models_to_try:
-            models_to_try.append(lm)
+    for fallback in ["gemini-2.5-pro", "gemini-3.8-pro"]:
+        if fallback in live_models and fallback not in models_to_try:
+            models_to_try.append(fallback)
+            break
 
     last_transient_error = None
     for idx, model_name in enumerate(models_to_try):
-        # 3 intentos con backoff para el modelo principal
-        max_attempts = 3 if idx == 0 else 1
+        # Maximo 2 intentos para el modelo principal (1s wait), 1 para fallback
+        max_attempts = 2 if idx == 0 else 1
         for attempt in range(max_attempts):
             try:
                 response = client.models.generate_content(
@@ -141,23 +141,25 @@ def query_gemini(prompt, system=None, temperature=0.1, max_tokens=512, json_mode
 
                 if is_transient:
                     last_transient_error = e
-                    backoff = 1.5 * (attempt + 1)
-                    logger.warning(
-                        f"[Gemini] Saturación temporal (503/429) en '{model_name}' (intento {attempt + 1}/{max_attempts}). "
-                        f"Reintentando en {backoff:.1f}s..."
-                    )
-                    time.sleep(backoff)
+                    if attempt < max_attempts - 1:
+                        backoff = 1.0
+                        logger.warning(
+                            f"[Gemini] Saturación temporal (503/429) en '{model_name}'. Reintentando en {backoff}s..."
+                        )
+                        time.sleep(backoff)
+                    else:
+                        break
                 elif is_unsupported:
-                    logger.warning(f"[Gemini] Modelo '{model_name}' no soporta texto o no está disponible ({e}). Omitiendo.")
+                    logger.warning(f"[Gemini] Modelo '{model_name}' no soportado o no disponible ({e}). Omitiendo.")
                     break
                 else:
                     if idx < len(models_to_try) - 1:
-                        logger.warning(f"[Gemini] Error con '{model_name}': {e}. Probando siguiente modelo...")
+                        logger.warning(f"[Gemini] Error con '{model_name}': {e}. Probando fallback...")
                         break
                     logger.error(f"[Gemini] Error no recuperable con modelo '{model_name}': {e}")
                     raise RuntimeError(f"Error de Gemini: {e}")
 
-    logger.error(f"[Gemini] Todos los reintentos fallaron: {last_transient_error}")
+    logger.error(f"[Gemini] Modelos no respondieron: {last_transient_error}")
     raise RuntimeError(
         f"El servicio de Gemini está experimentando alta demanda momentánea en Google Cloud. "
         f"Por favor intente nuevamente en unos segundos. (Detalle: {last_transient_error})"
@@ -175,21 +177,52 @@ def _is_refusal(text):
 
 
 def _auto_synthesize(user_message, query_result):
-    total = query_result["total"]
-    rows = query_result["rows"]
-    cols = query_result["columns"]
+    total = query_result.get("total", 0)
+    rows = query_result.get("rows", [])
+    cols = query_result.get("columns", [])
+
+    if total == 0:
+        return "Se consultó la base de datos de BIMEJ 12 pero **no se encontraron registros coincidentes** para los criterios indicados."
+
+    # Caso 1: Un solo valor escalar (ej: COUNT)
     if total == 1 and len(cols) == 1:
+        col = cols[0]
         val = list(rows[0].values())[0]
-        return f"Segun BIMEJ 12: **{cols[0]}** = **{val}**."
-    if "cedula" in cols and "nombre" in cols:
-        nombres = list({r.get("nombre", "") for r in rows[:5] if r.get("nombre")})
-        muestra = ", ".join(nombres[:3])
-        resto = f" y {total - 3} mas" if total > 3 else ""
-        return f"Se encontraron **{total} registros** en BIMEJ 12. Personal: {muestra}{resto}."
-    if "novedad" in cols and "total_dias" in cols:
+        if "activo" in col.lower():
+            return f"En el Batallón BIMEJ 12 se registran **{val} efectivos activos** en el personal."
+        if "retirado" in col.lower():
+            return f"En el Batallón BIMEJ 12 se registran **{val} efectivos retirados**."
+        return f"Según los registros de BIMEJ 12: **{col}** = **{val}**."
+
+    # Caso 2: Reporte de fechas con novedad (ej: días de permiso/vacaciones/etc.)
+    if "fecha_reporte" in cols:
+        fechas = [str(r.get("fecha_reporte", "")) for r in rows if r.get("fecha_reporte")]
+        nombres = list({r.get("nombre", "") for r in rows if r.get("nombre")})
+        nombre_str = f" para **{nombres[0]}**" if len(nombres) == 1 else ""
+        novedades = list({r.get("novedad", "") for r in rows if r.get("novedad")})
+        novedad_str = f" con novedad **{novedades[0]}**" if len(novedades) == 1 else ""
+
+        if total <= 6:
+            fechas_fmt = ", ".join(fechas)
+            return f"Se registran **{total} días**{novedad_str}{nombre_str} en BIMEJ 12: **{fechas_fmt}**."
+        else:
+            return f"Se registran **{total} días**{novedad_str}{nombre_str} en BIMEJ 12 (desde **{fechas[0]}** hasta **{fechas[-1]}**)."
+
+    # Caso 3: Ranking de novedades frecuentes
+    if "novedad" in cols and ("total_dias" in cols or "total_dias_registrados" in cols):
         top = rows[0]
-        return (f"Novedad mas registrada: **{top.get('novedad','')}** con **{top.get('total_dias','')} dias**.")
-    return f"Se encontraron **{total} registros** en BIMEJ 12."
+        nov_nombre = top.get("novedad", "")
+        dias = top.get("total_dias") or top.get("total_dias_registrados", 0)
+        return f"Novedad más registrada en BIMEJ 12: **{nov_nombre}** con un total de **{dias} días** acumulados."
+
+    # Caso 4: Lista de personal
+    if "cedula" in cols and "nombre" in cols:
+        nombres = [r.get("nombre", "") for r in rows[:5] if r.get("nombre")]
+        muestra = ", ".join(nombres[:3])
+        resto = f" y {total - 3} más" if total > 3 else ""
+        return f"Se encontraron **{total} registros** en BIMEJ 12. Personal: **{muestra}{resto}**."
+
+    return f"Se encontraron **{total} registros** coincidentes en la base de datos de BIMEJ 12."
 
 
 def is_sql_safe(sql):
@@ -297,21 +330,7 @@ def process_user_query(user_message, db, history=None, active_militar=None):
             cat_result = None
 
         if cat_result is not None:
-            if cat_result["total"] == 0:
-                synth = "Se consulto BIMEJ 12 pero **no se encontraron registros coincidentes**."
-            else:
-                try:
-                    synth = query_gemini(
-                        f"Eres el Asistente Militar de BIMEJ 12.\nUsuario: \"{user_message}\"\n"
-                        f"Resultados ({cat_result['total']} registros): {json.dumps(cat_result['rows'][:8], ensure_ascii=False)}\n"
-                        f"Redacta un resumen militar claro en maximo 2 oraciones.",
-                        temperature=0.2, max_tokens=150
-                    )
-                    if _is_refusal(synth):
-                        synth = _auto_synthesize(user_message, cat_result)
-                except:
-                    synth = _auto_synthesize(user_message, cat_result)
-
+            synth = _auto_synthesize(user_message, cat_result)
             detected_m = catalog_active
             if cat_result.get("rows"):
                 first = cat_result["rows"][0]
@@ -341,7 +360,7 @@ def process_user_query(user_message, db, history=None, active_militar=None):
         f'{{\"type\": \"sql\", \"sql\": \"<SELECT ...>\"}}\n'
         f"o si no requiere BD:\n"
         f'{{\"type\": \"conversation\", \"answer\": \"<respuesta>\"}}\n'
-        f"CRITICO: Para filtrar por mes usa EXTRACT(MONTH FROM fecha_reporte)=<num>, NUNCA LIKE con nombre del mes."
+        f"CRITICO: fecha_reporte es VARCHAR ('YYYY-MM-DD'). Para filtrar por mes usa fecha_reporte LIKE '{now.year}-<MM>-%' o EXTRACT(MONTH FROM fecha_reporte::date)=<num>."
     )
 
     raw = query_gemini(prompt=sql_prompt, temperature=0.05, max_tokens=400, json_mode=True)
@@ -392,19 +411,19 @@ def process_user_query(user_message, db, history=None, active_militar=None):
                 "model": model_label, "active_militar": active_militar}
 
     # Sintesis
-    if query_result["total"] == 0:
-        synthesis = "Se consulto BIMEJ 12 pero **no se encontraron registros coincidentes**."
+    if query_result["total"] == 0 or query_result["total"] <= 5:
+        synthesis = _auto_synthesize(user_message, query_result)
     else:
         try:
             synthesis = query_gemini(
                 f"Asistente Militar BIMEJ 12.\nUsuario: \"{user_message}\"\n"
                 f"Resultados ({query_result['total']} registros): {json.dumps(query_result['rows'][:8], ensure_ascii=False)}\n"
-                f"Redacta resumen militar claro en 2-3 oraciones.",
-                temperature=0.2, max_tokens=180
+                f"Redacta resumen militar claro en 2 oraciones.",
+                temperature=0.2, max_tokens=150
             )
             if _is_refusal(synthesis):
                 synthesis = _auto_synthesize(user_message, query_result)
-        except:
+        except Exception:
             synthesis = _auto_synthesize(user_message, query_result)
 
     detected_m = active_militar if is_followup else None
@@ -431,7 +450,7 @@ def generate_apreciacion(db):
     activos = run("SELECT COUNT(*) AS t FROM v_personal_resumen WHERE estado='ACTIVO'")["rows"][0].get("t", 0)
     retirados = run("SELECT COUNT(*) AS t FROM v_personal_resumen WHERE estado='RETIRADO'")["rows"][0].get("t", 0)
     top_nov = run("SELECT novedad, total_dias_registrados FROM v_conteo_novedades ORDER BY total_dias_registrados DESC LIMIT 5")["rows"]
-    criticos = run(f"SELECT cedula, nombre, COUNT(*) AS dias FROM v_novedades_detalle WHERE EXTRACT(YEAR FROM fecha_reporte)={now.year} GROUP BY cedula, nombre HAVING COUNT(*)>=10 ORDER BY dias DESC LIMIT 10")["rows"]
+    criticos = run(f"SELECT cedula, nombre, COUNT(*) AS dias FROM v_novedades_detalle WHERE fecha_reporte LIKE '{now.year}-%' GROUP BY cedula, nombre HAVING COUNT(*)>=10 ORDER BY dias DESC LIMIT 10")["rows"]
 
     prompt = (
         f"Actua como el Oficial de Personal (S1) del Batallon BIMEJ 12.\n"

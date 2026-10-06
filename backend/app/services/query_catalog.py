@@ -108,51 +108,51 @@ def _extract_novedad_type(msg_norm: str) -> Optional[str]:
 
 def _extract_name_tokens(msg_norm: str) -> List[str]:
     stopwords = {
-        # articulos y preposiciones
-        "el", "la", "los", "las", "un", "una", "de", "del", "al",
-        "en", "con", "por", "que", "se", "su", "sus", "es", "son",
-        "hay", "y", "o", "a", "me", "te", "nos",
+        # articulos, preposiciones y conjunciones
+        "el", "la", "los", "las", "un", "una", "unos", "unas", "de", "del", "al",
+        "en", "con", "por", "para", "que", "se", "su", "sus", "es", "son",
+        "hay", "y", "o", "a", "me", "te", "nos", "como", "sobre", "acerca",
         # pronombres / interrogativos
         "cuantos", "cuantas", "quien", "quienes", "cual", "cuales",
-        "como", "donde", "cuando", "este", "esta", "ese", "esa",
-        # verbos comunes que confunden con nombres
-        "sabes", "conoces", "tiene", "tienes", "sabe", "conoce",
-        "puedes", "podrias", "quiero", "quieres", "puedo",
-        "decir", "decime", "dime", "ver", "saber", "conocer",
-        "buscar", "busca", "dame", "mostrar", "listar", "lista",
-        "informacion", "datos", "historia", "historial",
-        "novedades", "novedad",
+        "como", "donde", "cuando", "este", "esta", "estos", "estas", "ese", "esa", "aquel",
+        # verbos y peticiones
+        "sabes", "conoces", "tiene", "tienes", "sabe", "conoce", "tuvo", "habia",
+        "puedes", "podrias", "quiero", "quieres", "puedo", "decir", "decime", "dime",
+        "ver", "saber", "conocer", "buscar", "busca", "dame", "mostrar", "mostrame",
+        "listar", "lista", "informacion", "datos", "historia", "historial",
+        "estan", "esta", "estuvo", "estaban", "hubo", "mas", "menos",
+        # palabras de tiempo y conteo
+        "todos", "todas", "todo", "toda", "dias", "dia", "fecha", "fechas", "mes", "meses",
+        "ano", "anos", "anio", "anios", "hoy", "ayer", "semana", "tiempo",
+        # palabras del dominio militar y novedades
+        "novedad", "novedades", "reporte", "reportes", "ausencia", "ausencias",
+        "permiso", "permisos", "vacaciones", "incapacidad", "incapacidades",
+        "excusa", "excusas", "franco", "francos", "alta", "detenido", "prision",
+        "medica", "medico", "medicas", "medicos", "total", "frecuentes", "comunes",
+        "distribucion", "evolucion",
         # rangos militares (no son nombres propios)
-        "personal", "militar", "soldado", "cabo", "sargento", "teniente",
-        "mayor", "coronel", "capitan", "suboficial", "efectivo",
-        # otros
-        "estado", "activo", "retirado", "bimej", "batallon",
-        "para", "del", "sobre", "acerca",
+        "personal", "militar", "militares", "soldado", "soldados", "cabo", "sargento",
+        "teniente", "mayor", "coronel", "capitan", "suboficial", "efectivo", "efectivos",
+        "batallon", "bimej", "compania", "companias", "registro", "registros", "estado",
+        "activo", "activos", "retirado", "retirados"
     }
-    words = msg_norm.split()
-    return [w for w in words if len(w) >= 3 and w not in stopwords and not w.isdigit()]
+    meses_set = set(MESES_ES.keys())
+    words = [w for w in re.split(r"[^a-z0-9ñáéíóú]+", msg_norm) if w]
+    return [w for w in words if len(w) >= 3 and w not in stopwords and w not in meses_set and not w.isdigit()]
 
 
 def _name_like_clause(token: str) -> str:
     """
-    Genera una condicion LIKE tolerante a N/N variantes para PostgreSQL.
-    Ej: 'MUNOZ' -> "(UPPER(nombre) LIKE '%MUNOZ%' OR UPPER(nombre) LIKE '%MUNOZ%')"
-    Como PostgreSQL mantiene la N en UPPER(), generamos ambas variantes:
-      MUNOZ  <-> MUNOZ (N en el token, puede estar como N en DB)
-      MUNOZ  <-> MUNOZ (N en DB puede haberse normalizado sin tilde)
-    La clave es generar el LIKE con N y con N, ya que la DB puede tener ambos.
+    Genera una condicion LIKE tolerante a N/Ñ variantes para PostgreSQL.
+    Ej: 'PENA' -> "(UPPER(nombre) LIKE '%PENA%' OR UPPER(nombre) LIKE '%PEÑA%')"
     """
     t = token.upper()
-    # Generar variante con N->N y N->N para maxima cobertura
-    t_with_n = t.replace("N", "N")  # identidad (token ya normalizado sin tildes)
-    # Variante con N (puede estar en la DB como caracter con tilde)
-    t_with_enie = t.replace("N", "\u00d1")  # N -> N (unicode N)
-    if t_with_enie != t:
-        return f"(UPPER(nombre) LIKE '%{t}%' OR UPPER(nombre) LIKE '%{t_with_enie}%')"
-    # Si el token ya tiene N, generar variante sin ella
-    t_without_enie = t.replace("\u00d1", "N")
-    if t_without_enie != t:
-        return f"(UPPER(nombre) LIKE '%{t}%' OR UPPER(nombre) LIKE '%{t_without_enie}%')"
+    has_enie = "Ñ" in t
+    t_norm = t.replace("Ñ", "N")
+    common_enie = {"PENA", "MUNOZ", "NINO", "CASTANO", "IBANEZ", "ORDONEZ", "BRICENO", "NUNEZ", "MONTANA", "PATINO", "CORUNA"}
+    if has_enie or t in common_enie:
+        t_enie = t_norm.replace("N", "\u00d1")
+        return f"(UPPER(nombre) LIKE '%{t_norm}%' OR UPPER(nombre) LIKE '%{t_enie}%')"
     return f"UPPER(nombre) LIKE '%{t}%'"
 
 
@@ -200,8 +200,7 @@ def match_catalog(
                 f"SELECT fecha_reporte, novedad, descripcion "
                 f"FROM v_novedades_detalle "
                 f"WHERE cedula = {cv} "
-                f"AND EXTRACT(MONTH FROM fecha_reporte) = {_mes_early} "
-                f"AND EXTRACT(YEAR FROM fecha_reporte) = {_anio_early} "
+                f"AND fecha_reporte LIKE '{_anio_early}-{_mes_early:02d}-%' "
                 f"ORDER BY fecha_reporte ASC LIMIT 50",
                 f"Novedades de cedula {cv} en mes {_mes_early}/{_anio_early}"
             )
@@ -292,6 +291,72 @@ def match_catalog(
     min_days = int(min_days_match.group(1)) if min_days_match else None
 
     # ------------------------------------------------------------------
+    # 5.5 CONSULTAS POR NOMBRE DE MILITAR (detectado en el mensaje)
+    # Ejemplos:
+    #   "dame todos los dias que tuvo JORGE ENRIQUE PEÑA MUÑOZ como novedad PERMISO, en el mes de agosto"
+    #   "novedades de Jorge Peña en agosto"
+    #   "permisos de Peña Muñoz"
+    #   "historial de Jorge Peña"
+    # ------------------------------------------------------------------
+    name_tokens = _extract_name_tokens(msg)
+    if name_tokens and not ced:
+        like_clauses = " AND ".join(_name_like_clause(t) for t in name_tokens[:4])
+        nom_label = " ".join(name_tokens)
+
+        # 5.5a. Nombre + tipo de novedad + mes (ej: Peña + Permiso + Agosto)
+        if novedad_type and mes_num:
+            return (
+                f"SELECT cedula, nombre, fecha_reporte, novedad, descripcion "
+                f"FROM v_novedades_detalle "
+                f"WHERE {like_clauses} "
+                f"AND UPPER(novedad) LIKE '%{novedad_type}%' "
+                f"AND fecha_reporte LIKE '{anio}-{mes_num:02d}-%' "
+                f"ORDER BY fecha_reporte ASC LIMIT 50",
+                f"Dias de {novedad_type} de {nom_label} en mes {mes_num}/{anio}"
+            )
+
+        # 5.5b. Nombre + tipo de novedad (sin mes)
+        if novedad_type:
+            return (
+                f"SELECT cedula, nombre, fecha_reporte, novedad, descripcion "
+                f"FROM v_novedades_detalle "
+                f"WHERE {like_clauses} "
+                f"AND UPPER(novedad) LIKE '%{novedad_type}%' "
+                f"ORDER BY fecha_reporte DESC LIMIT 50",
+                f"Historial de {novedad_type} de {nom_label}"
+            )
+
+        # 5.5c. Nombre + mes (sin tipo especifico de novedad)
+        if mes_num:
+            return (
+                f"SELECT cedula, nombre, fecha_reporte, novedad, descripcion "
+                f"FROM v_novedades_detalle "
+                f"WHERE {like_clauses} "
+                f"AND fecha_reporte LIKE '{anio}-{mes_num:02d}-%' "
+                f"ORDER BY fecha_reporte ASC LIMIT 50",
+                f"Novedades de {nom_label} en mes {mes_num}/{anio}"
+            )
+
+        # 5.5d. Nombre + historial / novedades explicitas
+        if re.search(r"\b(novedades?|historial|reporte|reportes|ausencias?|dias?|permisos?|vacaciones?)\b", msg):
+            return (
+                f"SELECT cedula, nombre, fecha_reporte, novedad, descripcion "
+                f"FROM v_novedades_detalle "
+                f"WHERE {like_clauses} "
+                f"ORDER BY fecha_reporte DESC LIMIT 30",
+                f"Historial de novedades de {nom_label}"
+            )
+
+        # 5.5e. Busqueda de datos / perfil de la persona
+        if re.search(r"\b(quien|buscar|busca|datos|info|informacion|estado|activo|retirado)\b", msg):
+            return (
+                f"SELECT cedula, nombre, estado, fecha_retiro, total_novedades_historicas "
+                f"FROM v_personal_resumen "
+                f"WHERE {like_clauses} LIMIT 5",
+                f"Datos de personal: {nom_label}"
+            )
+
+    # ------------------------------------------------------------------
     # 6-EXTRA. PERSONAL CON MAS DE N DIAS DE [NOVEDAD]
     # "listar personal con mas de 10 dias de incapacidad"
     # ------------------------------------------------------------------
@@ -318,7 +383,7 @@ def match_catalog(
         )
 
     # ------------------------------------------------------------------
-    # 6. PERSONAL CON TIPO DE NOVEDAD + FILTROS DE FECHA
+    # 6. PERSONAL CON TIPO DE NOVEDAD + FILTROS DE FECHA (BATALLON)
     # ------------------------------------------------------------------
     if novedad_type:
 
@@ -339,8 +404,7 @@ def match_catalog(
                 f"SELECT cedula, nombre, fecha_reporte, novedad, descripcion "
                 f"FROM v_novedades_detalle "
                 f"WHERE UPPER(novedad) LIKE '%{novedad_type}%' "
-                f"AND EXTRACT(MONTH FROM fecha_reporte) = {mes_num} "
-                f"AND EXTRACT(YEAR FROM fecha_reporte) = {anio} "
+                f"AND fecha_reporte LIKE '{anio}-{mes_num:02d}-%' "
                 f"ORDER BY fecha_reporte DESC LIMIT 50",
                 f"Personal con {novedad_type} en mes {mes_num}/{anio}"
             )
@@ -397,17 +461,15 @@ def match_catalog(
                 f"SELECT fecha_reporte, novedad, descripcion "
                 f"FROM v_novedades_detalle "
                 f"WHERE cedula = {ced} "
-                f"AND EXTRACT(MONTH FROM fecha_reporte) = {mes_num} "
-                f"AND EXTRACT(YEAR FROM fecha_reporte) = {anio} "
+                f"AND fecha_reporte LIKE '{anio}-{mes_num:02d}-%' "
                 f"ORDER BY fecha_reporte ASC LIMIT 50",
                 f"Novedades de {nom} en mes {mes_num}/{anio}"
             )
         return (
             f"SELECT cedula, nombre, fecha_reporte, novedad, descripcion "
             f"FROM v_novedades_detalle "
-            f"WHERE EXTRACT(MONTH FROM fecha_reporte) = {mes_num} "
-            f"AND EXTRACT(YEAR FROM fecha_reporte) = {anio} "
-            f"ORDER BY fecha_reporte DESC LIMIT 50",
+            f"WHERE fecha_reporte LIKE '{anio}-{mes_num:02d}-%' "
+            f"ORDER BY fecha_reporte ASC LIMIT 50",
             f"Novedades del mes {mes_num}/{anio}"
         )
 
@@ -440,8 +502,7 @@ def match_catalog(
                         f"SELECT novedad, COUNT(*) AS total_dias "
                         f"FROM v_novedades_detalle "
                         f"WHERE cedula = {ced} "
-                        f"AND EXTRACT(MONTH FROM fecha_reporte) = {mes_num} "
-                        f"AND EXTRACT(YEAR FROM fecha_reporte) = {anio} "
+                        f"AND fecha_reporte LIKE '{anio}-{mes_num:02d}-%' "
                         f"GROUP BY novedad ORDER BY total_dias DESC LIMIT 10",
                         f"Novedades mas frecuentes de {nom} en mes {mes_num}/{anio}"
                     )
@@ -457,8 +518,8 @@ def match_catalog(
             # Consulta "en que meses esta presente / ha tenido novedades"
             if re.search(r"\b(en\s+que\s+meses|cuales\s+meses|que\s+meses|meses\s+present)\b", msg):
                 return (
-                    f"SELECT EXTRACT(YEAR FROM fecha_reporte)::int AS anio, "
-                    f"EXTRACT(MONTH FROM fecha_reporte)::int AS mes, "
+                    f"SELECT EXTRACT(YEAR FROM fecha_reporte::date)::int AS anio, "
+                    f"EXTRACT(MONTH FROM fecha_reporte::date)::int AS mes, "
                     f"COUNT(*) AS dias_presente "
                     f"FROM v_novedades_detalle "
                     f"WHERE cedula = {ced} "
@@ -473,8 +534,7 @@ def match_catalog(
                     f"SELECT fecha_reporte, novedad, descripcion "
                     f"FROM v_novedades_detalle "
                     f"WHERE cedula = {ced} "
-                    f"AND EXTRACT(MONTH FROM fecha_reporte) = {mes_num} "
-                    f"AND EXTRACT(YEAR FROM fecha_reporte) = {anio} "
+                    f"AND fecha_reporte LIKE '{anio}-{mes_num:02d}-%' "
                     f"ORDER BY fecha_reporte ASC LIMIT 50",
                     f"Novedades de {nom} en mes {mes_num}/{anio}"
                 )
