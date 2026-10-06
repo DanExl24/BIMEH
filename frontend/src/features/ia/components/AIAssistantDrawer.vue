@@ -104,7 +104,7 @@
         <div class="grid grid-cols-2 gap-2">
           <div class="bg-slate-900 rounded-xl px-3 py-2 border border-darkBorder">
             <p class="text-[10px] text-slate-500 mb-0.5">Modelo activo</p>
-            <p class="text-blue-300 font-mono font-bold text-[11px]">{{ status?.model_configured || 'gemini-2.0-flash' }}</p>
+            <p class="text-blue-300 font-mono font-bold text-[11px]">{{ status?.model_configured || 'gemini-3.8-flash' }}</p>
           </div>
           <div class="bg-slate-900 rounded-xl px-3 py-2 border border-darkBorder">
             <p class="text-[10px] text-slate-500 mb-0.5">Estado</p>
@@ -121,7 +121,7 @@
 
         <div class="flex items-center gap-1.5 bg-blue-500/8 border border-blue-500/20 rounded-lg p-2">
           <span class="text-blue-400 text-[11px]">💡</span>
-          <span class="text-[11px] text-slate-400">Modelos disponibles: <span class="text-blue-300 font-mono">gemini-2.0-flash</span>, <span class="text-blue-300 font-mono">gemini-1.5-flash</span>, <span class="text-blue-300 font-mono">gemini-2.5-flash-preview-04-17</span></span>
+          <span class="text-[11px] text-slate-400">Modelos disponibles: <span class="text-blue-300 font-mono">gemini-3.8-flash</span>, <span class="text-blue-300 font-mono">gemini-2.5-flash-preview-04-17</span>, <span class="text-blue-300 font-mono">gemini-1.5-flash</span></span>
         </div>
       </div>
 
@@ -481,7 +481,7 @@ const verificarEstado = async () => {
     status.value = {
       online: false,
       backend: 'gemini',
-      model_configured: 'gemini-2.0-flash',
+      model_configured: 'gemini-3.8-flash',
       api_key_configured: false,
       error: 'Error de conexión con el backend'
     }

@@ -4,7 +4,7 @@ Reemplaza a Ollama como motor de IA.
 
 Configuracion en .env:
     GEMINI_API_KEY=<tu_api_key>
-    GEMINI_MODEL=gemini-2.0-flash
+    GEMINI_MODEL=gemini-3.8-flash
     AI_BACKEND=gemini
 """
 
@@ -24,7 +24,7 @@ from app.services.query_catalog import match_catalog
 logger = logging.getLogger(__name__)
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
 
 DATABASE_SCHEMA_CONTEXT = """
 Eres el Asistente de Inteligencia de Personal Militar para el batallon BIMEJ 12.
@@ -76,8 +76,9 @@ def query_gemini(prompt, system=None, temperature=0.1, max_tokens=512, json_mode
     if system:
         config_kwargs["system_instruction"] = system
     try:
+        current_model = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
         response = client.models.generate_content(
-            model=GEMINI_MODEL,
+            model=current_model,
             contents=prompt,
             config=types.GenerateContentConfig(**config_kwargs),
         )
@@ -171,7 +172,7 @@ def should_apply_militar_context(user_message, active_militar):
 
 
 def process_user_query(user_message, db, history=None, active_militar=None):
-    model_label = f"gemini ({GEMINI_MODEL})"
+    model_label = f"gemini ({os.getenv('GEMINI_MODEL', 'gemini-3.8-flash')})"
     now = datetime.now()
 
     # 1. Respuestas rapidas sin IA
