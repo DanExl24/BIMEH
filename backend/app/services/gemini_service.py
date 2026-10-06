@@ -10,6 +10,7 @@ Configuracion en .env:
 
 import os
 import re
+import time
 import json
 import logging
 import unicodedata
@@ -75,17 +76,48 @@ def query_gemini(prompt, system=None, temperature=0.1, max_tokens=512, json_mode
         config_kwargs["response_mime_type"] = "application/json"
     if system:
         config_kwargs["system_instruction"] = system
-    try:
-        current_model = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
-        response = client.models.generate_content(
-            model=current_model,
-            contents=prompt,
-            config=types.GenerateContentConfig(**config_kwargs),
-        )
-        return response.text.strip() if response.text else ""
-    except Exception as e:
-        logger.error(f"[Gemini] Error: {e}")
-        raise RuntimeError(f"Error de Gemini: {e}")
+
+    primary_model = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
+    fallback_candidates = [
+        primary_model,
+        "gemini-2.5-flash-preview-04-17",
+        "gemini-1.5-flash"
+    ]
+    models_to_try = []
+    for m in fallback_candidates:
+        if m and m not in models_to_try:
+            models_to_try.append(m)
+
+    last_exception = None
+    for idx, model_name in enumerate(models_to_try):
+        max_attempts = 2 if idx == 0 else 1
+        for attempt in range(max_attempts):
+            try:
+                response = client.models.generate_content(
+                    model=model_name,
+                    contents=prompt,
+                    config=types.GenerateContentConfig(**config_kwargs),
+                )
+                return response.text.strip() if response.text else ""
+            except Exception as e:
+                last_exception = e
+                err_str = str(e).upper()
+                is_transient = "503" in err_str or "UNAVAILABLE" in err_str or "429" in err_str or "HIGH DEMAND" in err_str
+                if is_transient:
+                    logger.warning(
+                        f"[Gemini] Alta demanda (503/429) en '{model_name}' (intento {attempt + 1}). "
+                        f"Reintentando con backoff..."
+                    )
+                    time.sleep(1.2 * (attempt + 1))
+                else:
+                    logger.error(f"[Gemini] Error no recuperable con modelo '{model_name}': {e}")
+                    raise RuntimeError(f"Error de Gemini: {e}")
+
+    logger.error(f"[Gemini] Todos los reintentos fallaron: {last_exception}")
+    raise RuntimeError(
+        f"El servicio de Gemini está temporalmente congestionado por alta demanda de Google Cloud. "
+        f"Por favor intente nuevamente en unos segundos. Detalle: {last_exception}"
+    )
 
 
 def _norm(text):
