@@ -521,6 +521,10 @@ def match_catalog(
             "permisos", "vacaciones", "excusas", "incapacidades",
             "frecuentes", "cuantas", "cuantos", "dias", "ausencias",
             "reportes", "su novedad", "ultima novedad",
+            # peticiones conversacionales
+            "sobre el", "de el", "dime mas", "mas info", "mas informacion",
+            "mas datos", "cuentame", "que mas", "mas detalles", "informacion",
+            "datos", "perfil",
             # estado personal
             "estado", "como esta", "activo", "retirado",
             # presencia (nuevo)

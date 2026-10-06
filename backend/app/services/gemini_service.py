@@ -331,7 +331,11 @@ def should_apply_militar_context(user_message, active_militar):
         "ahora", "y en", "tambien", "ademas", "otro mes", "y para", "en el mes",
         # meses (preguntas como 'ahora en julio', 'y en agosto')
         "enero", "febrero", "marzo", "abril", "mayo", "junio", "julio",
-        "agosto", "septiembre", "octubre", "noviembre", "diciembre"
+        "agosto", "septiembre", "octubre", "noviembre", "diciembre",
+        # peticiones conversacionales de seguimiento
+        "sobre el", "de el", "dime mas", "mas info", "mas informacion",
+        "mas datos", "cuentame", "que mas", "mas detalles", "informacion",
+        "datos", "perfil"
     ]
     return any(k in msg for k in followup_kw)
 
