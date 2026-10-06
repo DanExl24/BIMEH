@@ -312,15 +312,29 @@ def _auto_synthesize(user_message, query_result):
         else:
             return f"Se registran **{total} días**{novedad_str}{nombre_str} en BIMEJ 12 (desde **{fechas[0]}** hasta **{fechas[-1]}**)."
 
-    # Caso 3: Ranking de novedades frecuentes
+    # Caso 3: Ranking de novedades frecuentes o menos frecuentes
     if "novedad" in cols and ("total_dias" in cols or "total_dias_registrados" in cols):
-        top = rows[0]
-        nov_nombre = top.get("novedad", "")
-        dias = top.get("total_dias") or top.get("total_dias_registrados", 0)
-        nombre_militar = top.get("nombre")
-        if nombre_militar:
-            return f"Novedad más registrada para **{nombre_militar}**: **{nov_nombre}** con un total de **{dias} días**."
-        return f"Novedad más registrada en BIMEJ 12: **{nov_nombre}** con un total de **{dias} días** acumulados."
+        is_least = any(w in _norm(user_message) for w in ["menos", "menor", "minima", "rara", "escas"])
+        dias_col = "total_dias" if "total_dias" in cols else "total_dias_registrados"
+        first_dias = rows[0].get(dias_col, 0)
+        last_dias = rows[-1].get(dias_col, 0)
+
+        if is_least:
+            target = rows[0] if first_dias <= last_dias else rows[-1]
+            nov_nombre = target.get("novedad", "")
+            dias = target.get(dias_col, 0)
+            nombre_militar = target.get("nombre")
+            if nombre_militar:
+                return f"Novedad menos registrada para **{nombre_militar}**: **{nov_nombre}** con un total de **{dias} días**."
+            return f"Novedad menos registrada en BIMEJ 12: **{nov_nombre}** con un total de **{dias} días** acumulados."
+        else:
+            target = rows[0] if first_dias >= last_dias else rows[-1]
+            nov_nombre = target.get("novedad", "")
+            dias = target.get(dias_col, 0)
+            nombre_militar = target.get("nombre")
+            if nombre_militar:
+                return f"Novedad más registrada para **{nombre_militar}**: **{nov_nombre}** con un total de **{dias} días**."
+            return f"Novedad más registrada en BIMEJ 12: **{nov_nombre}** con un total de **{dias} días** acumulados."
 
     # Caso 4: Lista de personal
     if "cedula" in cols and "nombre" in cols:
@@ -419,6 +433,7 @@ def should_apply_militar_context(user_message, active_militar):
         "su ", "sus ", "el mismo", "este personal", "novedad", "novedades",
         "historial", "permisos", "vacaciones", "incapacidad", "estado",
         "presente", "registrada", "frecuente", "meses",
+        "menos", "menor", "minima", "menos frecuente", "menos comun", "menos registrada",
         "ahora", "y en", "tambien", "ademas", "otro mes", "y para", "en el mes",
         # meses (preguntas como 'ahora en julio', 'y en agosto')
         "enero", "febrero", "marzo", "abril", "mayo", "junio", "julio",

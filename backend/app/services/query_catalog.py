@@ -120,7 +120,7 @@ def _extract_name_tokens(msg_norm: str) -> List[str]:
         "puedes", "podrias", "quiero", "quieres", "puedo", "decir", "decime", "dime",
         "ver", "saber", "conocer", "buscar", "busca", "dame", "mostrar", "mostrame",
         "listar", "lista", "informacion", "datos", "historia", "historial",
-        "estan", "esta", "estuvo", "estaban", "hubo", "mas", "menos",
+        "estan", "esta", "estuvo", "estaban", "hubo", "mas", "menos", "menor", "minima", "minimo", "rara", "habitual",
         # conectores, transiciones y adverbios
         "ahora", "entonces", "luego", "despues", "antes", "tambien", "ademas", "solo", "solamente",
         "otro", "otra", "otros", "otras", "mismo", "misma", "mismos", "mismas",
@@ -159,6 +159,24 @@ def _name_like_clause(token: str) -> str:
         t_enie = t_norm.replace("N", "\u00d1")
         return f"(UPPER(nombre) LIKE '%{t_norm}%' OR UPPER(nombre) LIKE '%{t_enie}%')"
     return f"UPPER(nombre) LIKE '%{t}%'"
+
+
+def _is_least_frequent(msg: str) -> bool:
+    """
+    Detecta si el mensaje pregunta por la novedad MENOS frecuente,
+    menos registrada, menor cantidad de dias o mas rara.
+    """
+    least_triggers = (
+        r"\b(menos\s+frecuente|menos\s+comun|menor\s+frecuencia|menos\s+presente|"
+        r"menos\s+tiene|menos\s+registro|menos\s+registrada?|menor\s+cantidad|"
+        r"menos\s+repetida?|menos\s+dias|menos\s+veces|minima\s+frecuencia|"
+        r"mas\s+rara|menos\s+habitual|novedad\s+menor|novedad\s+menos)\b"
+    )
+    if re.search(least_triggers, msg):
+        return True
+    has_min = bool(re.search(r"\b(menos|menor|minima?|rara?)\b", msg))
+    has_target = bool(re.search(r"\b(frecuente|comun|novedad|registrada?|dias?|presencia|repetida?)\b", msg))
+    return has_min and has_target
 
 
 # ---------------------------------------------------------------------------
@@ -203,24 +221,27 @@ def match_catalog(
     if cedula_en_msg:
         cv = cedula_en_msg.group(1)
 
-        # 0-ranking: Cédula + más frecuente / más presente / ranking (+ opcional mes)
-        ranking_triggers = r"\b(frecuentes?|comunes?|mas\s+presente|mas\s+tiene|mas\s+registro|mas\s+registrada?|ranking|mayor\s+cantidad|mas\s+repetida?|mas\s+dias|principal\s+novedad)\b"
-        if re.search(ranking_triggers, msg):
+        # 0-ranking: Cédula + más o menos frecuente / ranking (+ opcional mes)
+        ranking_triggers = r"\b(frecuentes?|comunes?|mas\s+presente|mas\s+tiene|mas\s+registro|mas\s+registrada?|ranking|mayor\s+cantidad|mas\s+repetida?|mas\s+dias|principal\s+novedad|menos\s+frecuente|menos\s+registrada?|menor)\b"
+        if re.search(ranking_triggers, msg) or _is_least_frequent(msg):
+            is_least = _is_least_frequent(msg)
+            order = "ASC" if is_least else "DESC"
+            desc_tipo = "menos frecuente" if is_least else "más frecuente"
             if mes_num:
                 return (
                     f"SELECT cedula, nombre, novedad, COUNT(*) AS total_dias "
                     f"FROM v_novedades_detalle "
                     f"WHERE cedula = {cv} "
                     f"AND fecha_reporte LIKE '{anio}-{mes_num:02d}-%' "
-                    f"GROUP BY cedula, nombre, novedad ORDER BY total_dias DESC LIMIT 10",
-                    f"Novedad más frecuente de cédula {cv} en mes {mes_num}/{anio}"
+                    f"GROUP BY cedula, nombre, novedad ORDER BY total_dias {order} LIMIT 10",
+                    f"Novedad {desc_tipo} de cédula {cv} en mes {mes_num}/{anio}"
                 )
             return (
                 f"SELECT cedula, nombre, novedad, COUNT(*) AS total_dias "
                 f"FROM v_novedades_detalle "
                 f"WHERE cedula = {cv} "
-                f"GROUP BY cedula, nombre, novedad ORDER BY total_dias DESC LIMIT 10",
-                f"Novedades más frecuentes de cédula {cv}"
+                f"GROUP BY cedula, nombre, novedad ORDER BY total_dias {order} LIMIT 10",
+                f"Novedades {desc_tipo}s de cédula {cv}"
             )
 
         # 0-tipo: Cédula + tipo específico de novedad (permiso, vacación, etc.)
@@ -317,8 +338,15 @@ def match_catalog(
         )
 
     # ------------------------------------------------------------------
-    # 5. NOVEDADES MAS FRECUENTES DEL BATALLON
+    # 5. NOVEDADES MENOS O MAS FRECUENTES DEL BATALLON
     # ------------------------------------------------------------------
+    if _is_least_frequent(msg) and not ced:
+        return (
+            "SELECT novedad, total_dias_registrados, total_personal_afectado "
+            "FROM v_conteo_novedades ORDER BY total_dias_registrados ASC LIMIT 10",
+            "Ranking de novedades menos frecuentes en BIMEJ 12"
+        )
+
     frecuentes_triggers = [
         "mas frecuentes", "mas comunes", "mas presentadas", "mas registradas",
         "ranking de novedades", "novedades frecuentes", "que novedades hay mas",
@@ -521,19 +549,22 @@ def match_catalog(
     # 8. CONSULTAS SOBRE MILITAR EN CONTEXTO ACTIVO
     # ------------------------------------------------------------------
     if ced:
-        ranking_triggers = r"\b(frecuentes?|comunes?|mas\s+presente|mas\s+tiene|mas\s+registro|mas\s+registrada?|ranking|mayor\s+cantidad|mas\s+repetida?|mas\s+dias|principal\s+novedad)\b"
+        ranking_triggers = r"\b(frecuentes?|comunes?|mas\s+presente|mas\s+tiene|mas\s+registro|mas\s+registrada?|ranking|mayor\s+cantidad|mas\s+repetida?|mas\s+dias|principal\s+novedad|menos\s+frecuente|menos\s+registrada?|menor)\b"
 
         # 8a. Si hay un mes mencionado ("ahora en el mes de julio", "y en julio", "en junio la novedad mas presente")
         if mes_num:
-            # Ranking de novedades más frecuentes en ese mes
-            if re.search(ranking_triggers, msg):
+            # Ranking de novedades más o menos frecuentes en ese mes
+            if re.search(ranking_triggers, msg) or _is_least_frequent(msg):
+                is_least = _is_least_frequent(msg)
+                order = "ASC" if is_least else "DESC"
+                desc_tipo = "menos frecuente" if is_least else "más frecuente"
                 return (
                     f"SELECT cedula, nombre, novedad, COUNT(*) AS total_dias "
                     f"FROM v_novedades_detalle "
                     f"WHERE cedula = {ced} "
                     f"AND fecha_reporte LIKE '{anio}-{mes_num:02d}-%' "
-                    f"GROUP BY cedula, nombre, novedad ORDER BY total_dias DESC LIMIT 10",
-                    f"Novedad más frecuente de {nom} en mes {mes_num}/{anio}"
+                    f"GROUP BY cedula, nombre, novedad ORDER BY total_dias {order} LIMIT 10",
+                    f"Novedad {desc_tipo} de {nom} en mes {mes_num}/{anio}"
                 )
             # Novedad específica en ese mes
             if novedad_type:
@@ -562,6 +593,7 @@ def match_catalog(
             "permisos", "vacaciones", "excusas", "incapacidades",
             "frecuentes", "cuantas", "cuantos", "dias", "ausencias",
             "reportes", "su novedad", "ultima novedad",
+            "menos frecuente", "menos comun", "menos registrada", "menor", "menos", "minima",
             # peticiones conversacionales
             "sobre el", "de el", "dime mas", "mas info", "mas informacion",
             "mas datos", "cuentame", "que mas", "mas detalles", "informacion",
@@ -573,14 +605,17 @@ def match_catalog(
             "aparece", "registrado", "aparecio", "aparecido",
         ]
         if any(kw in msg for kw in followup_kw):
-            # Patron ampliado: "mas frecuente", "mas registro", "mas tiene", "mas registrada", "ranking"
-            if re.search(ranking_triggers, msg):
+            # Patron ampliado: "mas frecuente", "menos frecuente", "ranking", etc.
+            if re.search(ranking_triggers, msg) or _is_least_frequent(msg):
+                is_least = _is_least_frequent(msg)
+                order = "ASC" if is_least else "DESC"
+                desc_tipo = "menos frecuente" if is_least else "más frecuente"
                 return (
                     f"SELECT cedula, nombre, novedad, COUNT(*) AS total_dias "
                     f"FROM v_novedades_detalle "
                     f"WHERE cedula = {ced} "
-                    f"GROUP BY cedula, nombre, novedad ORDER BY total_dias DESC LIMIT 10",
-                    f"Novedades más frecuentes de {nom}"
+                    f"GROUP BY cedula, nombre, novedad ORDER BY total_dias {order} LIMIT 10",
+                    f"Novedades {desc_tipo}s de {nom}"
                 )
 
             # Consulta "en que meses esta presente / ha tenido novedades"

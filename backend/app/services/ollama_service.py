@@ -395,9 +395,14 @@ def should_apply_militar_context(user_message: str, active_militar: Optional[Dic
         "permiso", "permisos", "vacacion", "vacaciones", "excusa", "incapacidad",
         "falta", "faltas", "ausencia", "reporte", "dias", "días", "cuantas", "cuántas",
         "cuanto", "cuánto", "cual", "cuál", "cuando", "cuándo", "donde", "dónde",
-        "estado", "activo", "retirado", "historial"
+        "estado", "activo", "retirado", "historial", "frecuente", "menos", "menor", "minima"
     ]
     return any(k in msg for k in followup_keywords)
+
+
+def _norm(text: str) -> str:
+    nfkd = unicodedata.normalize("NFKD", text.lower())
+    return "".join(c for c in nfkd if not unicodedata.combining(c))
 
 
 REFUSAL_PHRASES = [
@@ -429,7 +434,41 @@ def _auto_synthesize(user_message: str, query_result: Dict[str, Any]) -> str:
         col = cols[0]
         return f"Segun la base de datos de BIMEJ 12, el resultado de la consulta es: **{col}** = **{val}**."
 
-    # Caso 2: multiples filas con cedula/nombre (listado de personal)
+    # Caso 2: ranking de novedades (mas o menos frecuentes)
+    if "novedad" in cols and ("total_dias" in cols or "total_dias_registrados" in cols):
+        is_least = any(w in _norm(user_message) for w in ["menos", "menor", "minima", "rara", "escas"])
+        dias_col = "total_dias" if "total_dias" in cols else "total_dias_registrados"
+        first_dias = rows[0].get(dias_col, 0)
+        last_dias = rows[-1].get(dias_col, 0)
+
+        if is_least:
+            target = rows[0] if first_dias <= last_dias else rows[-1]
+            nov_nombre = target.get("novedad", "")
+            dias = target.get(dias_col, 0)
+            nombre_militar = target.get("nombre")
+            if nombre_militar:
+                return (
+                    f"Novedad menos registrada para **{nombre_militar}**: **{nov_nombre}** "
+                    f"con un total de **{dias} días**."
+                )
+            return (
+                f"Novedad menos registrada en BIMEJ 12: **{nov_nombre}** con un total de **{dias} días** acumulados."
+            )
+        else:
+            target = rows[0] if first_dias >= last_dias else rows[-1]
+            nov_nombre = target.get("novedad", "")
+            dias = target.get(dias_col, 0)
+            nombre_militar = target.get("nombre")
+            if nombre_militar:
+                return (
+                    f"Novedad más registrada para **{nombre_militar}**: **{nov_nombre}** "
+                    f"con un total de **{dias} días**."
+                )
+            return (
+                f"Novedad más registrada en BIMEJ 12: **{nov_nombre}** con un total de **{dias} días** acumulados."
+            )
+
+    # Caso 3: multiples filas con cedula/nombre (listado de personal)
     if "cedula" in cols and "nombre" in cols:
         nombres = list({r.get("nombre", "") for r in rows[:5] if r.get("nombre")})
         muestra = ", ".join(nombres[:3])
@@ -437,21 +476,6 @@ def _auto_synthesize(user_message: str, query_result: Dict[str, Any]) -> str:
         return (
             f"Se encontraron **{total} registros** en la base de datos de BIMEJ 12. "
             f"Entre el personal identificado: {muestra}{resto}."
-        )
-
-    # Caso 3: ranking de novedades
-    if "novedad" in cols and "total_dias" in cols:
-        top = rows[0]
-        nombre_militar = top.get("nombre")
-        if nombre_militar:
-            return (
-                f"La novedad más registrada para **{nombre_militar}** es **{top.get('novedad', '')}** "
-                f"con **{top.get('total_dias', '')} días**."
-            )
-        return (
-            f"La novedad mas registrada es **{top.get('novedad', '')}** "
-            f"con **{top.get('total_dias', '')} dias**. "
-            f"Se encontraron {total} tipos de novedad en total."
         )
 
     # Caso generico
