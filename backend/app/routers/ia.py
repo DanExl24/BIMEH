@@ -35,29 +35,34 @@ class ChatMessageRequest(BaseModel):
     message: str = Field(..., min_length=1, description="Pregunta o solicitud en lenguaje natural para la IA")
     history: Optional[List[Dict[str, Any]]] = Field(default=None, description="Historial previo de mensajes")
     active_militar: Optional[Dict[str, Any]] = Field(default=None, description="Militar en contexto activo (cedula, nombre)")
+    model: Optional[str] = Field(default=None, description="Modelo de Gemini u Ollama a utilizar para esta consulta")
 
 
 class ApreciacionRequest(BaseModel):
     mes: Optional[str] = Field("TODOS", description="Nombre del mes operacional o TODOS para consolidado")
+    model: Optional[str] = Field(default=None, description="Modelo de Gemini u Ollama a utilizar")
 
 
 class IAConfigRequest(BaseModel):
     base_url: Optional[str] = Field(None, description="URL de Ollama o Cloudflare Tunnel (ej. https://...trycloudflare.com)")
-    model: Optional[str] = Field(None, description="Modelo de Ollama (ej. llama3.1:8b)")
+    model: Optional[str] = Field(None, description="Modelo activo (ej. gemini-3.5-flash-lite o llama3.1)")
 
 
 @router.get("/status")
 def get_ia_status():
-    """Reporta el estado del backend de IA activo (Gemini o Ollama)."""
+    """Reporta el estado del backend de IA activo (Gemini o Ollama) y la lista de modelos disponibles con sus cuotas."""
     service, backend_name = get_ai_backend()
     if backend_name == "gemini":
         api_key = os.getenv("GEMINI_API_KEY", "").strip()
         api_key_ok = bool(api_key)
+        current_model = os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite")
+        models_info = getattr(service, "get_gemini_models_info", lambda: [])()
         return {
             "backend": "gemini",
-            "model_configured": os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite"),
+            "model_configured": current_model,
             "online": api_key_ok,
             "api_key_configured": api_key_ok,
+            "available_models": models_info,
             "error": None if api_key_ok else "GEMINI_API_KEY no encontrada en variables de entorno",
         }
     status = ollama_service.check_ollama_status()
@@ -69,12 +74,15 @@ def get_ia_status():
 
 @router.post("/config")
 def update_ia_config(req: IAConfigRequest):
-    """Actualiza la URL o modelo de Ollama en tiempo de ejecución."""
+    """Actualiza la URL o modelo de IA en tiempo de ejecución (sin necesidad de reiniciar)."""
     if req.base_url:
         os.environ["OLLAMA_BASE_URL"] = req.base_url.strip().rstrip("/")
     if req.model:
-        os.environ["OLLAMA_MODEL"] = req.model.strip()
-    return ollama_service.check_ollama_status()
+        model_name = req.model.strip()
+        os.environ["GEMINI_MODEL"] = model_name
+        os.environ["OLLAMA_MODEL"] = model_name
+        logger.info(f"[IA Config] Modelo activo actualizado a: {model_name}")
+    return get_ia_status()
 
 
 @router.post("/chat")
@@ -103,12 +111,16 @@ def chat_with_ia(req: ChatMessageRequest, db = Depends(get_db)):
 
     start_time = time.time()
     try:
-        resultado = service.process_user_query(
-            user_message=req.message,
-            db=db,
-            history=req.history,
-            active_militar=req.active_militar
-        )
+        query_kwargs = {
+            "user_message": req.message,
+            "db": db,
+            "history": req.history,
+            "active_militar": req.active_militar
+        }
+        if req.model:
+            query_kwargs["model"] = req.model
+
+        resultado = service.process_user_query(**query_kwargs)
         elapsed = round(time.time() - start_time, 1)
         return {
             "status": "success",
@@ -147,7 +159,7 @@ def generar_apreciacion_comandancia(req: ApreciacionRequest, db = Depends(get_db
     try:
         # gemini_service usa generate_apreciacion; ollama_service usa generate_executive_briefing
         if hasattr(service, "generate_apreciacion"):
-            resultado = service.generate_apreciacion(db)
+            resultado = service.generate_apreciacion(db, model=req.model)
         else:
             resultado = service.generate_executive_briefing(req.mes, db)
         elapsed = round(time.time() - start_time, 1)

@@ -104,7 +104,95 @@ def get_live_gemini_models(client) -> List[str]:
     return _cached_live_models
 
 
-def query_gemini(prompt, system=None, temperature=0.1, max_tokens=512, json_mode=False):
+# Catalogo estructurado de modelos de Google AI Studio con sus limites de cuota (Free Tier)
+AVAILABLE_GEMINI_MODELS: List[Dict[str, Any]] = [
+    {
+        "id": "gemini-3.5-flash-lite",
+        "name": "Gemini 3.5 Flash Lite",
+        "rpd": 500,
+        "rpm": 15,
+        "tpm": "250K",
+        "category": "Flash Lite",
+        "description": "Máxima cuota gratuita diaria (500 solicitudes/día). Ultrarrápido y ligero para consultas frecuentes.",
+        "recommended": True,
+        "badge": "500 req/día (Recomendado)",
+    },
+    {
+        "id": "gemini-3.1-flash-lite",
+        "name": "Gemini 3.1 Flash Lite",
+        "rpd": 500,
+        "rpm": 15,
+        "tpm": "250K",
+        "category": "Flash Lite",
+        "description": "Alta cuota gratuita diaria (500 solicitudes/día). Muy veloz y estable para análisis militar.",
+        "recommended": True,
+        "badge": "500 req/día",
+    },
+    {
+        "id": "gemini-3.8-flash",
+        "name": "Gemini 3.8 Flash",
+        "rpd": 20,
+        "rpm": 5,
+        "tpm": "250K",
+        "category": "Flash",
+        "description": "Mayor capacidad de razonamiento y síntesis avanzada. Cuota diaria reducida (20 solicitudes/día en Free Tier).",
+        "recommended": False,
+        "badge": "20 req/día",
+    },
+    {
+        "id": "gemini-2.5-flash",
+        "name": "Gemini 2.5 Flash",
+        "rpd": 20,
+        "rpm": 5,
+        "tpm": "250K",
+        "category": "Flash",
+        "description": "Modelo balanceado multimodal estándar. Cuota diaria reducida (20 solicitudes/día en Free Tier).",
+        "recommended": False,
+        "badge": "20 req/día",
+    },
+    {
+        "id": "gemini-2.5-pro",
+        "name": "Gemini 2.5 Pro",
+        "rpd": 50,
+        "rpm": 2,
+        "tpm": "32K",
+        "category": "Pro",
+        "description": "Razonamiento profundo para análisis complejos. Mayor latencia y límites estrictos de peticiones por minuto.",
+        "recommended": False,
+        "badge": "Avanzado / Pro",
+    },
+]
+
+
+def get_gemini_models_info() -> List[Dict[str, Any]]:
+    """Retorna la lista de modelos de Google AI Studio con metadatos de cuotas y estado activo."""
+    current_model = os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite").strip()
+    result = []
+    found_ids = set()
+    for m in AVAILABLE_GEMINI_MODELS:
+        item = dict(m)
+        item["active"] = (m["id"] == current_model)
+        result.append(item)
+        found_ids.add(m["id"])
+
+    # Si hay un modelo personalizado configurado que no está en la lista estándar
+    if current_model and current_model not in found_ids:
+        result.insert(0, {
+            "id": current_model,
+            "name": current_model.replace("gemini-", "Gemini ").replace("-", " ").title(),
+            "rpd": 20,
+            "rpm": 5,
+            "tpm": "250K",
+            "category": "Personalizado",
+            "description": "Modelo configurado manualmente en el entorno.",
+            "recommended": False,
+            "badge": "Personalizado",
+            "active": True
+        })
+    return result
+
+
+def query_gemini(prompt, system=None, temperature=0.1, max_tokens=512, json_mode=False, model=None):
     client = _get_client()
     config_kwargs = {"temperature": temperature, "max_output_tokens": max_tokens}
     if json_mode:
@@ -112,7 +200,7 @@ def query_gemini(prompt, system=None, temperature=0.1, max_tokens=512, json_mode
     if system:
         config_kwargs["system_instruction"] = system
 
-    primary_model = os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite")
+    primary_model = model or os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite")
     live_models = get_live_gemini_models(client)
 
     # Priorizar modelos con la mayor cuota gratuita disponible (500 req/dia)
@@ -343,8 +431,9 @@ def should_apply_militar_context(user_message, active_militar):
     return any(k in msg for k in followup_kw)
 
 
-def process_user_query(user_message, db, history=None, active_militar=None):
-    model_label = f"gemini ({os.getenv('GEMINI_MODEL', 'gemini-3.5-flash-lite')})"
+def process_user_query(user_message, db, history=None, active_militar=None, model=None):
+    active_model = model or os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite")
+    model_label = f"gemini ({active_model})"
     now = datetime.now()
 
     # 1. Respuestas rapidas sin IA
@@ -403,7 +492,7 @@ def process_user_query(user_message, db, history=None, active_militar=None):
         f"CRITICO: fecha_reporte es VARCHAR ('YYYY-MM-DD'). Para filtrar por mes usa fecha_reporte LIKE '{now.year}-<MM>-%' o EXTRACT(MONTH FROM fecha_reporte::date)=<num>."
     )
 
-    raw = query_gemini(prompt=sql_prompt, temperature=0.05, max_tokens=400, json_mode=True)
+    raw = query_gemini(prompt=sql_prompt, temperature=0.05, max_tokens=400, json_mode=True, model=active_model)
     try:
         parsed = json.loads(raw)
     except:
@@ -438,7 +527,7 @@ def process_user_query(user_message, db, history=None, active_militar=None):
                 try:
                     fixed = query_gemini(
                         f"SQL fallo con error: {last_error}\nSQL: {validated_sql}\nDevuelve SOLO el SQL corregido.",
-                        temperature=0.0, max_tokens=300
+                        temperature=0.0, max_tokens=300, model=active_model
                     )
                     fixed = re.sub(r"```\w*\n?", "", fixed).strip()
                     if fixed and is_sql_safe(fixed):
@@ -459,7 +548,7 @@ def process_user_query(user_message, db, history=None, active_militar=None):
                 f"Asistente Militar BIMEJ 12.\nUsuario: \"{user_message}\"\n"
                 f"Resultados ({query_result['total']} registros): {json.dumps(query_result['rows'][:8], ensure_ascii=False)}\n"
                 f"Redacta resumen militar claro en 2 oraciones.",
-                temperature=0.2, max_tokens=150
+                temperature=0.2, max_tokens=150, model=active_model
             )
             if _is_refusal(synthesis):
                 synthesis = _auto_synthesize(user_message, query_result)
@@ -480,7 +569,8 @@ def process_user_query(user_message, db, history=None, active_militar=None):
             "active_militar": detected_m}
 
 
-def generate_apreciacion(db):
+def generate_apreciacion(db, model=None):
+    active_model = model or os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite")
     now = datetime.now()
     def run(sql):
         try: return execute_safe_query(db, sql)
@@ -503,7 +593,7 @@ def generate_apreciacion(db):
         f"Estructura en Markdown: Encabezado, Diagnostico, Analisis Novedades, Alertas, Recomendacion S1.\n"
         f"Vocabulario castrence formal."
     )
-    briefing = query_gemini(prompt=prompt, temperature=0.3, max_tokens=1024)
+    briefing = query_gemini(prompt=prompt, temperature=0.3, max_tokens=1024, model=active_model)
     return {"periodo": now.strftime("%B %Y"),
             "kpis": {"total_personal": total, "total_activos": activos, "total_retirados": retirados,
                      "top_novedades": top_nov, "casos_criticos": criticos},

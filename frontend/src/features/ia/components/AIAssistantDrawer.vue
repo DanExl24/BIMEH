@@ -86,42 +86,133 @@
         </div>
       </div>
 
-      <!-- Panel de información del modelo Gemini (reemplaza panel Ollama) -->
+      <!-- Panel interactivo de selección de modelos Gemini (Google AI Studio) -->
       <div
         v-if="mostrarConfig"
-        class="bg-slate-950 border-b border-darkBorder px-4 py-3 space-y-2 text-xs shrink-0 animate-in fade-in duration-200"
+        class="bg-slate-950 border-b border-darkBorder px-4 py-3 space-y-3 text-xs shrink-0 max-h-[72vh] overflow-y-auto scrollbar-thin animate-in fade-in duration-200"
       >
         <div class="flex items-center justify-between text-slate-300 font-bold">
-          <span class="flex items-center gap-1.5 text-blue-400">
-            <Globe class="w-3.5 h-3.5" />
-            Motor de IA: Google Gemini
-          </span>
-          <button @click="mostrarConfig = false" class="text-slate-500 hover:text-slate-300 p-0.5 cursor-pointer" title="Cerrar">
+          <div class="flex items-center gap-1.5 text-blue-400">
+            <Cpu class="w-4 h-4 text-blue-400" />
+            <span class="font-bold text-xs uppercase tracking-wide">Modelos de Google AI Studio</span>
+            <span class="px-1.5 py-0.2 rounded text-[9px] font-bold bg-blue-500/15 text-blue-300 border border-blue-500/30">Free Tier</span>
+          </div>
+          <button @click="mostrarConfig = false" class="text-slate-500 hover:text-slate-300 p-0.5 cursor-pointer" title="Cerrar panel">
             <X class="w-3.5 h-3.5" />
           </button>
         </div>
 
-        <div class="grid grid-cols-2 gap-2">
-          <div class="bg-slate-900 rounded-xl px-3 py-2 border border-darkBorder">
-            <p class="text-[10px] text-slate-500 mb-0.5">Modelo activo</p>
-            <p class="text-blue-300 font-mono font-bold text-[11px]">{{ status?.model_configured || 'gemini-3.5-flash-lite' }}</p>
-          </div>
-          <div class="bg-slate-900 rounded-xl px-3 py-2 border border-darkBorder">
-            <p class="text-[10px] text-slate-500 mb-0.5">Estado</p>
-            <p class="font-bold text-[11px]" :class="status?.online ? 'text-emerald-400' : 'text-amber-400'">
-              {{ status?.online ? '✓ Conectado' : '⌛ Verificando...' }}
+        <p class="text-[11px] text-slate-400 leading-tight">
+          Haga clic en un modelo para activarlo en tiempo real. Los límites corresponden a la cuota gratuita de Google AI Studio:
+        </p>
+
+        <!-- Lista de tarjetas de modelos seleccionables -->
+        <div class="space-y-2">
+          <div
+            v-for="m in listaModelos"
+            :key="m.id"
+            @click="cambiarModelo(m.id)"
+            class="p-2.5 rounded-xl border transition-all cursor-pointer relative group text-left"
+            :class="m.id === modeloActivo
+              ? 'bg-blue-950/40 border-blue-500/60 shadow-md shadow-blue-500/10 ring-1 ring-blue-500/30'
+              : 'bg-slate-900/80 border-darkBorder hover:border-blue-500/40 hover:bg-slate-800/80'"
+          >
+            <!-- Cabecera de la tarjeta del modelo -->
+            <div class="flex items-start justify-between gap-2">
+              <div>
+                <div class="flex items-center gap-1.5">
+                  <span class="font-bold text-slate-100 text-xs">{{ m.name }}</span>
+                  <span
+                    v-if="m.recommended"
+                    class="px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30"
+                  >
+                    Recomendado
+                  </span>
+                </div>
+                <p class="font-mono text-[10px] text-blue-400 mt-0.5">{{ m.id }}</p>
+              </div>
+
+              <!-- Indicador de selección -->
+              <div class="shrink-0 flex items-center">
+                <span
+                  v-if="m.id === modeloActivo"
+                  class="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/20 text-blue-300 border border-blue-500/40"
+                >
+                  <Check class="w-3 h-3 text-blue-400" />
+                  Activo
+                </span>
+                <span
+                  v-else
+                  class="text-[10px] text-slate-500 group-hover:text-blue-300 transition-colors font-medium"
+                >
+                  Seleccionar
+                </span>
+              </div>
+            </div>
+
+            <!-- Métricas de cuota: RPD, RPM, TPM -->
+            <div class="grid grid-cols-3 gap-1.5 mt-2 pt-2 border-t border-darkBorder/60 text-[10px] font-mono">
+              <div class="bg-slate-950/70 rounded-lg p-1 text-center border border-darkBorder/40">
+                <p class="text-slate-500 text-[9px]">Cuota Diaria</p>
+                <p 
+                  class="font-bold"
+                  :class="m.rpd >= 500 ? 'text-emerald-400' : 'text-amber-400'"
+                >
+                  {{ m.rpd }} RPD
+                </p>
+              </div>
+              <div class="bg-slate-950/70 rounded-lg p-1 text-center border border-darkBorder/40">
+                <p class="text-slate-500 text-[9px]">Por Minuto</p>
+                <p class="text-slate-200 font-bold">{{ m.rpm }} RPM</p>
+              </div>
+              <div class="bg-slate-950/70 rounded-lg p-1 text-center border border-darkBorder/40">
+                <p class="text-slate-500 text-[9px]">Tokens/Min</p>
+                <p class="text-slate-200 font-bold">{{ m.tpm }}</p>
+              </div>
+            </div>
+
+            <!-- Descripción -->
+            <p class="text-[10px] text-slate-400 mt-1.5 leading-snug">
+              {{ m.description }}
             </p>
           </div>
         </div>
 
-        <p class="text-[11px] text-slate-400 leading-snug">
-          Para cambiar el modelo edita <code class="text-blue-300 font-mono">GEMINI_MODEL</code> en el
-          archivo <code class="text-blue-300 font-mono">.env</code> del backend y reinicia el servidor.
-        </p>
+        <!-- Opción para especificar modelo personalizado -->
+        <div class="pt-2 border-t border-darkBorder/80">
+          <button
+            type="button"
+            @click="mostrarInputPersonalizado = !mostrarInputPersonalizado"
+            class="text-[11px] text-slate-400 hover:text-blue-300 flex items-center gap-1 cursor-pointer transition-colors"
+          >
+            <span>+ Usar otro modelo personalizado (Google AI Studio / Vertex)</span>
+          </button>
 
-        <div class="flex items-center gap-1.5 bg-blue-500/8 border border-blue-500/20 rounded-lg p-2">
-          <span class="text-blue-400 text-[11px]">💡</span>
-          <span class="text-[11px] text-slate-400">Modelos recomendados: <span class="text-blue-300 font-mono">gemini-3.5-flash-lite</span> (500/día), <span class="text-blue-300 font-mono">gemini-3.1-flash-lite</span> (500/día), <span class="text-blue-300 font-mono">gemini-3.8-flash</span></span>
+          <div v-if="mostrarInputPersonalizado" class="mt-2 flex items-center gap-1.5 animate-in fade-in">
+            <input
+              v-model="modeloPersonalizadoInput"
+              type="text"
+              placeholder="ej: gemini-2.5-pro o gemini-3.5-flash"
+              class="flex-1 bg-slate-900 border border-darkBorder focus:border-blue-400 text-slate-100 rounded-lg px-2.5 py-1.5 text-xs font-mono focus:outline-none"
+              @keydown.enter.prevent="aplicarModeloPersonalizado"
+            />
+            <button
+              type="button"
+              @click="aplicarModeloPersonalizado"
+              :disabled="!modeloPersonalizadoInput.trim() || isCambiandoModelo"
+              class="px-2.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs transition-colors cursor-pointer disabled:opacity-50"
+            >
+              Aplicar
+            </button>
+          </div>
+        </div>
+
+        <!-- Estado actual de conexión -->
+        <div class="flex items-center justify-between text-[10px] text-slate-500 pt-1 border-t border-darkBorder/40 font-mono">
+          <span>Cambios aplicados en caliente sin reiniciar Docker</span>
+          <span :class="status?.online ? 'text-emerald-400 font-bold' : 'text-amber-400'">
+            {{ status?.online ? '● Conectado a Gemini' : '○ Sin conexión' }}
+          </span>
         </div>
       </div>
 
@@ -465,10 +556,11 @@ import {
   AlertCircle,
   Copy,
   Pencil,
-  Square
+  Square,
+  Cpu
 } from 'lucide-vue-next'
 
-import type { IAStatusResponse, IAChatMessage, ActiveMilitar } from '../types/ia.types'
+import type { IAStatusResponse, IAChatMessage, ActiveMilitar, IAModelInfo } from '../types/ia.types'
 import { iaService } from '../services/ia.service'
 import { marked } from 'marked'
 
@@ -507,6 +599,104 @@ const limpiarMilitarActivo = () => {
 }
 
 const mostrarConfig = ref(false)
+
+// ---------------------------------------------------------------------------
+// Modelos de Google AI Studio y Control de Cuota
+// ---------------------------------------------------------------------------
+const DEFAULT_GEMINI_MODELS: IAModelInfo[] = [
+  {
+    id: 'gemini-3.5-flash-lite',
+    name: 'Gemini 3.5 Flash Lite',
+    rpd: 500,
+    rpm: 15,
+    tpm: '250K',
+    category: 'Flash Lite',
+    description: 'Máxima cuota diaria gratuita (500 solicitudes/día). Ultrarrápido y ligero para consultas frecuentes.',
+    recommended: true,
+    badge: '500 req/día (Recomendado)'
+  },
+  {
+    id: 'gemini-3.1-flash-lite',
+    name: 'Gemini 3.1 Flash Lite',
+    rpd: 500,
+    rpm: 15,
+    tpm: '250K',
+    category: 'Flash Lite',
+    description: 'Alta cuota diaria gratuita (500 solicitudes/día). Muy veloz y estable para análisis de datos.',
+    recommended: true,
+    badge: '500 req/día'
+  },
+  {
+    id: 'gemini-3.8-flash',
+    name: 'Gemini 3.8 Flash',
+    rpd: 20,
+    rpm: 5,
+    tpm: '250K',
+    category: 'Flash',
+    description: 'Mayor capacidad de síntesis y razonamiento. Cuota diaria reducida (20 solicitudes/día en Free Tier).',
+    recommended: false,
+    badge: '20 req/día'
+  },
+  {
+    id: 'gemini-2.5-flash',
+    name: 'Gemini 2.5 Flash',
+    rpd: 20,
+    rpm: 5,
+    tpm: '250K',
+    category: 'Flash',
+    description: 'Modelo multimodal estándar de alta capacidad. Cuota diaria reducida (20 solicitudes/día en Free Tier).',
+    recommended: false,
+    badge: '20 req/día'
+  },
+  {
+    id: 'gemini-2.5-pro',
+    name: 'Gemini 2.5 Pro',
+    rpd: 50,
+    rpm: 2,
+    tpm: '32K',
+    category: 'Pro',
+    description: 'Razonamiento profundo para análisis complejos. Mayor latencia y límites estrictos por minuto.',
+    recommended: false,
+    badge: 'Avanzado / Pro'
+  }
+]
+
+const isCambiandoModelo = ref(false)
+const mostrarInputPersonalizado = ref(false)
+const modeloPersonalizadoInput = ref('')
+
+const listaModelos = computed<IAModelInfo[]>(() => {
+  if (status.value?.available_models && status.value.available_models.length > 0) {
+    return status.value.available_models
+  }
+  return DEFAULT_GEMINI_MODELS
+})
+
+const modeloActivo = computed(() => {
+  return status.value?.model_configured || localStorage.getItem('bimej12_gemini_model') || 'gemini-3.5-flash-lite'
+})
+
+const cambiarModelo = async (modelId: string) => {
+  if (!modelId || isCambiandoModelo.value) return
+  isCambiandoModelo.value = true
+  try {
+    const res = await iaService.actualizarConfig(undefined, modelId)
+    status.value = res
+    localStorage.setItem('bimej12_gemini_model', res.model_configured)
+  } catch (err) {
+    console.error('Error al cambiar modelo:', err)
+  } finally {
+    isCambiandoModelo.value = false
+  }
+}
+
+const aplicarModeloPersonalizado = async () => {
+  const modelId = modeloPersonalizadoInput.value.trim()
+  if (!modelId) return
+  await cambiarModelo(modelId)
+  modeloPersonalizadoInput.value = ''
+  mostrarInputPersonalizado.value = false
+}
 
 // Cronómetro en vivo y fases de razonamiento
 const tiempoTranscurrido = ref(0)
@@ -585,12 +775,26 @@ const scrollAlFondo = async () => {
 const verificarEstado = async () => {
   isLoadingStatus.value = true
   try {
-    status.value = await iaService.obtenerEstado()
+    const res = await iaService.obtenerEstado()
+    const savedModel = localStorage.getItem('bimej12_gemini_model')
+    if (savedModel && savedModel !== res.model_configured) {
+      try {
+        const synced = await iaService.actualizarConfig(undefined, savedModel)
+        status.value = synced
+      } catch {
+        status.value = res
+      }
+    } else {
+      status.value = res
+      if (res.model_configured) {
+        localStorage.setItem('bimej12_gemini_model', res.model_configured)
+      }
+    }
   } catch (err) {
     status.value = {
       online: false,
       backend: 'gemini',
-      model_configured: 'gemini-3.5-flash-lite',
+      model_configured: localStorage.getItem('bimej12_gemini_model') || 'gemini-3.5-flash-lite',
       api_key_configured: false,
       error: 'Error de conexión con el backend'
     }
@@ -725,7 +929,8 @@ const enviarMensaje = async (customQuery?: string) => {
       query,
       historyPayload,
       activeMilitar.value,
-      abortController.value.signal
+      abortController.value.signal,
+      modeloActivo.value
     )
     if (res.active_militar !== undefined) {
       activeMilitar.value = res.active_militar
@@ -783,7 +988,7 @@ const generarApreciacionDirecta = async () => {
   abortController.value = new AbortController()
 
   try {
-    const res = await iaService.generarApreciacion('TODOS', abortController.value.signal)
+    const res = await iaService.generarApreciacion('TODOS', abortController.value.signal, modeloActivo.value)
     const assistantMsg: IAChatMessage = {
       id: String(Date.now() + 1),
       sender: 'assistant',

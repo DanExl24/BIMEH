@@ -21,14 +21,16 @@ export const iaService = {
     message: string,
     history?: any[],
     activeMilitar?: ActiveMilitar | null,
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    model?: string
   ): Promise<IAChatResponse> => {
     return http.post<IAChatResponse>(
       '/api/ia/chat',
       {
         message,
         history,
-        active_militar: activeMilitar
+        active_militar: activeMilitar,
+        model
       },
       { signal }
     )
@@ -37,14 +39,18 @@ export const iaService = {
   /**
    * Genera una Apreciación de Situación de Personal para la Comandancia
    */
-  generarApreciacion: async (mes: string = 'TODOS', signal?: AbortSignal): Promise<IAApreciacionResponse> => {
-    return http.post<IAApreciacionResponse>('/api/ia/apreciacion', { mes }, { signal })
+  generarApreciacion: async (
+    mes: string = 'TODOS',
+    signal?: AbortSignal,
+    model?: string
+  ): Promise<IAApreciacionResponse> => {
+    return http.post<IAApreciacionResponse>('/api/ia/apreciacion', { mes, model }, { signal })
   },
 
   /**
-   * Actualiza la URL de Ollama / Cloudflare Tunnel en el backend
+   * Actualiza el modelo activo de Gemini/Ollama o la URL en el backend
    */
-  actualizarConfig: async (baseUrl: string, model?: string): Promise<IAStatusResponse> => {
+  actualizarConfig: async (baseUrl?: string, model?: string): Promise<IAStatusResponse> => {
     return http.post<IAStatusResponse>('/api/ia/config', { base_url: baseUrl, model })
   }
 }

@@ -1,3 +1,16 @@
+export interface IAModelInfo {
+  id: string
+  name: string
+  rpd: number
+  rpm: number
+  tpm: string
+  category: string
+  description: string
+  recommended?: boolean
+  badge?: string
+  active?: boolean
+}
+
 export interface IAStatusResponse {
   online: boolean
   backend?: string
@@ -6,6 +19,7 @@ export interface IAStatusResponse {
   model_available?: boolean
   models_installed?: string[]
   api_key_configured?: boolean
+  available_models?: IAModelInfo[]
   error?: string | null
 }
 
