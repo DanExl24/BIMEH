@@ -229,6 +229,9 @@ def _auto_synthesize(user_message, query_result):
         top = rows[0]
         nov_nombre = top.get("novedad", "")
         dias = top.get("total_dias") or top.get("total_dias_registrados", 0)
+        nombre_militar = top.get("nombre")
+        if nombre_militar:
+            return f"Novedad más registrada para **{nombre_militar}**: **{nov_nombre}** con un total de **{dias} días**."
         return f"Novedad más registrada en BIMEJ 12: **{nov_nombre}** con un total de **{dias} días** acumulados."
 
     # Caso 4: Lista de personal

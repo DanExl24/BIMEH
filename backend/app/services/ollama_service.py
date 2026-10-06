@@ -442,6 +442,12 @@ def _auto_synthesize(user_message: str, query_result: Dict[str, Any]) -> str:
     # Caso 3: ranking de novedades
     if "novedad" in cols and "total_dias" in cols:
         top = rows[0]
+        nombre_militar = top.get("nombre")
+        if nombre_militar:
+            return (
+                f"La novedad más registrada para **{nombre_militar}** es **{top.get('novedad', '')}** "
+                f"con **{top.get('total_dias', '')} días**."
+            )
         return (
             f"La novedad mas registrada es **{top.get('novedad', '')}** "
             f"con **{top.get('total_dias', '')} dias**. "

@@ -185,44 +185,92 @@ def match_catalog(
     ced = str(active_militar.get("cedula", "")) if active_militar else ""
     nom = str(active_militar.get("nombre", "")) if active_militar else ""
 
-    # Extraer variables de fecha aqui para usarlas en block 0
-    _mes_early = _extract_month(msg)
-    _anio_early = _extract_year(msg, year)
+    # Extraer variables comunes desde el inicio
+    novedad_type = _extract_novedad_type(msg)
+    mes_num = _extract_month(msg)
+    day_range = _extract_day_range(msg)
+    anio = _extract_year(msg, year)
 
     # ------------------------------------------------------------------
     # 0. CEDULA EXPLICITA EN EL MENSAJE (maxima prioridad)
     # Cuando el usuario escribe una cedula directamente en el texto,
     # ignoramos el contexto activo y resolvemos desde el mensaje.
     # Ej: "busca a este personal 1006524181"
+    #     "dame la novedad mas presente de 1012344279 en el mes de junio"
     #     "novedades de julio de cedula 1006524181"
     # ------------------------------------------------------------------
     cedula_en_msg = re.search(r"\b(\d{7,10})\b", user_message)
     if cedula_en_msg:
         cv = cedula_en_msg.group(1)
-        # 0a. Cedula + novedades + mes
-        if _mes_early and re.search(r"\b(novedades?|historial|reporte|ausencias?)\b", msg):
+
+        # 0-ranking: Cédula + más frecuente / más presente / ranking (+ opcional mes)
+        ranking_triggers = r"\b(frecuentes?|comunes?|mas\s+presente|mas\s+tiene|mas\s+registro|mas\s+registrada?|ranking|mayor\s+cantidad|mas\s+repetida?|mas\s+dias|principal\s+novedad)\b"
+        if re.search(ranking_triggers, msg):
+            if mes_num:
+                return (
+                    f"SELECT cedula, nombre, novedad, COUNT(*) AS total_dias "
+                    f"FROM v_novedades_detalle "
+                    f"WHERE cedula = {cv} "
+                    f"AND fecha_reporte LIKE '{anio}-{mes_num:02d}-%' "
+                    f"GROUP BY cedula, nombre, novedad ORDER BY total_dias DESC LIMIT 10",
+                    f"Novedad más frecuente de cédula {cv} en mes {mes_num}/{anio}"
+                )
             return (
-                f"SELECT fecha_reporte, novedad, descripcion "
+                f"SELECT cedula, nombre, novedad, COUNT(*) AS total_dias "
                 f"FROM v_novedades_detalle "
                 f"WHERE cedula = {cv} "
-                f"AND fecha_reporte LIKE '{_anio_early}-{_mes_early:02d}-%' "
-                f"ORDER BY fecha_reporte ASC LIMIT 50",
-                f"Novedades de cedula {cv} en mes {_mes_early}/{_anio_early}"
+                f"GROUP BY cedula, nombre, novedad ORDER BY total_dias DESC LIMIT 10",
+                f"Novedades más frecuentes de cédula {cv}"
             )
-        # 0b. Cedula + novedades (sin mes -> historial completo)
-        if re.search(r"\b(novedades?|historial|reporte|ausencias?)\b", msg):
+
+        # 0-tipo: Cédula + tipo específico de novedad (permiso, vacación, etc.)
+        if novedad_type:
+            if mes_num:
+                return (
+                    f"SELECT cedula, nombre, fecha_reporte, novedad, descripcion "
+                    f"FROM v_novedades_detalle "
+                    f"WHERE cedula = {cv} "
+                    f"AND UPPER(novedad) LIKE '%{novedad_type}%' "
+                    f"AND fecha_reporte LIKE '{anio}-{mes_num:02d}-%' "
+                    f"ORDER BY fecha_reporte ASC LIMIT 50",
+                    f"Días de {novedad_type} de cédula {cv} en mes {mes_num}/{anio}"
+                )
             return (
-                f"SELECT fecha_reporte, novedad, descripcion "
+                f"SELECT cedula, nombre, fecha_reporte, novedad, descripcion "
+                f"FROM v_novedades_detalle "
+                f"WHERE cedula = {cv} "
+                f"AND UPPER(novedad) LIKE '%{novedad_type}%' "
+                f"ORDER BY fecha_reporte DESC LIMIT 50",
+                f"Historial de {novedad_type} de cédula {cv}"
+            )
+
+        # 0a. Cédula + novedades + mes (o cualquier mención de mes con cédula que no sea solo buscar perfil)
+        nov_kw = r"\b(novedad|novedades|historial|reporte|reportes|ausencias?|permisos?|vacaciones?|dias?)\b"
+        if mes_num and (re.search(nov_kw, msg) or not re.search(r"\b(quien|datos|info|perfil)\b", msg)):
+            return (
+                f"SELECT cedula, nombre, fecha_reporte, novedad, descripcion "
+                f"FROM v_novedades_detalle "
+                f"WHERE cedula = {cv} "
+                f"AND fecha_reporte LIKE '{anio}-{mes_num:02d}-%' "
+                f"ORDER BY fecha_reporte ASC LIMIT 50",
+                f"Novedades de cédula {cv} en mes {mes_num}/{anio}"
+            )
+
+        # 0b. Cédula + novedades (sin mes -> historial completo)
+        if re.search(nov_kw, msg):
+            return (
+                f"SELECT cedula, nombre, fecha_reporte, novedad, descripcion "
                 f"FROM v_novedades_detalle "
                 f"WHERE cedula = {cv} "
                 f"ORDER BY fecha_reporte DESC LIMIT 30",
-                f"Historial de novedades de cedula {cv}"
+                f"Historial de novedades de cédula {cv}"
             )
-        # 0c. Busqueda pura de la persona por cedula
+
+        # 0c. Búsqueda pura de la persona por cédula
         return (
             f"SELECT cedula, nombre, estado, fecha_retiro, total_novedades_historicas "
             f"FROM v_personal_resumen WHERE cedula = {cv} LIMIT 5",
-            f"Busqueda de personal por cedula {cv}"
+            f"Búsqueda de personal por cédula {cv}"
         )
 
     # ------------------------------------------------------------------
@@ -343,7 +391,7 @@ def match_catalog(
             )
 
         # 5.5d. Nombre + historial / novedades explicitas
-        if re.search(r"\b(novedades?|historial|reporte|reportes|ausencias?|dias?|permisos?|vacaciones?)\b", msg):
+        if re.search(r"\b(novedad|novedades|historial|reporte|reportes|ausencias?|dias?|permisos?|vacaciones?)\b", msg):
             return (
                 f"SELECT cedula, nombre, fecha_reporte, novedad, descripcion "
                 f"FROM v_novedades_detalle "
@@ -460,16 +508,7 @@ def match_catalog(
             f"Novedades entre {fi} y {ff}"
         )
 
-    if mes_num and re.search(r"\b(novedades?|reporte|parte|ausencias?|permisos?)\b", msg):
-        if ced:
-            return (
-                f"SELECT fecha_reporte, novedad, descripcion "
-                f"FROM v_novedades_detalle "
-                f"WHERE cedula = {ced} "
-                f"AND fecha_reporte LIKE '{anio}-{mes_num:02d}-%' "
-                f"ORDER BY fecha_reporte ASC LIMIT 50",
-                f"Novedades de {nom} en mes {mes_num}/{anio}"
-            )
+    if not ced and mes_num and re.search(r"\b(novedad|novedades|reporte|parte|ausencias?|permisos?)\b", msg):
         return (
             f"SELECT cedula, nombre, fecha_reporte, novedad, descripcion "
             f"FROM v_novedades_detalle "
@@ -482,22 +521,24 @@ def match_catalog(
     # 8. CONSULTAS SOBRE MILITAR EN CONTEXTO ACTIVO
     # ------------------------------------------------------------------
     if ced:
-        # 8a. Si hay un mes mencionado ("ahora en el mes de julio", "y en julio", "en julio")
+        ranking_triggers = r"\b(frecuentes?|comunes?|mas\s+presente|mas\s+tiene|mas\s+registro|mas\s+registrada?|ranking|mayor\s+cantidad|mas\s+repetida?|mas\s+dias|principal\s+novedad)\b"
+
+        # 8a. Si hay un mes mencionado ("ahora en el mes de julio", "y en julio", "en junio la novedad mas presente")
         if mes_num:
             # Ranking de novedades más frecuentes en ese mes
-            if re.search(r"\b(frecuentes?|comunes?|mas\s+tiene|mas\s+registro|mas\s+registrada?|ranking|mayor\s+cantidad)\b", msg):
+            if re.search(ranking_triggers, msg):
                 return (
-                    f"SELECT novedad, COUNT(*) AS total_dias "
+                    f"SELECT cedula, nombre, novedad, COUNT(*) AS total_dias "
                     f"FROM v_novedades_detalle "
                     f"WHERE cedula = {ced} "
                     f"AND fecha_reporte LIKE '{anio}-{mes_num:02d}-%' "
-                    f"GROUP BY novedad ORDER BY total_dias DESC LIMIT 10",
-                    f"Novedades mas frecuentes de {nom} en mes {mes_num}/{anio}"
+                    f"GROUP BY cedula, nombre, novedad ORDER BY total_dias DESC LIMIT 10",
+                    f"Novedad más frecuente de {nom} en mes {mes_num}/{anio}"
                 )
             # Novedad específica en ese mes
             if novedad_type:
                 return (
-                    f"SELECT fecha_reporte, novedad, descripcion "
+                    f"SELECT cedula, nombre, fecha_reporte, novedad, descripcion "
                     f"FROM v_novedades_detalle "
                     f"WHERE cedula = {ced} "
                     f"AND UPPER(novedad) LIKE '%{novedad_type}%' "
@@ -507,7 +548,7 @@ def match_catalog(
                 )
             # Historial completo de novedades en ese mes
             return (
-                f"SELECT fecha_reporte, novedad, descripcion "
+                f"SELECT cedula, nombre, fecha_reporte, novedad, descripcion "
                 f"FROM v_novedades_detalle "
                 f"WHERE cedula = {ced} "
                 f"AND fecha_reporte LIKE '{anio}-{mes_num:02d}-%' "
@@ -533,17 +574,13 @@ def match_catalog(
         ]
         if any(kw in msg for kw in followup_kw):
             # Patron ampliado: "mas frecuente", "mas registro", "mas tiene", "mas registrada", "ranking"
-            es_frecuentes = re.search(
-                r"\b(frecuentes?|comunes?|mas\s+tiene|mas\s+registro|mas\s+registrada?|ranking|mayor\s+cantidad)\b",
-                msg
-            )
-            if es_frecuentes:
+            if re.search(ranking_triggers, msg):
                 return (
-                    f"SELECT novedad, COUNT(*) AS total_dias "
+                    f"SELECT cedula, nombre, novedad, COUNT(*) AS total_dias "
                     f"FROM v_novedades_detalle "
                     f"WHERE cedula = {ced} "
-                    f"GROUP BY novedad ORDER BY total_dias DESC LIMIT 10",
-                    f"Novedades mas frecuentes de {nom}"
+                    f"GROUP BY cedula, nombre, novedad ORDER BY total_dias DESC LIMIT 10",
+                    f"Novedades más frecuentes de {nom}"
                 )
 
             # Consulta "en que meses esta presente / ha tenido novedades"
@@ -569,7 +606,7 @@ def match_catalog(
                 )
 
             return (
-                f"SELECT fecha_reporte, novedad, descripcion "
+                f"SELECT cedula, nombre, fecha_reporte, novedad, descripcion "
                 f"FROM v_novedades_detalle "
                 f"WHERE cedula = {ced} "
                 f"ORDER BY fecha_reporte DESC LIMIT 30",
