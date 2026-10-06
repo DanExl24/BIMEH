@@ -1,9 +1,11 @@
 export interface IAStatusResponse {
   online: boolean
-  base_url: string
+  backend?: string
+  base_url?: string
   model_configured: string
-  model_available: boolean
-  models_installed: string[]
+  model_available?: boolean
+  models_installed?: string[]
+  api_key_configured?: boolean
   error?: string | null
 }
 

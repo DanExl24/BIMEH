@@ -416,11 +416,16 @@ def match_catalog(
     # ------------------------------------------------------------------
     if ced:
         followup_kw = [
+            # novedades
             "historial", "sus novedades", "novedad", "novedades",
             "permisos", "vacaciones", "excusas", "incapacidades",
-            "estado", "como esta", "activo", "retirado", "frecuentes",
-            "cuantas", "cuantos", "dias", "ausencias", "reportes",
-            "su novedad", "ultima novedad",
+            "frecuentes", "cuantas", "cuantos", "dias", "ausencias",
+            "reportes", "su novedad", "ultima novedad",
+            # estado personal
+            "estado", "como esta", "activo", "retirado",
+            # presencia (nuevo)
+            "presente", "presencia", "meses", "ha estado",
+            "aparece", "registrado", "aparecio", "aparecido",
         ]
         if any(kw in msg for kw in followup_kw):
             # Patron ampliado: "mas frecuente", "mas registro", "mas tiene", "mas registrada", "ranking"
@@ -448,13 +453,21 @@ def match_catalog(
                     f"GROUP BY novedad ORDER BY total_dias DESC LIMIT 10",
                     f"Novedades mas frecuentes de {nom}"
                 )
-            if re.search(r"\b(estado|activo|retirado|datos|informacion)\b", msg):
+
+            # Consulta "en que meses esta presente / ha tenido novedades"
+            if re.search(r"\b(en\s+que\s+meses|cuales\s+meses|que\s+meses|meses\s+present)\b", msg):
                 return (
-                    f"SELECT cedula, nombre, estado, fecha_retiro, total_novedades_historicas "
-                    f"FROM v_personal_resumen WHERE cedula = {ced}",
-                    f"Estado general de {nom}"
+                    f"SELECT EXTRACT(YEAR FROM fecha_reporte)::int AS anio, "
+                    f"EXTRACT(MONTH FROM fecha_reporte)::int AS mes, "
+                    f"COUNT(*) AS dias_presente "
+                    f"FROM v_novedades_detalle "
+                    f"WHERE cedula = {ced} "
+                    f"GROUP BY anio, mes ORDER BY anio, mes",
+                    f"Meses con presencia registrada de {nom}"
                 )
-            # Historial con filtro de mes si se menciona
+
+            # PRIORIDAD: si hay un mes mencionado, devolver historial de ese mes
+            # Esto cubre: "ha estado presente en agosto", "novedades de julio", etc.
             if mes_num:
                 return (
                     f"SELECT fecha_reporte, novedad, descripcion "
@@ -465,6 +478,17 @@ def match_catalog(
                     f"ORDER BY fecha_reporte ASC LIMIT 50",
                     f"Novedades de {nom} en mes {mes_num}/{anio}"
                 )
+
+            # Datos del perfil (solo si no hay mes y pregunta por estado/datos)
+            # Evitar que "ha estado presente" dispare esto
+            if re.search(r"\b(estado|activo|retirado|datos|informacion)\b", msg) and \
+               not re.search(r"\b(ha\s+estado|habia\s+estado|estuvo|ha\s+sido)\b", msg):
+                return (
+                    f"SELECT cedula, nombre, estado, fecha_retiro, total_novedades_historicas "
+                    f"FROM v_personal_resumen WHERE cedula = {ced}",
+                    f"Estado general de {nom}"
+                )
+
             return (
                 f"SELECT fecha_reporte, novedad, descripcion "
                 f"FROM v_novedades_detalle "

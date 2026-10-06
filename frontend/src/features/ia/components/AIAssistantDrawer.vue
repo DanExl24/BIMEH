@@ -26,39 +26,38 @@
               <h2 class="text-sm font-black text-slate-100 uppercase tracking-wide">
                 Asistente BIMEJ 12
               </h2>
-              <!-- Pill de Estado de Ollama -->
-              <span 
-                v-if="status?.online" 
-                class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wider uppercase bg-emerald-500/15 text-emerald-300 border border-emerald-500/30"
-                title="Ollama conectado localmente"
+              <!-- Badge de estado Gemini -->
+              <span
+                v-if="status?.online"
+                class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wider uppercase bg-blue-500/15 text-blue-300 border border-blue-500/30"
+                title="Gemini conectado"
               >
-                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span class="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse"></span>
                 {{ status.model_configured }}
               </span>
-              <button 
-                v-else 
-                @click="mostrarConfig = !mostrarConfig"
-                class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wider uppercase bg-rose-500/15 text-rose-300 border border-rose-500/30 hover:bg-rose-500/25 cursor-pointer transition-all"
-                title="Ollama desconectado. Clic para configurar URL de conexión"
+              <span
+                v-else
+                class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wider uppercase bg-amber-500/15 text-amber-300 border border-amber-500/30"
+                title="Verificando conexión con Gemini..."
               >
-                <span class="w-1.5 h-1.5 rounded-full bg-rose-400"></span>
-                Offline
-              </button>
+                <span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+                Conectando...
+              </span>
             </div>
             <p class="text-[11px] text-slate-400 leading-tight">
-              Inteligencia Local • Consultas y Apreciación de Personal
+              Gemini IA · Consultas y Apreciación de Personal
             </p>
           </div>
         </div>
 
         <div class="flex items-center gap-1.5">
-          <!-- Botón Configuración de Conexión -->
+          <!-- Botón Info Gemini -->
           <button
             type="button"
             @click="mostrarConfig = !mostrarConfig"
-            class="p-2 rounded-xl text-slate-400 hover:text-cyan-300 hover:bg-slate-800 transition-colors cursor-pointer"
-            :class="mostrarConfig ? 'text-cyan-400 bg-cyan-500/10 border border-cyan-500/30' : ''"
-            title="Configurar URL de Ollama / Cloudflare Tunnel"
+            class="p-2 rounded-xl text-slate-400 hover:text-blue-300 hover:bg-slate-800 transition-colors cursor-pointer"
+            :class="mostrarConfig ? 'text-blue-400 bg-blue-500/10 border border-blue-500/30' : ''"
+            title="Ver información del modelo Gemini activo"
           >
             <Settings class="w-4 h-4" />
           </button>
@@ -67,7 +66,7 @@
           <button
             type="button"
             @click="generarApreciacionDirecta"
-            :disabled="isLoadingApreciacion || !status?.online"
+            :disabled="isLoadingApreciacion"
             class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 text-xs font-bold transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
             title="Generar boletín militar de apreciación de situación"
           >
@@ -87,85 +86,42 @@
         </div>
       </div>
 
-      <!-- Panel Desplegable de Configuración de URL / Túnel Cloudflare -->
-      <div 
-        v-if="mostrarConfig" 
+      <!-- Panel de información del modelo Gemini (reemplaza panel Ollama) -->
+      <div
+        v-if="mostrarConfig"
         class="bg-slate-950 border-b border-darkBorder px-4 py-3 space-y-2 text-xs shrink-0 animate-in fade-in duration-200"
       >
         <div class="flex items-center justify-between text-slate-300 font-bold">
-          <span class="flex items-center gap-1.5 text-cyan-400">
+          <span class="flex items-center gap-1.5 text-blue-400">
             <Globe class="w-3.5 h-3.5" />
-            Conexión Ollama (Local o Cloudflare Tunnel)
+            Motor de IA: Google Gemini
           </span>
-          <button @click="mostrarConfig = false" class="text-slate-500 hover:text-slate-300 p-0.5 cursor-pointer" title="Cerrar configuración">
+          <button @click="mostrarConfig = false" class="text-slate-500 hover:text-slate-300 p-0.5 cursor-pointer" title="Cerrar">
             <X class="w-3.5 h-3.5" />
           </button>
         </div>
 
-        <p class="text-[11px] text-slate-400 leading-snug">
-          Si está usando la web en la nube, pegue aquí la URL pública de su túnel Cloudflare (ej. <code class="text-cyan-300 font-mono">https://...trycloudflare.com</code>):
-        </p>
-
-        <div class="flex items-center gap-2">
-          <input
-            v-model="customBaseUrl"
-            type="text"
-            placeholder="https://...trycloudflare.com o http://127.0.0.1:11434"
-            class="flex-1 bg-slate-900 border border-darkBorder hover:border-cyan-500/40 focus:border-cyan-400 text-slate-100 rounded-xl px-3 py-1.5 text-xs font-mono outline-none"
-          />
-          <button
-            @click="guardarConfigUrl"
-            :disabled="isGuardandoConfig"
-            class="px-3 py-1.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 text-xs font-bold transition-all cursor-pointer disabled:opacity-50 flex items-center gap-1 shrink-0"
-          >
-            <Loader2 v-if="isGuardandoConfig" class="w-3 h-3 animate-spin" />
-            <span>Conectar</span>
-          </button>
-        </div>
-
-        <!-- Selector de Modelo de Ollama -->
-        <div class="space-y-1 pt-1 border-t border-darkBorder/60">
-          <label class="text-[11px] text-slate-400 font-medium flex items-center justify-between">
-            <span>Modelo de IA Activo:</span>
-            <span class="text-cyan-400 font-mono text-[10px]">{{ status?.model_configured }}</span>
-          </label>
-          <div class="flex items-center gap-2">
-            <select
-              v-model="customModel"
-              class="flex-1 bg-slate-900 border border-darkBorder hover:border-cyan-500/40 focus:border-cyan-400 text-slate-100 rounded-xl px-2.5 py-1.5 text-xs font-mono outline-none"
-            >
-              <option v-for="m in availableModels" :key="m" :value="m">
-                {{ m }} {{ m.includes('3.2') ? '⚡ Ultra-Rápido (3B)' : m.includes('3.1') ? '🧠 Preciso (8B)' : '' }}
-              </option>
-            </select>
-            <button
-              @click="cambiarModelo"
-              :disabled="isGuardandoConfig || customModel === status?.model_configured"
-              class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-cyan-300 text-xs font-semibold transition-all cursor-pointer disabled:opacity-40 border border-cyan-500/30 shrink-0"
-            >
-              Cambiar
-            </button>
+        <div class="grid grid-cols-2 gap-2">
+          <div class="bg-slate-900 rounded-xl px-3 py-2 border border-darkBorder">
+            <p class="text-[10px] text-slate-500 mb-0.5">Modelo activo</p>
+            <p class="text-blue-300 font-mono font-bold text-[11px]">{{ status?.model_configured || 'gemini-2.0-flash' }}</p>
+          </div>
+          <div class="bg-slate-900 rounded-xl px-3 py-2 border border-darkBorder">
+            <p class="text-[10px] text-slate-500 mb-0.5">Estado</p>
+            <p class="font-bold text-[11px]" :class="status?.online ? 'text-emerald-400' : 'text-amber-400'">
+              {{ status?.online ? '✓ Conectado' : '⌛ Verificando...' }}
+            </p>
           </div>
         </div>
 
-        <!-- Mensajes de feedback -->
-        <div v-if="configSuccessMsg" class="flex items-center gap-1.5 text-emerald-400 text-[11px] bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-2">
-          <Check class="w-3.5 h-3.5 shrink-0" />
-          <span>{{ configSuccessMsg }}</span>
-        </div>
-        <div v-if="configErrorMsg" class="flex items-center gap-1.5 text-rose-400 text-[11px] bg-rose-500/10 border border-rose-500/20 rounded-lg p-2">
-          <AlertCircle class="w-3.5 h-3.5 shrink-0" />
-          <span>{{ configErrorMsg }}</span>
-        </div>
+        <p class="text-[11px] text-slate-400 leading-snug">
+          Para cambiar el modelo edita <code class="text-blue-300 font-mono">GEMINI_MODEL</code> en el
+          archivo <code class="text-blue-300 font-mono">.env</code> del backend y reinicia el servidor.
+        </p>
 
-        <div class="flex items-center justify-between text-[10px] text-slate-500 pt-0.5">
-          <span>Actual: <strong class="text-slate-400 font-mono">{{ status?.base_url || 'http://127.0.0.1:11434' }}</strong></span>
-          <button 
-            @click="customBaseUrl = 'http://127.0.0.1:11434'; guardarConfigUrl()" 
-            class="text-cyan-400/80 hover:text-cyan-300 underline cursor-pointer"
-          >
-            Restablecer localhost
-          </button>
+        <div class="flex items-center gap-1.5 bg-blue-500/8 border border-blue-500/20 rounded-lg p-2">
+          <span class="text-blue-400 text-[11px]">💡</span>
+          <span class="text-[11px] text-slate-400">Modelos disponibles: <span class="text-blue-300 font-mono">gemini-2.0-flash</span>, <span class="text-blue-300 font-mono">gemini-1.5-flash</span>, <span class="text-blue-300 font-mono">gemini-2.5-flash-preview-04-17</span></span>
         </div>
       </div>
 
@@ -185,7 +141,8 @@
               Centro de Inteligencia Operacional BIMEH
             </h3>
             <p class="text-xs text-slate-400 leading-relaxed">
-              Consulte personal, ausencias, novedades médicas y fuerza disponible en lenguaje natural. Procesamiento <strong class="text-emerald-400 font-semibold">100% privado y local</strong> con Ollama.
+              Consulte personal, ausencias, novedades médicas y fuerza disponible en lenguaje natural. Impulsado por
+              <strong class="text-blue-400 font-semibold">Google Gemini</strong> con procesamiento seguro en la nube.
             </p>
           </div>
 
@@ -312,7 +269,7 @@
               <span class="font-medium text-slate-200">{{ faseCargaTexto }}</span>
             </div>
             <div class="flex items-center justify-between gap-4 text-[10px] text-slate-400 font-mono pl-6">
-              <span>Modelo: <strong class="text-cyan-300">{{ status?.model_configured || 'Ollama' }}</strong></span>
+              <span>Modelo: <strong class="text-cyan-300">{{ status?.model_configured || 'Gemini' }}</strong></span>
               <span class="px-1.5 py-0.5 rounded bg-slate-900 text-cyan-400 font-semibold border border-darkBorder">
                 ⏱️ {{ tiempoTranscurrido }}s
               </span>
@@ -441,37 +398,6 @@ const limpiarMilitarActivo = () => {
 }
 
 const mostrarConfig = ref(false)
-const customBaseUrl = ref('')
-const customModel = ref('')
-const isGuardandoConfig = ref(false)
-const configErrorMsg = ref<string | null>(null)
-const configSuccessMsg = ref<string | null>(null)
-
-const availableModels = computed(() => {
-  const installed = status.value?.models_installed || []
-  const defaults = ['llama3.2:3b']
-  return Array.from(new Set([...installed, ...defaults]))
-})
-
-const cambiarModelo = async () => {
-  if (!customModel.value) return
-  isGuardandoConfig.value = true
-  configErrorMsg.value = null
-  configSuccessMsg.value = null
-  try {
-    const res = await iaService.actualizarConfig(customBaseUrl.value || status.value?.base_url || '', customModel.value)
-    status.value = res
-    configSuccessMsg.value = `¡Modelo cambiado a ${res.model_configured}!`
-    setTimeout(() => {
-      configSuccessMsg.value = null
-    }, 2000)
-  } catch (err: any) {
-    configErrorMsg.value = 'Error al cambiar de modelo.'
-  } finally {
-    isGuardandoConfig.value = false
-    await verificarEstado()
-  }
-}
 
 // Cronómetro en vivo y fases de razonamiento
 const tiempoTranscurrido = ref(0)
@@ -502,57 +428,33 @@ const detenerTimer = () => {
   clearInterval(timerInterval)
 }
 
+const isGemini = computed(() => (status.value?.backend || 'gemini').includes('gemini'))
+
 const faseCargaTexto = computed(() => {
   if (isLoadingApreciacion.value) {
     return 'Generando Apreciación de Situación de Personal...'
   }
 
+  const modelName = status.value?.model_configured || (isGemini.value ? 'Gemini' : 'Ollama')
+
   if (esConversacionSimple.value) {
-    if (tiempoTranscurrido.value < 8) {
+    if (tiempoTranscurrido.value < 4) {
       return 'Procesando respuesta del Asistente...'
-    } else if (tiempoTranscurrido.value < 20) {
-      return `Consultando modelo local ${status.value?.model_configured || 'Ollama'}...`
     } else {
-      return 'Finalizando respuesta...'
+      return `Consultando ${modelName}...`
     }
   }
 
-  if (tiempoTranscurrido.value < 8) {
+  if (tiempoTranscurrido.value < 3) {
     return 'Analizando consulta militar...'
-  } else if (tiempoTranscurrido.value < 22) {
-    return `Consultando modelo local ${status.value?.model_configured || 'Ollama'}...`
-  } else if (tiempoTranscurrido.value < 40) {
+  } else if (tiempoTranscurrido.value < 8) {
+    return `Generando análisis con ${modelName}...`
+  } else if (tiempoTranscurrido.value < 18) {
     return 'Consultando base de datos PostgreSQL...'
   } else {
     return 'Sintetizando informe militar final...'
   }
 })
-
-const guardarConfigUrl = async () => {
-  if (!customBaseUrl.value) return
-  isGuardandoConfig.value = true
-  configErrorMsg.value = null
-  configSuccessMsg.value = null
-  try {
-    const res = await iaService.actualizarConfig(customBaseUrl.value.trim(), customModel.value || undefined)
-    status.value = res
-    if (res.online) {
-      configSuccessMsg.value = `¡Conectado exitosamente con ${res.model_configured}!`
-      setTimeout(() => {
-        mostrarConfig.value = false
-        configSuccessMsg.value = null
-      }, 1500)
-    } else {
-      configErrorMsg.value = res.error || 'No se pudo conectar a la URL ingresada. Verifique que Ollama y el túnel estén activos.'
-    }
-  } catch (err: any) {
-    console.error('Error al actualizar endpoint de Ollama:', err)
-    configErrorMsg.value = err.response?.data?.detail || err.message || 'Error al comunicarse con el backend del servidor.'
-  } finally {
-    isGuardandoConfig.value = false
-    await verificarEstado()
-  }
-}
 
 const chatContainer = ref<HTMLElement | null>(null)
 const inputRef = ref<HTMLInputElement | null>(null)
@@ -575,19 +477,12 @@ const verificarEstado = async () => {
   isLoadingStatus.value = true
   try {
     status.value = await iaService.obtenerEstado()
-    if (status.value?.base_url && !customBaseUrl.value) {
-      customBaseUrl.value = status.value.base_url
-    }
-    if (status.value?.model_configured && !customModel.value) {
-      customModel.value = status.value.model_configured
-    }
   } catch (err) {
     status.value = {
       online: false,
-      base_url: 'http://127.0.0.1:11434',
-      model_configured: 'llama3.2:3b',
-      model_available: false,
-      models_installed: [],
+      backend: 'gemini',
+      model_configured: 'gemini-2.0-flash',
+      api_key_configured: false,
       error: 'Error de conexión con el backend'
     }
   } finally {
@@ -645,7 +540,7 @@ const enviarMensaje = async () => {
     const errorMsg: IAChatMessage = {
       id: String(Date.now() + 1),
       sender: 'assistant',
-      text: err.message || 'Ocurrió un error al procesar la consulta con Ollama.',
+      text: err.message || 'Ocurrió un error al procesar la consulta. Verifique que la API Key de Gemini esté configurada.',
       type: 'error',
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       isError: true
@@ -687,7 +582,7 @@ const generarApreciacionDirecta = async () => {
     const errorMsg: IAChatMessage = {
       id: String(Date.now() + 1),
       sender: 'assistant',
-      text: err.message || 'Error generando apreciación con Ollama.',
+      text: err.message || 'Error generando apreciación con el Asistente IA.',
       type: 'error',
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       isError: true
