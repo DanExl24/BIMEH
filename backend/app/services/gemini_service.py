@@ -81,16 +81,21 @@ def get_live_gemini_models(client) -> List[str]:
         return _cached_live_models
     try:
         found = []
+        excluded_keywords = ["tts", "audio", "realtime", "embed", "imagen", "robotics"]
         for m in client.models.list():
             actions = getattr(m, "supported_actions", []) or []
             if not actions or "generateContent" in actions:
                 clean_name = m.name.replace("models/", "").strip()
-                if "gemini" in clean_name.lower() and not "embed" in clean_name.lower():
+                clean_lower = clean_name.lower()
+                # Excluir modelos de voz, audio o que no generen texto
+                if any(ex in clean_lower for ex in excluded_keywords):
+                    continue
+                if "gemini" in clean_lower:
                     found.append(clean_name)
         if found:
             _cached_live_models = found
             _last_live_fetch = now
-            logger.info(f"[Gemini] Modelos activos detectados en la cuenta de Google: {found}")
+            logger.info(f"[Gemini] Modelos de texto activos detectados: {found}")
             return found
     except Exception as e:
         logger.warning(f"[Gemini] No se pudo listar modelos desde API: {e}")
@@ -108,7 +113,7 @@ def query_gemini(prompt, system=None, temperature=0.1, max_tokens=512, json_mode
     primary_model = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
     live_models = get_live_gemini_models(client)
 
-    # Armar lista ordenada: solo modelos válidos, sin candidatos obsoletos que den 404
+    # Armar lista ordenada de modelos compatibles para generación de texto
     models_to_try = [primary_model]
     for lm in live_models:
         if lm not in models_to_try and "flash" in lm.lower():
@@ -119,7 +124,7 @@ def query_gemini(prompt, system=None, temperature=0.1, max_tokens=512, json_mode
 
     last_transient_error = None
     for idx, model_name in enumerate(models_to_try):
-        # Para el modelo principal dar 3 intentos con pausas de 1.5s y 3.0s (suficiente para que Google libre el cluster)
+        # 3 intentos con backoff para el modelo principal
         max_attempts = 3 if idx == 0 else 1
         for attempt in range(max_attempts):
             try:
@@ -132,7 +137,7 @@ def query_gemini(prompt, system=None, temperature=0.1, max_tokens=512, json_mode
             except Exception as e:
                 err_str = str(e).upper()
                 is_transient = "503" in err_str or "UNAVAILABLE" in err_str or "429" in err_str or "HIGH DEMAND" in err_str
-                is_not_found = "404" in err_str or "NOT_FOUND" in err_str
+                is_unsupported = "404" in err_str or "NOT_FOUND" in err_str or "MODALIT" in err_str or "NOT SUPPORTED" in err_str or "INVALID_ARGUMENT" in err_str
 
                 if is_transient:
                     last_transient_error = e
@@ -142,10 +147,13 @@ def query_gemini(prompt, system=None, temperature=0.1, max_tokens=512, json_mode
                         f"Reintentando en {backoff:.1f}s..."
                     )
                     time.sleep(backoff)
-                elif is_not_found:
-                    logger.warning(f"[Gemini] Modelo '{model_name}' reportó 404. Omitiendo.")
+                elif is_unsupported:
+                    logger.warning(f"[Gemini] Modelo '{model_name}' no soporta texto o no está disponible ({e}). Omitiendo.")
                     break
                 else:
+                    if idx < len(models_to_try) - 1:
+                        logger.warning(f"[Gemini] Error con '{model_name}': {e}. Probando siguiente modelo...")
+                        break
                     logger.error(f"[Gemini] Error no recuperable con modelo '{model_name}': {e}")
                     raise RuntimeError(f"Error de Gemini: {e}")
 
