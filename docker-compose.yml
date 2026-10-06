@@ -13,6 +13,11 @@ services:
     container_name: bimeh-backend
     build:
       context: ./backend
+    env_file:
+      - path: .env
+        required: false
+      - path: ./backend/.env
+        required: false
     environment:
       - TZ=America/Bogota
       - DB_HOST=postgres
@@ -22,6 +27,9 @@ services:
       - DB_PASSWORD=${DB_PASSWORD:-postgres}
       - ALLOW_ORIGINS=${ALLOW_ORIGINS:-https://bimeh.adsoproject.dev,https://api-bimeh.adsoproject.dev,http://localhost:5173,http://localhost:80}
       - GOOGLE_CREDENTIALS_JSON=${GOOGLE_CREDENTIALS_JSON:-}
+      - AI_BACKEND=${AI_BACKEND:-gemini}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-2.0-flash}
       - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://127.0.0.1:11434}
       - OLLAMA_MODEL=${OLLAMA_MODEL:-llama3.2:3b}
     volumes:

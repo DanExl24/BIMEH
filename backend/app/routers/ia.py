@@ -13,18 +13,20 @@ from typing import Optional, List, Dict, Any
 from app.database import get_db
 from app.services import ollama_service
 
-# Seleccionar backend según variable de entorno
-_backend = os.getenv("AI_BACKEND", "gemini").lower().strip()
-if _backend == "gemini":
-    try:
-        from app.services import gemini_service as ai_service
-        _backend_name = "gemini"
-    except ImportError:
-        ai_service = ollama_service  # type: ignore
-        _backend_name = "ollama (fallback)"
-else:
-    ai_service = ollama_service  # type: ignore
-    _backend_name = "ollama"
+import logging
+
+logger = logging.getLogger(__name__)
+
+def get_ai_backend():
+    backend = os.getenv("AI_BACKEND", "gemini").lower().strip()
+    if backend == "gemini":
+        try:
+            from app.services import gemini_service
+            return gemini_service, "gemini"
+        except ImportError as e:
+            logger.warning("No se pudo cargar gemini_service: %s. Usando fallback a ollama.", e)
+            return ollama_service, f"ollama (fallback: {e})"
+    return ollama_service, "ollama"
 
 router = APIRouter(prefix="/api/ia", tags=["IA"])
 
@@ -47,15 +49,22 @@ class IAConfigRequest(BaseModel):
 @router.get("/status")
 def get_ia_status():
     """Reporta el estado del backend de IA activo (Gemini o Ollama)."""
-    if _backend_name == "gemini":
-        api_key_ok = bool(os.getenv("GEMINI_API_KEY", ""))
+    service, backend_name = get_ai_backend()
+    if backend_name == "gemini":
+        api_key = os.getenv("GEMINI_API_KEY", "").strip()
+        api_key_ok = bool(api_key)
         return {
             "backend": "gemini",
             "model_configured": os.getenv("GEMINI_MODEL", "gemini-2.0-flash"),
             "online": api_key_ok,
             "api_key_configured": api_key_ok,
+            "error": None if api_key_ok else "GEMINI_API_KEY no encontrada en variables de entorno",
         }
-    return ollama_service.check_ollama_status()
+    status = ollama_service.check_ollama_status()
+    if "fallback" in backend_name:
+        status["backend"] = backend_name
+        status["warning"] = "Se configuro Gemini pero no se pudo importar el SDK google-genai en el contenedor."
+    return status
 
 
 @router.post("/config")
@@ -74,8 +83,8 @@ def chat_with_ia(req: ChatMessageRequest, db = Depends(get_db)):
     Recibe una solicitud en lenguaje natural del usuario.
     Usa el backend configurado (Gemini o Ollama) para generar SQL y sintetizar resultados.
     """
-    # Solo verificar estado de Ollama si el backend activo es Ollama
-    if _backend_name == "ollama":
+    service, backend_name = get_ai_backend()
+    if backend_name == "ollama":
         status = ollama_service.check_ollama_status()
         if not status.get("online"):
             raise HTTPException(
@@ -85,10 +94,16 @@ def chat_with_ia(req: ChatMessageRequest, db = Depends(get_db)):
                     f"Ejecute: ollama run {status.get('model_configured')}"
                 )
             )
+    elif backend_name == "gemini":
+        if not os.getenv("GEMINI_API_KEY", "").strip():
+            raise HTTPException(
+                status_code=500,
+                detail="GEMINI_API_KEY no está configurada en el archivo .env o variables de entorno."
+            )
 
     start_time = time.time()
     try:
-        resultado = ai_service.process_user_query(
+        resultado = service.process_user_query(
             user_message=req.message,
             db=db,
             history=req.history,
@@ -98,13 +113,13 @@ def chat_with_ia(req: ChatMessageRequest, db = Depends(get_db)):
         return {
             "status": "success",
             "elapsed_seconds": elapsed,
-            "backend": _backend_name,
+            "backend": backend_name,
             **resultado
         }
     except Exception as e:
         raise HTTPException(
             status_code=500,
-            detail=f"Error procesando consulta con IA ({_backend_name}): {str(e)}"
+            detail=f"Error procesando consulta con IA ({backend_name}): {str(e)}"
         )
 
 
@@ -113,30 +128,37 @@ def generar_apreciacion_comandancia(req: ApreciacionRequest, db = Depends(get_db
     """
     Genera el informe formal de Apreciación de Situación de Personal para la comandancia.
     """
-    if _backend_name == "ollama":
+    service, backend_name = get_ai_backend()
+    if backend_name == "ollama":
         status = ollama_service.check_ollama_status()
         if not status.get("online"):
             raise HTTPException(
                 status_code=503,
                 detail="El servicio de Ollama no está en ejecución."
             )
+    elif backend_name == "gemini":
+        if not os.getenv("GEMINI_API_KEY", "").strip():
+            raise HTTPException(
+                status_code=500,
+                detail="GEMINI_API_KEY no está configurada en el archivo .env o variables de entorno."
+            )
 
     start_time = time.time()
     try:
         # gemini_service usa generate_apreciacion; ollama_service usa generate_executive_briefing
-        if hasattr(ai_service, "generate_apreciacion"):
-            resultado = ai_service.generate_apreciacion(db)
+        if hasattr(service, "generate_apreciacion"):
+            resultado = service.generate_apreciacion(db)
         else:
-            resultado = ai_service.generate_executive_briefing(req.mes, db)
+            resultado = service.generate_executive_briefing(req.mes, db)
         elapsed = round(time.time() - start_time, 1)
         return {
             "status": "success",
             "elapsed_seconds": elapsed,
-            "backend": _backend_name,
+            "backend": backend_name,
             **resultado
         }
     except Exception as e:
         raise HTTPException(
             status_code=500,
-            detail=f"Error generando apreciación ({_backend_name}): {str(e)}"
+            detail=f"Error generando apreciación ({backend_name}): {str(e)}"
         )
