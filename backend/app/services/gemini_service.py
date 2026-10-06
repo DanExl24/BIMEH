@@ -328,12 +328,16 @@ def should_apply_militar_context(user_message, active_militar):
         "su ", "sus ", "el mismo", "este personal", "novedad", "novedades",
         "historial", "permisos", "vacaciones", "incapacidad", "estado",
         "presente", "registrada", "frecuente", "meses",
+        "ahora", "y en", "tambien", "ademas", "otro mes", "y para", "en el mes",
+        # meses (preguntas como 'ahora en julio', 'y en agosto')
+        "enero", "febrero", "marzo", "abril", "mayo", "junio", "julio",
+        "agosto", "septiembre", "octubre", "noviembre", "diciembre"
     ]
     return any(k in msg for k in followup_kw)
 
 
 def process_user_query(user_message, db, history=None, active_militar=None):
-    model_label = f"gemini ({os.getenv('GEMINI_MODEL', 'gemini-3.8-flash')})"
+    model_label = f"gemini ({os.getenv('GEMINI_MODEL', 'gemini-3.5-flash-lite')})"
     now = datetime.now()
 
     # 1. Respuestas rapidas sin IA
