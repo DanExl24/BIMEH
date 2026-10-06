@@ -80,8 +80,8 @@ def query_gemini(prompt, system=None, temperature=0.1, max_tokens=512, json_mode
     primary_model = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
     fallback_candidates = [
         primary_model,
-        "gemini-2.5-flash-preview-04-17",
-        "gemini-1.5-flash"
+        "gemini-3.8-flash-lite",
+        "gemini-1.5-flash",
     ]
     models_to_try = []
     for m in fallback_candidates:
@@ -103,12 +103,16 @@ def query_gemini(prompt, system=None, temperature=0.1, max_tokens=512, json_mode
                 last_exception = e
                 err_str = str(e).upper()
                 is_transient = "503" in err_str or "UNAVAILABLE" in err_str or "429" in err_str or "HIGH DEMAND" in err_str
+                is_not_found = "404" in err_str or "NOT_FOUND" in err_str
                 if is_transient:
                     logger.warning(
-                        f"[Gemini] Alta demanda (503/429) en '{model_name}' (intento {attempt + 1}). "
+                        f"[Gemini] Demanda alta (503/429) en '{model_name}' (intento {attempt + 1}). "
                         f"Reintentando con backoff..."
                     )
-                    time.sleep(1.2 * (attempt + 1))
+                    time.sleep(1.0 * (attempt + 1))
+                elif is_not_found:
+                    logger.warning(f"[Gemini] Modelo '{model_name}' no disponible (404). Pasando al siguiente candidato...")
+                    break
                 else:
                     logger.error(f"[Gemini] Error no recuperable con modelo '{model_name}': {e}")
                     raise RuntimeError(f"Error de Gemini: {e}")
@@ -181,6 +185,26 @@ def get_fast_conversational_reply(text):
     gracias = ["gracias", "muchas gracias", "perfecto", "excelente"]
     if any(g in msg for g in gracias):
         return "cortesia", "A sus ordenes, mi Comandante. Requiere alguna consulta adicional?"
+
+    ayuda_keywords = [
+        "que haces", "que puedes hacer", "quien eres", "para que sirves",
+        "como funcionas", "como te llamas", "que sabes hacer", "ayuda", "comandos"
+    ]
+    if any(k in msg for k in ayuda_keywords):
+        return "ayuda", (
+            "A sus órdenes, mi Comandante. Soy el Asistente de Inteligencia de Personal de BIMEJ 12. "
+            "Puedo responder consultas operacionales en lenguaje natural sobre:\n\n"
+            "• **Efectivos:** Total de personal activo y retirado.\n"
+            "• **Novedades:** Permisos, vacaciones, incapacidades médicas y excusas.\n"
+            "• **Compañías:** Distribución de personal y fuerza disponible.\n"
+            "• **Historial:** Búsqueda individual de militares por nombre o cédula.\n"
+            "• **Apreciación:** Boletín de situación general para el comando militar."
+        )
+
+    despedidas = ["adios", "chao", "hasta luego", "hasta pronto", "nos vemos"]
+    if any(d in msg for d in despedidas):
+        return "despedida", "Hasta luego, mi Comandante. Quedo a su disposición para futuras consultas."
+
     return None, None
 
 
