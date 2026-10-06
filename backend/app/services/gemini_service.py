@@ -69,6 +69,34 @@ def _get_client():
     return genai.Client(api_key=key)
 
 
+_cached_live_models: List[str] = []
+_last_live_fetch: float = 0.0
+
+
+def get_live_gemini_models(client) -> List[str]:
+    """Consulta la API de Google para descubrir qué modelos están realmente disponibles en la cuenta."""
+    global _cached_live_models, _last_live_fetch
+    now = time.time()
+    if _cached_live_models and (now - _last_live_fetch < 1800):
+        return _cached_live_models
+    try:
+        found = []
+        for m in client.models.list():
+            actions = getattr(m, "supported_actions", []) or []
+            if not actions or "generateContent" in actions:
+                clean_name = m.name.replace("models/", "").strip()
+                if "gemini" in clean_name.lower() and not "embed" in clean_name.lower():
+                    found.append(clean_name)
+        if found:
+            _cached_live_models = found
+            _last_live_fetch = now
+            logger.info(f"[Gemini] Modelos activos detectados en la cuenta de Google: {found}")
+            return found
+    except Exception as e:
+        logger.warning(f"[Gemini] No se pudo listar modelos desde API: {e}")
+    return _cached_live_models
+
+
 def query_gemini(prompt, system=None, temperature=0.1, max_tokens=512, json_mode=False):
     client = _get_client()
     config_kwargs = {"temperature": temperature, "max_output_tokens": max_tokens}
@@ -78,19 +106,21 @@ def query_gemini(prompt, system=None, temperature=0.1, max_tokens=512, json_mode
         config_kwargs["system_instruction"] = system
 
     primary_model = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
-    fallback_candidates = [
-        primary_model,
-        "gemini-3.8-flash-lite",
-        "gemini-1.5-flash",
-    ]
-    models_to_try = []
-    for m in fallback_candidates:
-        if m and m not in models_to_try:
-            models_to_try.append(m)
+    live_models = get_live_gemini_models(client)
 
-    last_exception = None
+    # Armar lista ordenada: solo modelos válidos, sin candidatos obsoletos que den 404
+    models_to_try = [primary_model]
+    for lm in live_models:
+        if lm not in models_to_try and "flash" in lm.lower():
+            models_to_try.append(lm)
+    for lm in live_models:
+        if lm not in models_to_try:
+            models_to_try.append(lm)
+
+    last_transient_error = None
     for idx, model_name in enumerate(models_to_try):
-        max_attempts = 2 if idx == 0 else 1
+        # Para el modelo principal dar 3 intentos con pausas de 1.5s y 3.0s (suficiente para que Google libre el cluster)
+        max_attempts = 3 if idx == 0 else 1
         for attempt in range(max_attempts):
             try:
                 response = client.models.generate_content(
@@ -100,27 +130,29 @@ def query_gemini(prompt, system=None, temperature=0.1, max_tokens=512, json_mode
                 )
                 return response.text.strip() if response.text else ""
             except Exception as e:
-                last_exception = e
                 err_str = str(e).upper()
                 is_transient = "503" in err_str or "UNAVAILABLE" in err_str or "429" in err_str or "HIGH DEMAND" in err_str
                 is_not_found = "404" in err_str or "NOT_FOUND" in err_str
+
                 if is_transient:
+                    last_transient_error = e
+                    backoff = 1.5 * (attempt + 1)
                     logger.warning(
-                        f"[Gemini] Demanda alta (503/429) en '{model_name}' (intento {attempt + 1}). "
-                        f"Reintentando con backoff..."
+                        f"[Gemini] Saturación temporal (503/429) en '{model_name}' (intento {attempt + 1}/{max_attempts}). "
+                        f"Reintentando en {backoff:.1f}s..."
                     )
-                    time.sleep(1.0 * (attempt + 1))
+                    time.sleep(backoff)
                 elif is_not_found:
-                    logger.warning(f"[Gemini] Modelo '{model_name}' no disponible (404). Pasando al siguiente candidato...")
+                    logger.warning(f"[Gemini] Modelo '{model_name}' reportó 404. Omitiendo.")
                     break
                 else:
                     logger.error(f"[Gemini] Error no recuperable con modelo '{model_name}': {e}")
                     raise RuntimeError(f"Error de Gemini: {e}")
 
-    logger.error(f"[Gemini] Todos los reintentos fallaron: {last_exception}")
+    logger.error(f"[Gemini] Todos los reintentos fallaron: {last_transient_error}")
     raise RuntimeError(
-        f"El servicio de Gemini está temporalmente congestionado por alta demanda de Google Cloud. "
-        f"Por favor intente nuevamente en unos segundos. Detalle: {last_exception}"
+        f"El servicio de Gemini está experimentando alta demanda momentánea en Google Cloud. "
+        f"Por favor intente nuevamente en unos segundos. (Detalle: {last_transient_error})"
     )
 
 
