@@ -869,21 +869,53 @@ def match_report_request(
         m_nombre = _extract_month_name(msg) or ""
         nom_mil = nom_mil or (active_militar.get("nombre") if active_militar else f"C.C. {cedula_val}")
         mes_query = f"&mes={m_nombre}" if m_nombre else ""
-        periodo_txt = f" ({m_nombre})" if m_nombre else " (Historial Completo)"
+        periodo_txt = f" para {m_nombre}" if m_nombre else " (Historial Anual / Completo)"
         detected_militar = {"cedula": str(cedula_val), "nombre": nom_mil}
+
+        opciones = [
+            {
+                "id": "heatmap",
+                "titulo": "Matriz Heatmap (Consolidado Día a Día)",
+                "descripcion": f"Matriz día a día con códigos oficiales de operatividad y disponibilidad (D, N, R){periodo_txt}.",
+                "badge": "HEATMAP",
+                "tipo_export": "consolidado_mensual",
+                "url_excel": f"/api/exportar/excel?tipo=consolidado_mensual&cedula={cedula_val}{mes_query}&modo=letras",
+                "url_pdf": f"/api/exportar/pdf?tipo=consolidado_mensual&cedula={cedula_val}{mes_query}&modo=letras"
+            },
+            {
+                "id": "personal",
+                "titulo": "Historial Completo (Expediente Cronológico)",
+                "descripcion": "Relación nominal detallada de todas las novedades registradas, fechas desde/hasta y observaciones.",
+                "badge": "EXPEDIENTE",
+                "tipo_export": "personal",
+                "url_excel": f"/api/exportar/excel?tipo=personal&cedula={cedula_val}{mes_query}",
+                "url_pdf": f"/api/exportar/pdf?tipo=personal&cedula={cedula_val}{mes_query}"
+            },
+            {
+                "id": "agil",
+                "titulo": "Exportación Ágil (Resumen de Novedades)",
+                "descripcion": "Resumen ejecutivo condensado por intervalos de días (excluye días ordinarios disponibles).",
+                "badge": "ÁGIL",
+                "tipo_export": "agil",
+                "url_excel": f"/api/exportar/excel?tipo=agil&cedula={cedula_val}{mes_query}",
+                "url_pdf": f"/api/exportar/pdf?tipo=agil&cedula={cedula_val}{mes_query}"
+            }
+        ]
+
         return {
-            "tipo": "personal",
+            "tipo": "seleccion_reporte_personal",
             "formato_solicitado": formato,
-            "titulo": f"Expediente Individual - {nom_mil}{periodo_txt}",
-            "descripcion": f"Historial y consolidado individual de novedades para el integrante {nom_mil} con C.C. {cedula_val}.",
-            "url_excel": f"/api/exportar/excel?tipo=personal&cedula={cedula_val}{mes_query}",
-            "url_pdf": f"/api/exportar/pdf?tipo=personal&cedula={cedula_val}{mes_query}",
+            "titulo": f"Reportes Oficiales: {nom_mil}",
+            "descripcion": f"Personal identificado: {nom_mil} (C.C. {cedula_val}){periodo_txt}. Seleccione la modalidad de reporte que desea generar:",
+            "url_excel": f"/api/exportar/excel?tipo=consolidado_mensual&cedula={cedula_val}{mes_query}&modo=letras",
+            "url_pdf": f"/api/exportar/pdf?tipo=consolidado_mensual&cedula={cedula_val}{mes_query}&modo=letras",
             "parametros": {"cedula": cedula_val, "mes": m_nombre or "TODOS"},
             "active_militar": detected_militar,
+            "opciones": opciones,
             "mensaje": (
                 f"He identificado al militar **{nom_mil}** (C.C. {cedula_val}).\n\n"
-                f"He preparado su **Expediente Individual y Consolidado de Novedades** para **{m_nombre or 'el período seleccionado'}**:\n\n"
-                f"Puede descargarlo directamente en formato oficial usando los botones a continuación:"
+                f"Para este integrante tiene a su disposición 3 formatos oficiales de reporte{periodo_txt}.\n\n"
+                f"Por favor seleccione qué tipo de reporte desea generar a continuación:"
             )
         }
 

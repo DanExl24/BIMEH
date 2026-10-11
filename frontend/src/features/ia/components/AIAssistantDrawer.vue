@@ -518,8 +518,92 @@
                   </div>
                 </div>
 
-                <!-- Tarjeta Interactiva de Reporte Oficial (Excel / PDF / CSV) -->
-                <div v-if="msg.report_info" class="mt-3 pt-3 border-t border-darkBorder/70 space-y-3">
+                <!-- CASO A: Panel Interactivo de Selección de Modalidades de Reporte (Personal) -->
+                <div v-if="msg.report_info?.opciones && msg.report_info.opciones.length > 0" class="mt-3 pt-3 border-t border-darkBorder/70 space-y-3">
+                  <div class="p-3.5 sm:p-4 rounded-2xl bg-slate-900/90 border border-purple-500/35 shadow-lg shadow-purple-500/5 space-y-3.5">
+                    <!-- Cabecera del Panel Interactivo -->
+                    <div class="flex items-center justify-between gap-2.5 pb-2.5 border-b border-darkBorder/60">
+                      <div class="flex items-center gap-2.5">
+                        <div class="w-9 h-9 rounded-xl bg-purple-500/15 border border-purple-500/30 text-purple-400 flex items-center justify-center shrink-0 shadow-sm">
+                          <UserCheck class="w-5 h-5 stroke-[2]" />
+                        </div>
+                        <div>
+                          <h4 class="font-bold text-slate-100 text-xs sm:text-[13px] leading-snug">
+                            {{ msg.report_info.titulo }}
+                          </h4>
+                          <span class="text-[10px] font-mono uppercase tracking-wider text-purple-300/90">
+                            Seleccione el tipo de reporte oficial
+                          </span>
+                        </div>
+                      </div>
+                      <span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-purple-500/15 text-purple-300 border border-purple-500/30 shrink-0">
+                        3 FORMATOS
+                      </span>
+                    </div>
+
+                    <!-- Lista de 3 Opciones de Reporte Interactivas -->
+                    <div class="space-y-2.5">
+                      <div
+                        v-for="opc in msg.report_info.opciones"
+                        :key="opc.id"
+                        class="p-3 rounded-xl bg-slate-950/70 border border-darkBorder/80 hover:border-purple-500/50 transition-all space-y-2.5 group shadow-sm"
+                      >
+                        <div class="flex items-start gap-2.5">
+                          <span class="mt-0.5 px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-slate-800 text-slate-300 border border-slate-700 shrink-0">
+                            {{ opc.badge }}
+                          </span>
+                          <div class="flex-1 min-w-0">
+                            <div class="font-bold text-slate-200 text-xs group-hover:text-purple-300 transition-colors">
+                              {{ opc.titulo }}
+                            </div>
+                            <p class="text-[11px] text-slate-400 leading-relaxed mt-0.5">
+                              {{ opc.descripcion }}
+                            </p>
+                          </div>
+                        </div>
+
+                        <!-- Botones de Descarga Directa por Formato -->
+                        <div class="flex flex-wrap items-center gap-2 pt-2 border-t border-darkBorder/40">
+                          <button
+                            type="button"
+                            @click="descargarReporte(opc.url_excel, `${opc.titulo} - Excel`, 'excel')"
+                            class="px-2.5 py-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 font-bold text-[11px] transition-all flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95"
+                            title="Descargar esta modalidad en Excel"
+                          >
+                            <FileSpreadsheet class="w-3.5 h-3.5" />
+                            <span>Descargar Excel (.xlsx)</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            @click="descargarReporte(opc.url_pdf, `${opc.titulo} - PDF`, 'pdf')"
+                            class="px-2.5 py-1.5 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/40 text-cyan-300 font-bold text-[11px] transition-all flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95"
+                            title="Descargar esta modalidad en PDF"
+                          >
+                            <FileText class="w-3.5 h-3.5" />
+                            <span>Descargar PDF (.pdf)</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- Enlace al Centro de Reportes Oficiales -->
+                    <div class="pt-2 border-t border-darkBorder/40 flex items-center justify-between text-[11px] text-slate-400">
+                      <span>¿Requiere filtros por subnovedad o fechas específicas?</span>
+                      <button
+                        type="button"
+                        @click="irACentroReportes"
+                        class="inline-flex items-center gap-1 text-purple-400 hover:text-purple-300 font-bold underline cursor-pointer"
+                      >
+                        <span>Centro de Reportes</span>
+                        <ArrowRight class="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- CASO B: Tarjeta Regular de Reporte Único (Consolidado general, parte del día, base de datos) -->
+                <div v-else-if="msg.report_info" class="mt-3 pt-3 border-t border-darkBorder/70 space-y-3">
                   <div class="p-3.5 rounded-2xl bg-slate-900/90 border border-emerald-500/30 shadow-lg shadow-emerald-500/5 space-y-3">
                     <!-- Cabecera de la tarjeta del reporte -->
                     <div class="flex items-start justify-between gap-2.5">
@@ -778,7 +862,8 @@ import {
   Download,
   MessageSquare,
   ExternalLink,
-  Layers
+  Layers,
+  UserCheck
 } from 'lucide-vue-next'
 
 import type { IAStatusResponse, IAChatMessage, ActiveMilitar, IAModelInfo, IAReportInfo } from '../types/ia.types'

@@ -23,9 +23,19 @@ export interface IAStatusResponse {
   error?: string | null
 }
 
+export interface IAReportOption {
+  id: string
+  titulo: string
+  descripcion: string
+  badge?: string
+  url_excel: string
+  url_pdf: string
+  url_csv?: string
+}
+
 export interface IAReportInfo {
-  tipo: 'consolidado_mensual' | 'mes' | 'dia' | 'personal' | 'personal_db' | 'subnovedades' | string
-  formato_solicitado: 'excel' | 'pdf'
+  tipo: 'consolidado_mensual' | 'mes' | 'dia' | 'personal' | 'personal_db' | 'subnovedades' | 'seleccion_reporte_personal' | string
+  formato_solicitado?: 'excel' | 'pdf'
   titulo: string
   descripcion?: string
   url_excel?: string
@@ -33,6 +43,8 @@ export interface IAReportInfo {
   url_csv?: string
   parametros?: Record<string, any>
   mensaje?: string
+  opciones?: IAReportOption[]
+  active_militar?: ActiveMilitar
 }
 
 export interface IAChatMessage {
