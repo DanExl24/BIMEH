@@ -319,22 +319,33 @@ def _auto_synthesize(user_message, query_result):
         first_dias = rows[0].get(dias_col, 0)
         last_dias = rows[-1].get(dias_col, 0)
 
+        meses_nombres = [
+            "enero", "febrero", "marzo", "abril", "mayo", "junio",
+            "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"
+        ]
+        mes_mencionado = next((m for m in meses_nombres if m in _norm(user_message)), None)
+        mes_str = f" durante el mes de {mes_mencionado}" if mes_mencionado else ""
+
         if is_least:
             target = rows[0] if first_dias <= last_dias else rows[-1]
             nov_nombre = target.get("novedad", "")
             dias = target.get(dias_col, 0)
+            pers = target.get("total_personal_afectado")
+            pers_str = f" ({pers} efectivos)" if pers else ""
             nombre_militar = target.get("nombre")
             if nombre_militar:
-                return f"Novedad menos registrada para **{nombre_militar}**: **{nov_nombre}** con un total de **{dias} días**."
-            return f"Novedad menos registrada en BIMEJ 12: **{nov_nombre}** con un total de **{dias} días** acumulados."
+                return f"Novedad menos registrada para **{nombre_militar}**{mes_str}: **{nov_nombre}** con un total de **{dias} días**."
+            return f"Novedad menos registrada en BIMEJ 12{mes_str}: **{nov_nombre}** con un total de **{dias} días** acumulados{pers_str}."
         else:
             target = rows[0] if first_dias >= last_dias else rows[-1]
             nov_nombre = target.get("novedad", "")
             dias = target.get(dias_col, 0)
+            pers = target.get("total_personal_afectado")
+            pers_str = f" ({pers} efectivos)" if pers else ""
             nombre_militar = target.get("nombre")
             if nombre_militar:
-                return f"Novedad más registrada para **{nombre_militar}**: **{nov_nombre}** con un total de **{dias} días**."
-            return f"Novedad más registrada en BIMEJ 12: **{nov_nombre}** con un total de **{dias} días** acumulados."
+                return f"Novedad más registrada para **{nombre_militar}**{mes_str}: **{nov_nombre}** con un total de **{dias} días**."
+            return f"Novedad más registrada en BIMEJ 12{mes_str}: **{nov_nombre}** con un total de **{dias} días** acumulados{pers_str}."
 
     # Caso 4: Lista de personal
     if "cedula" in cols and "nombre" in cols:
@@ -426,7 +437,11 @@ def should_apply_militar_context(user_message, active_militar):
     cedulas = re.findall(r"\b\d{6,10}\b", msg)
     if cedulas:
         return all(c == active_cedula for c in cedulas)
-    global_triggers = ["todo el personal", "todo el batallon", "todos los militares", "en total"]
+    global_triggers = [
+        "todo el personal", "todo el batallon", "todos los militares", "en total",
+        "del batallon", "en el batallon", "ranking general", "ranking del batallon",
+        "novedades del batallon", "general del batallon"
+    ]
     if any(t in msg for t in global_triggers):
         return False
     followup_kw = [

@@ -441,31 +441,42 @@ def _auto_synthesize(user_message: str, query_result: Dict[str, Any]) -> str:
         first_dias = rows[0].get(dias_col, 0)
         last_dias = rows[-1].get(dias_col, 0)
 
+        meses_nombres = [
+            "enero", "febrero", "marzo", "abril", "mayo", "junio",
+            "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"
+        ]
+        mes_mencionado = next((m for m in meses_nombres if m in _norm(user_message)), None)
+        mes_str = f" durante el mes de {mes_mencionado}" if mes_mencionado else ""
+
         if is_least:
             target = rows[0] if first_dias <= last_dias else rows[-1]
             nov_nombre = target.get("novedad", "")
             dias = target.get(dias_col, 0)
+            pers = target.get("total_personal_afectado")
+            pers_str = f" ({pers} efectivos)" if pers else ""
             nombre_militar = target.get("nombre")
             if nombre_militar:
                 return (
-                    f"Novedad menos registrada para **{nombre_militar}**: **{nov_nombre}** "
+                    f"Novedad menos registrada para **{nombre_militar}**{mes_str}: **{nov_nombre}** "
                     f"con un total de **{dias} días**."
                 )
             return (
-                f"Novedad menos registrada en BIMEJ 12: **{nov_nombre}** con un total de **{dias} días** acumulados."
+                f"Novedad menos registrada en BIMEJ 12{mes_str}: **{nov_nombre}** con un total de **{dias} días** acumulados{pers_str}."
             )
         else:
             target = rows[0] if first_dias >= last_dias else rows[-1]
             nov_nombre = target.get("novedad", "")
             dias = target.get(dias_col, 0)
+            pers = target.get("total_personal_afectado")
+            pers_str = f" ({pers} efectivos)" if pers else ""
             nombre_militar = target.get("nombre")
             if nombre_militar:
                 return (
-                    f"Novedad más registrada para **{nombre_militar}**: **{nov_nombre}** "
+                    f"Novedad más registrada para **{nombre_militar}**{mes_str}: **{nov_nombre}** "
                     f"con un total de **{dias} días**."
                 )
             return (
-                f"Novedad más registrada en BIMEJ 12: **{nov_nombre}** con un total de **{dias} días** acumulados."
+                f"Novedad más registrada en BIMEJ 12{mes_str}: **{nov_nombre}** con un total de **{dias} días** acumulados{pers_str}."
             )
 
     # Caso 3: multiples filas con cedula/nombre (listado de personal)

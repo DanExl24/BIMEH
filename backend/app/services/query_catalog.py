@@ -133,8 +133,13 @@ def _extract_name_tokens(msg_norm: str) -> List[str]:
         "novedad", "novedades", "reporte", "reportes", "ausencia", "ausencias",
         "permiso", "permisos", "vacaciones", "incapacidad", "incapacidades",
         "excusa", "excusas", "franco", "francos", "alta", "detenido", "prision",
-        "medica", "medico", "medicas", "medicos", "total", "frecuentes", "comunes",
+        "medica", "medico", "medicas", "medicos", "total", "frecuente", "frecuentes", "comun", "comunes",
         "distribucion", "evolucion",
+        # terminos analiticos y rankings (no son nombres de personas)
+        "ranking", "rankings", "top", "tops", "recurrente", "recurrentes",
+        "estadistica", "estadisticas", "conteo", "conteos", "grafica", "graficas", "tabla", "tablas",
+        "causa", "causas", "motivo", "motivos", "afectacion", "afectaciones", "impacto",
+        "principal", "principales", "mayor", "mayores", "menor", "menores",
         # rangos militares (no son nombres propios)
         "personal", "militar", "militares", "soldado", "soldados", "cabo", "sargento",
         "teniente", "mayor", "coronel", "capitan", "suboficial", "efectivo", "efectivos",
@@ -167,15 +172,15 @@ def _is_least_frequent(msg: str) -> bool:
     menos registrada, menor cantidad de dias o mas rara.
     """
     least_triggers = (
-        r"\b(menos\s+frecuente|menos\s+comun|menor\s+frecuencia|menos\s+presente|"
-        r"menos\s+tiene|menos\s+registro|menos\s+registrada?|menor\s+cantidad|"
-        r"menos\s+repetida?|menos\s+dias|menos\s+veces|minima\s+frecuencia|"
-        r"mas\s+rara|menos\s+habitual|novedad\s+menor|novedad\s+menos)\b"
+        r"\b(menos\s+frecuentes?|menos\s+comunes?|menor\s+frecuencia|menos\s+presentes?|"
+        r"menos\s+tiene|menos\s+registro|menos\s+registradas?|menor\s+cantidad|"
+        r"menos\s+repetidas?|menos\s+dias|menos\s+veces|minima\s+frecuencia|"
+        r"mas\s+raras?|menos\s+habitual(es)?|novedades?\s+menores?|novedades?\s+menos)\b"
     )
     if re.search(least_triggers, msg):
         return True
-    has_min = bool(re.search(r"\b(menos|menor|minima?|rara?)\b", msg))
-    has_target = bool(re.search(r"\b(frecuente|comun|novedad|registrada?|dias?|presencia|repetida?)\b", msg))
+    has_min = bool(re.search(r"\b(menos|menor(es)?|minima?s?|rara?s?)\b", msg))
+    has_target = bool(re.search(r"\b(frecuentes?|comunes?|novedades?|registradas?|dias?|presencia|repetidas?)\b", msg))
     return has_min and has_target
 
 
@@ -338,25 +343,38 @@ def match_catalog(
         )
 
     # ------------------------------------------------------------------
-    # 5. NOVEDADES MENOS O MAS FRECUENTES DEL BATALLON
+    # 5. RANKING DE NOVEDADES DEL BATALLON (MAS O MENOS FRECUENTES, CON O SIN MES)
     # ------------------------------------------------------------------
-    if _is_least_frequent(msg) and not ced:
-        return (
-            "SELECT novedad, total_dias_registrados, total_personal_afectado "
-            "FROM v_conteo_novedades ORDER BY total_dias_registrados ASC LIMIT 10",
-            "Ranking de novedades menos frecuentes en BIMEJ 12"
-        )
+    ranking_batallon_triggers = (
+        r"\b(ranking|rankings|top\s*\d*|mas\s+frecuentes?|mas\s+comunes?|"
+        r"mas\s+presentadas?|mas\s+registradas?|mas\s+repetidas?|"
+        r"menos\s+frecuentes?|menos\s+comunes?|menos\s+registradas?|"
+        r"novedades\s+frecuentes|que\s+novedades\s+hay\s+mas|"
+        r"cuales\s+son\s+las\s+novedades|novedades\s+del\s+batallon|"
+        r"principales\s+novedades|novedades\s+principales)\b"
+    )
+    if not ced and (re.search(ranking_batallon_triggers, msg) or _is_least_frequent(msg)):
+        is_least = _is_least_frequent(msg)
+        order = "ASC" if is_least else "DESC"
+        desc_tipo = "menos frecuentes" if is_least else "más frecuentes"
 
-    frecuentes_triggers = [
-        "mas frecuentes", "mas comunes", "mas presentadas", "mas registradas",
-        "ranking de novedades", "novedades frecuentes", "que novedades hay mas",
-        "cuales son las novedades", "novedades del batallon"
-    ]
-    if any(t in msg for t in frecuentes_triggers) and not ced:
+        # 5a. Ranking con mes especifico (ej: "ranking en el mes de junio", "novedades mas frecuentes en agosto")
+        if mes_num:
+            return (
+                f"SELECT novedad, COUNT(*) AS total_dias_registrados, COUNT(DISTINCT cedula) AS total_personal_afectado "
+                f"FROM v_novedades_detalle "
+                f"WHERE fecha_reporte LIKE '{anio}-{mes_num:02d}-%' "
+                f"GROUP BY novedad "
+                f"ORDER BY total_dias_registrados {order} LIMIT 10",
+                f"Ranking de novedades {desc_tipo} en mes {mes_num}/{anio}"
+            )
+
+        # 5b. Ranking historico general del batallon
         return (
-            "SELECT novedad, total_dias_registrados, total_personal_afectado "
-            "FROM v_conteo_novedades ORDER BY total_dias_registrados DESC LIMIT 10",
-            "Ranking de novedades mas frecuentes en BIMEJ 12"
+            f"SELECT novedad, total_dias_registrados, total_personal_afectado "
+            f"FROM v_conteo_novedades "
+            f"ORDER BY total_dias_registrados {order} LIMIT 10",
+            f"Ranking de novedades {desc_tipo} en BIMEJ 12"
         )
 
     # ------------------------------------------------------------------
