@@ -33,6 +33,13 @@ export interface IAReportOption {
   url_csv?: string
 }
 
+export interface IAMesSugerido {
+  mes: string
+  cant_dias: number
+  resumen?: string
+  prompt: string
+}
+
 export interface IAReportInfo {
   tipo: 'consolidado_mensual' | 'mes' | 'dia' | 'personal' | 'personal_db' | 'subnovedades' | 'seleccion_reporte_personal' | string
   formato_solicitado?: 'excel' | 'pdf'
@@ -45,6 +52,8 @@ export interface IAReportInfo {
   mensaje?: string
   opciones?: IAReportOption[]
   active_militar?: ActiveMilitar
+  sin_novedades?: boolean
+  meses_sugeridos?: IAMesSugerido[]
 }
 
 export interface IAChatMessage {

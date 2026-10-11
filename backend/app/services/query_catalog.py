@@ -816,6 +816,126 @@ def _extract_report_date(msg_norm: str, user_msg: str) -> Optional[str]:
             
     return None
 
+def _inspect_soldier_novedades(
+    db: Optional[Any],
+    cedula: int,
+    mes_solicitado: Optional[str] = None,
+    subnovedad_filtro: Optional[str] = None
+) -> Dict[str, Any]:
+    default_res = {
+        "tiene_novedades_mes": True,
+        "dias_novedad_mes": 0,
+        "dias_filtro_mes": 0,
+        "novedades_mes": {},
+        "top_novedad_mes": None,
+        "meses_con_novedades": [],
+        "meses_con_filtro": [],
+        "top_global_nov": {}
+    }
+    if not db:
+        return default_res
+
+    try:
+        cur = db.cursor()
+        disponibles = ['CDO UNIDAD', 'AREA OPERACIONES']
+        pl_disp = ','.join('%s' for _ in disponibles)
+
+        meses_nombres = {
+            1: 'ENERO', 2: 'FEBRERO', 3: 'MARZO', 4: 'ABRIL',
+            5: 'MAYO', 6: 'JUNIO', 7: 'JULIO', 8: 'AGOSTO',
+            9: 'SEPTIEMBRE', 10: 'OCTUBRE', 11: 'NOVIEMBRE', 12: 'DICIEMBRE'
+        }
+
+        q = f"""
+            SELECT EXTRACT(MONTH FROM to_date(r.fecha, 'YYYY-MM-DD'))::int as mes_num,
+                   sn.nombre as novedad,
+                   COUNT(*) as cant_dias
+            FROM REGISTRO_PERSONAL rp
+            JOIN PERSONAL p ON rp.id_personal = p.id
+            JOIN REPORTES r ON rp.id_reporte = r.id
+            JOIN SUB_NOVEDADES sn ON rp.id_sub_novedad = sn.id
+            WHERE p.cedula = %s AND sn.nombre NOT IN ({pl_disp})
+            GROUP BY mes_num, sn.nombre
+            ORDER BY mes_num ASC, cant_dias DESC
+        """
+        cur.execute(q, [cedula, *disponibles])
+        rows = cur.fetchall()
+
+        meses_dict = {}
+        top_global_nov = {}
+        for r in rows:
+            m_num = int(r[0])
+            m_nom = meses_nombres.get(m_num, f"MES {m_num}")
+            nov = r[1]
+            cant = int(r[2])
+            if m_nom not in meses_dict:
+                meses_dict[m_nom] = {"mes": m_nom, "mes_num": m_num, "total_dias": 0, "novedades": {}}
+            meses_dict[m_nom]["total_dias"] += cant
+            meses_dict[m_nom]["novedades"][nov] = meses_dict[m_nom]["novedades"].get(nov, 0) + cant
+            top_global_nov[nov] = top_global_nov.get(nov, 0) + cant
+
+        meses_con_novedades = []
+        for m_nom, m_info in sorted(meses_dict.items(), key=lambda x: x[1]["mes_num"]):
+            resumen_parts = [f"{nov} ({c})" for nov, c in sorted(m_info["novedades"].items(), key=lambda x: x[1], reverse=True)]
+            meses_con_novedades.append({
+                "mes": m_nom,
+                "mes_num": m_info["mes_num"],
+                "total_dias": m_info["total_dias"],
+                "resumen": ", ".join(resumen_parts),
+                "novedades": m_info["novedades"]
+            })
+
+        tiene_novedades_mes = True
+        dias_novedad_mes = 0
+        dias_filtro_mes = 0
+        novedades_mes = {}
+        top_novedad_mes = None
+
+        if mes_solicitado and mes_solicitado.upper() != "TODOS":
+            m_req = mes_solicitado.upper()
+            if m_req in meses_dict:
+                m_info = meses_dict[m_req]
+                dias_novedad_mes = m_info["total_dias"]
+                novedades_mes = m_info["novedades"]
+                if novedades_mes:
+                    top_novedad_mes = max(novedades_mes.items(), key=lambda x: x[1])[0]
+                if subnovedad_filtro:
+                    dias_filtro_mes = sum(c for nov, c in novedades_mes.items() if subnovedad_filtro.upper() in nov.upper())
+                    tiene_novedades_mes = (dias_filtro_mes > 0)
+                else:
+                    tiene_novedades_mes = (dias_novedad_mes > 0)
+            else:
+                tiene_novedades_mes = False
+                dias_novedad_mes = 0
+                dias_filtro_mes = 0
+
+        meses_con_filtro = []
+        if subnovedad_filtro:
+            for m_info in meses_con_novedades:
+                matched_days = sum(c for nov, c in m_info["novedades"].items() if subnovedad_filtro.upper() in nov.upper())
+                if matched_days > 0:
+                    meses_con_filtro.append({
+                        "mes": m_info["mes"],
+                        "mes_num": m_info["mes_num"],
+                        "total_dias": matched_days,
+                        "subnovedad": subnovedad_filtro
+                    })
+
+        return {
+            "tiene_novedades_mes": tiene_novedades_mes,
+            "dias_novedad_mes": dias_novedad_mes,
+            "dias_filtro_mes": dias_filtro_mes,
+            "novedades_mes": novedades_mes,
+            "top_novedad_mes": top_novedad_mes,
+            "meses_con_novedades": meses_con_novedades,
+            "meses_con_filtro": meses_con_filtro,
+            "top_global_nov": top_global_nov
+        }
+    except Exception as e:
+        logger.warning(f"[_inspect_soldier_novedades] Error: {e}")
+        return default_res
+
+
 def match_report_request(
     user_message: str,
     active_militar: Optional[Dict[str, Any]] = None,
@@ -934,7 +1054,22 @@ def match_report_request(
         m_nombre = _extract_month_name(msg) or ""
         subnov_val = _extract_subnovedad_oficial(msg)
         nom_mil = nom_mil or (active_militar.get("nombre") if active_militar else f"C.C. {cedula_val}")
-        
+
+        # Detección de solicitud de novedad más presente / frecuente
+        pide_top_novedad = bool(re.search(
+            r"\b(novedad\s+m[aá]s\s+(presente|frecuente|comun|común|reiterada)|m[aá]s\s+(presente|frecuente)|mayor\s+novedad|principal\s+novedad)\b",
+            msg
+        ))
+
+        # Inspección proactiva en base de datos para validar si tiene novedades en el período
+        inspection = _inspect_soldier_novedades(db, cedula_val, m_nombre, subnov_val)
+
+        if pide_top_novedad and not subnov_val:
+            if inspection.get("top_novedad_mes"):
+                subnov_val = inspection["top_novedad_mes"]
+            elif inspection.get("tiene_novedades_mes") and inspection.get("novedades_mes"):
+                subnov_val = max(inspection["novedades_mes"].items(), key=lambda x: x[1])[0]
+
         mes_query = f"&mes={m_nombre}" if m_nombre else ""
         subnov_query = f"&subnovedad={subnov_val}" if subnov_val else ""
         
@@ -942,12 +1077,35 @@ def match_report_request(
         filtro_subnov_txt = f" [Filtro: {subnov_val}]" if subnov_val else ""
         detected_militar = {"cedula": str(cedula_val), "nombre": nom_mil}
 
+        tiene_nov_mes = inspection.get("tiene_novedades_mes", True)
+        sin_novedades = bool(m_nombre and m_nombre.upper() != "TODOS" and not tiene_nov_mes)
+
+        # Generar sugerencias de meses alternativos que SÍ tienen novedad
+        meses_sugeridos = []
+        candidatos_meses = inspection.get("meses_con_filtro", []) if (subnov_val and inspection.get("meses_con_filtro")) else inspection.get("meses_con_novedades", [])
+        for m in candidatos_meses[:4]:
+            sub_prompt = f" filtrando {subnov_val}" if (subnov_val and inspection.get("meses_con_filtro")) else ""
+            meses_sugeridos.append({
+                "mes": m["mes"],
+                "cant_dias": m["total_dias"],
+                "resumen": m.get("resumen", f"{m['total_dias']} días"),
+                "prompt": f"dame el reporte de {nom_mil} en el mes de {m['mes']}{sub_prompt}"
+            })
+
+        badge_heatmap = "HEATMAP (100% DISP)" if sin_novedades else "HEATMAP"
+        badge_expediente = "EXPEDIENTE (0 NOV)" if sin_novedades else "EXPEDIENTE"
+        badge_agil = "ÁGIL (0 NOV)" if sin_novedades else "ÁGIL"
+
+        desc_heatmap = f"Matriz día a día (D, N, R){periodo_txt}. {'Personal 100% disponible (D) en este período.' if sin_novedades else ''}"
+        desc_personal = f"Relación nominal de novedades{filtro_subnov_txt}. {'Aparecerá sin registros al no tener ausentismos.' if sin_novedades else ''}"
+        desc_agil = f"Resumen ejecutivo de ausentismos. {'Aparecerá vacío al estar 100% disponible.' if sin_novedades else ''}"
+
         opciones = [
             {
                 "id": "heatmap",
                 "titulo": f"Matriz Heatmap (Consolidado Día a Día){filtro_subnov_txt}",
-                "descripcion": f"Matriz día a día con códigos oficiales de operatividad y disponibilidad (D, N, R){periodo_txt}{filtro_subnov_txt}.",
-                "badge": "HEATMAP",
+                "descripcion": desc_heatmap,
+                "badge": badge_heatmap,
                 "tipo_export": "consolidado_mensual",
                 "url_excel": f"/api/exportar/excel?tipo=consolidado_mensual&cedula={cedula_val}{mes_query}{subnov_query}&modo=letras",
                 "url_pdf": f"/api/exportar/pdf?tipo=consolidado_mensual&cedula={cedula_val}{mes_query}{subnov_query}&modo=letras"
@@ -955,8 +1113,8 @@ def match_report_request(
             {
                 "id": "personal",
                 "titulo": f"Historial Completo (Expediente Cronológico){filtro_subnov_txt}",
-                "descripcion": f"Relación nominal detallada de novedades registradas, fechas desde/hasta y observaciones{filtro_subnov_txt}.",
-                "badge": "EXPEDIENTE",
+                "descripcion": desc_personal,
+                "badge": badge_expediente,
                 "tipo_export": "personal",
                 "url_excel": f"/api/exportar/excel?tipo=personal&cedula={cedula_val}{mes_query}{subnov_query}",
                 "url_pdf": f"/api/exportar/pdf?tipo=personal&cedula={cedula_val}{mes_query}{subnov_query}"
@@ -964,15 +1122,71 @@ def match_report_request(
             {
                 "id": "agil",
                 "titulo": f"Exportación Ágil (Resumen de Novedades){filtro_subnov_txt}",
-                "descripcion": f"Resumen ejecutivo condensado por intervalos de días (excluye días ordinarios disponibles){filtro_subnov_txt}.",
-                "badge": "ÁGIL",
+                "descripcion": desc_agil,
+                "badge": badge_agil,
                 "tipo_export": "agil",
                 "url_excel": f"/api/exportar/excel?tipo=agil&cedula={cedula_val}{mes_query}{subnov_query}",
                 "url_pdf": f"/api/exportar/pdf?tipo=agil&cedula={cedula_val}{mes_query}{subnov_query}"
             }
         ]
 
-        subnov_msg = f"\n• Subnovedad filtrada: **{subnov_val}**" if subnov_val else ""
+        # Construcción del mensaje militar
+        if sin_novedades:
+            if subnov_val:
+                mensaje_novedad = (
+                    f"He identificado al militar **{nom_mil}** (C.C. {cedula_val}).\n\n"
+                    f"⚠️ **Aviso de Ausencia de Novedades:**\n"
+                    f"He identificado que este personal **no cuenta con registros de {subnov_val} en el mes de {m_nombre}** "
+                    f"(en dicho período se encuentra 100% disponible / sin ausentismos bajo este concepto, por lo que las tablas de novedades aparecerán vacías).\n\n"
+                )
+                if inspection.get("meses_con_filtro"):
+                    meses_txt = "\n".join([f"• **{m['mes']}**: {m['total_dias']} días de {subnov_val}" for m in inspection["meses_con_filtro"]])
+                    mensaje_novedad += (
+                        f"💡 Sin embargo, **SÍ registra {subnov_val}** en los siguientes meses:\n{meses_txt}\n\n"
+                        f"Si quieres, puedo generar su reporte para un mes que **SÍ tenga esta novedad**, "
+                        f"o puedes pulsar cualquiera de los accesos sugeridos a continuación:"
+                    )
+                elif inspection.get("meses_con_novedades"):
+                    meses_txt = "\n".join([f"• **{m['mes']}**: {m['total_dias']} días con novedad ({m['resumen']})" for m in inspection["meses_con_novedades"][:3]])
+                    mensaje_novedad += (
+                        f"💡 Tampoco registra {subnov_val} en el resto del año. Sus novedades reales registradas en la unidad corresponden a:\n{meses_txt}\n\n"
+                        f"Si quieres, puedo generar su reporte para un mes que **SÍ tenga novedad**, o seleccionar uno de los meses sugeridos:"
+                    )
+                else:
+                    mensaje_novedad += "💡 Este integrante no registra novedades de ausentismo en ningún período registrado (100% disponible)."
+            else:
+                top_txt = ""
+                if pide_top_novedad and inspection.get("top_global_nov"):
+                    top_items = [f"**{k}** ({v} días)" for k, v in sorted(inspection["top_global_nov"].items(), key=lambda x: x[1], reverse=True)[:2]]
+                    top_txt = f"\n• Solicitó filtrar por su novedad más presente, pero en {m_nombre} estuvo 100% disponible. A nivel histórico general, sus novedades más frecuentes son: {', '.join(top_items)}.\n"
+
+                mensaje_novedad = (
+                    f"He identificado al militar **{nom_mil}** (C.C. {cedula_val}).\n\n"
+                    f"⚠️ **Aviso:** He identificado que este personal **no cuenta con novedades para el mes de {m_nombre}** "
+                    f"(se encuentra 100% disponible en la unidad, por lo que la sección de ausentismos aparecerá vacía).{top_txt}\n\n"
+                )
+                if inspection.get("meses_con_novedades"):
+                    meses_txt = "\n".join([f"• **{m['mes']}**: {m['total_dias']} días con novedad ({m['resumen']})" for m in inspection["meses_con_novedades"][:3]])
+                    mensaje_novedad += (
+                        f"💡 Si quieres, puedo generar su reporte para un mes que **SÍ tenga novedad**. Actualmente registra novedades en los meses de:\n{meses_txt}\n\n"
+                        f"Puede pulsar uno de los meses sugeridos a continuación o descargar el reporte de {m_nombre} con estado disponible:"
+                    )
+                else:
+                    mensaje_novedad += "💡 Este integrante no registra ninguna novedad de ausentismo en todo el historial (se encuentra 100% disponible)."
+        else:
+            subnov_msg = f"\n• Subnovedad filtrada: **{subnov_val}**" if subnov_val else ""
+            resumen_nov_txt = ""
+            if inspection.get("dias_novedad_mes", 0) > 0:
+                resumen_parts = [f"{nov} ({c})" for nov, c in sorted(inspection["novedades_mes"].items(), key=lambda x: x[1], reverse=True)]
+                resumen_nov_txt = f"\n• Novedades en {m_nombre}: **{inspection['dias_novedad_mes']} días** ({', '.join(resumen_parts)})"
+
+            mensaje_novedad = (
+                f"He identificado al militar **{nom_mil}** (C.C. {cedula_val}).\n\n"
+                f"• Período: **{m_nombre or 'Todo el año / Historial completo'}**{subnov_msg}{resumen_nov_txt}\n\n"
+                f"Para este integrante tiene a su disposición 3 formatos oficiales de reporte.\n"
+                f"Por favor seleccione qué tipo de reporte desea generar a continuación:"
+            )
+
         return {
             "tipo": "seleccion_reporte_personal",
             "formato_solicitado": formato,
@@ -983,12 +1197,9 @@ def match_report_request(
             "parametros": {"cedula": cedula_val, "mes": m_nombre or "TODOS", "subnovedad": subnov_val},
             "active_militar": detected_militar,
             "opciones": opciones,
-            "mensaje": (
-                f"He identificado al militar **{nom_mil}** (C.C. {cedula_val}).\n\n"
-                f"• Período: **{m_nombre or 'Todo el año / Historial completo'}**{subnov_msg}\n\n"
-                f"Para este integrante tiene a su disposición 3 formatos oficiales de reporte.\n"
-                f"Por favor seleccione qué tipo de reporte desea generar a continuación:"
-            )
+            "sin_novedades": sin_novedades,
+            "meses_sugeridos": meses_sugeridos,
+            "mensaje": mensaje_novedad
         }
 
     # 4. Reporte Detallado Diario (dia)

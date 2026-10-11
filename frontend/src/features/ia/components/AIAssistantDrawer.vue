@@ -541,6 +541,38 @@
                       </span>
                     </div>
 
+                    <!-- Banner de Aviso y Sugerencias de Meses con Novedades -->
+                    <div 
+                      v-if="msg.report_info.sin_novedades && msg.report_info.meses_sugeridos && msg.report_info.meses_sugeridos.length > 0"
+                      class="p-3 sm:p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200/90 space-y-2.5 shadow-sm"
+                    >
+                      <div class="flex items-start gap-2">
+                        <AlertCircle class="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                        <div class="text-[11px] leading-relaxed">
+                          <span class="font-bold text-amber-300">Personal sin novedades en {{ msg.report_info.parametros?.mes || 'este mes' }}:</span>
+                          Este integrante se encuentra 100% disponible. Si lo desea, puede generar su reporte con un solo clic para los meses que <b>SÍ registran novedades</b>:
+                        </div>
+                      </div>
+
+                      <!-- Botones de 1-Clic para Meses con Novedad -->
+                      <div class="flex flex-wrap gap-1.5 pt-0.5">
+                        <button
+                          v-for="sug in msg.report_info.meses_sugeridos"
+                          :key="sug.mes"
+                          type="button"
+                          @click="enviarMensajeDirecto(sug.prompt)"
+                          class="px-2.5 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/35 border border-amber-500/40 text-amber-200 font-bold text-[11px] transition-all flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95 group"
+                          :title="`Generar reporte oficial para ${sug.mes}`"
+                        >
+                          <Calendar class="w-3.5 h-3.5 text-amber-400 group-hover:scale-110 transition-transform" />
+                          <span>{{ sug.mes }}</span>
+                          <span class="px-1.5 py-0.2 rounded text-[9px] bg-amber-400/25 text-amber-300 font-mono">
+                            {{ sug.cant_dias }}d
+                          </span>
+                        </button>
+                      </div>
+                    </div>
+
                     <!-- Lista de 3 Opciones de Reporte Interactivas -->
                     <div class="space-y-2.5">
                       <div
@@ -549,7 +581,12 @@
                         class="p-3 rounded-xl bg-slate-950/70 border border-darkBorder/80 hover:border-purple-500/50 transition-all space-y-2.5 group shadow-sm"
                       >
                         <div class="flex items-start gap-2.5">
-                          <span class="mt-0.5 px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-slate-800 text-slate-300 border border-slate-700 shrink-0">
+                          <span 
+                            class="mt-0.5 px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider shrink-0"
+                            :class="opc.badge?.includes('0 NOV') || opc.badge?.includes('DISP')
+                              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                              : 'bg-slate-800 text-slate-300 border border-slate-700'"
+                          >
                             {{ opc.badge }}
                           </span>
                           <div class="flex-1 min-w-0">
@@ -863,7 +900,8 @@ import {
   MessageSquare,
   ExternalLink,
   Layers,
-  UserCheck
+  UserCheck,
+  Calendar
 } from 'lucide-vue-next'
 
 import type { IAStatusResponse, IAChatMessage, ActiveMilitar, IAModelInfo, IAReportInfo } from '../types/ia.types'
