@@ -140,11 +140,17 @@ def _extract_name_tokens(msg_norm: str) -> List[str]:
         "estadistica", "estadisticas", "conteo", "conteos", "grafica", "graficas", "tabla", "tablas",
         "causa", "causas", "motivo", "motivos", "afectacion", "afectaciones", "impacto",
         "principal", "principales", "mayor", "mayores", "menor", "menores",
-        # rangos militares (no son nombres propios)
-        "personal", "militar", "militares", "soldado", "soldados", "cabo", "sargento",
+        # rangos militares y sinonimos de personas (no son nombres propios)
+        "personal", "persona", "personas", "integrante", "integrantes", "miembro", "miembros",
+        "militar", "militares", "soldado", "soldados", "cabo", "sargento",
         "teniente", "mayor", "coronel", "capitan", "suboficial", "efectivo", "efectivos",
         "batallon", "bimej", "compania", "companias", "registro", "registros", "estado",
-        "activo", "activos", "retirado", "retirados"
+        "activo", "activos", "retirado", "retirados",
+        # terminos de reportes y formatos (no son nombres de personas)
+        "consolidado", "consolidados", "mensual", "mensuales", "diario", "diarios",
+        "expediente", "expedientes", "hoja", "vida", "sabana", "matriz", "heatmap",
+        "agil", "agiles", "descargar", "descarga", "exportar", "exportacion", "exporte",
+        "excel", "xlsx", "pdf", "csv", "archivo", "documento", "informe", "informes"
     }
     meses_set = set(MESES_ES.keys())
     words = [w for w in re.split(r"[^a-z0-9ñáéíóú]+", msg_norm) if w]
@@ -757,7 +763,8 @@ def match_report_request(
     user_message: str,
     active_militar: Optional[Dict[str, Any]] = None,
     current_year: int = 2026,
-    force_report_mode: bool = False
+    force_report_mode: bool = False,
+    db: Optional[Any] = None
 ) -> Optional[Dict[str, Any]]:
     """
     Identifica solicitudes de generacion y descarga de reportes oficiales (Excel / PDF / CSV).
@@ -823,27 +830,60 @@ def match_report_request(
             )
         }
 
-    # 3. Expediente Individual de Militar (personal)
+    # 3. Expediente Individual de Militar / Reporte por Persona (personal)
     cedula_match = re.search(r"\b(\d{6,10})\b", user_message)
     cedula_val = int(cedula_match.group(1)) if cedula_match else (int(active_militar.get("cedula")) if active_militar and active_militar.get("cedula") else None)
-    
-    es_expediente = any(k in msg for k in ["expediente", "hoja de vida", "individual", "militar"]) or (active_militar is not None and any(k in msg for k in ["reporte", "informe", "descargar", "excel", "pdf"]))
-    if es_expediente and cedula_val:
+    nom_mil = active_militar.get("nombre") if active_militar else None
+
+    # Búsqueda por nombre en base de datos si no hay cédula pero hay nombres/apellidos
+    name_tokens = _extract_name_tokens(msg)
+    if not cedula_val and db and name_tokens:
+        like_clauses = " AND ".join(_name_like_clause(t) for t in name_tokens[:4])
+        try:
+            cur = db.cursor()
+            cur.execute(f"SELECT cedula, nombre FROM v_personal_resumen WHERE {like_clauses} LIMIT 5")
+            p_rows = cur.fetchall()
+            if p_rows:
+                cedula_val = int(p_rows[0][0])
+                nom_mil = p_rows[0][1]
+            elif any(k in msg for k in ["persona", "militar", "soldado", "expediente", "hoja de vida", "del persona", "de la persona"]):
+                busqueda_txt = " ".join(t.upper() for t in name_tokens)
+                return {
+                    "tipo": "no_encontrado",
+                    "formato_solicitado": formato,
+                    "titulo": f"Personal no encontrado: {busqueda_txt}",
+                    "descripcion": f"No se encontró ningún militar registrado con el nombre o apellido '{busqueda_txt}' en la base de datos de BIMEJ 12.",
+                    "url_excel": None,
+                    "url_pdf": None,
+                    "parametros": {},
+                    "mensaje": (
+                        f"Mi Comandante, no se encontró en los registros de BIMEJ 12 a ningún militar con el nombre o apellido '**{busqueda_txt}**'.\n\n"
+                        f"Por favor verifique los apellidos o proporcione el número de cédula (ej: *'reporte de cédula 12345678'*)."
+                    )
+                }
+        except Exception as e:
+            logger.warning(f"[Reporte Personal DB Search] Error: {e}")
+
+    # Si se identificó a un militar concreto
+    if cedula_val:
         m_nombre = _extract_month_name(msg) or ""
-        nom_mil = active_militar.get("nombre", f"C.C. {cedula_val}") if active_militar else f"C.C. {cedula_val}"
+        nom_mil = nom_mil or (active_militar.get("nombre") if active_militar else f"C.C. {cedula_val}")
         mes_query = f"&mes={m_nombre}" if m_nombre else ""
         periodo_txt = f" ({m_nombre})" if m_nombre else " (Historial Completo)"
+        detected_militar = {"cedula": str(cedula_val), "nombre": nom_mil}
         return {
             "tipo": "personal",
             "formato_solicitado": formato,
             "titulo": f"Expediente Individual - {nom_mil}{periodo_txt}",
-            "descripcion": f"Historial detallado de novedades, fechas de inicio y fin, observaciones y récord operativo para el militar con C.C. {cedula_val}.",
+            "descripcion": f"Historial y consolidado individual de novedades para el integrante {nom_mil} con C.C. {cedula_val}.",
             "url_excel": f"/api/exportar/excel?tipo=personal&cedula={cedula_val}{mes_query}",
             "url_pdf": f"/api/exportar/pdf?tipo=personal&cedula={cedula_val}{mes_query}",
             "parametros": {"cedula": cedula_val, "mes": m_nombre or "TODOS"},
+            "active_militar": detected_militar,
             "mensaje": (
-                f"He generado el **Expediente Individual de Novedades** para **{nom_mil}**{periodo_txt}.\n\n"
-                f"Haga clic en el botón para descargar el reporte oficial en su formato preferido:"
+                f"He identificado al militar **{nom_mil}** (C.C. {cedula_val}).\n\n"
+                f"He preparado su **Expediente Individual y Consolidado de Novedades** para **{m_nombre or 'el período seleccionado'}**:\n\n"
+                f"Puede descargarlo directamente en formato oficial usando los botones a continuación:"
             )
         }
 

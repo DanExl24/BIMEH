@@ -472,10 +472,23 @@ def process_user_query(user_message, db, history=None, active_militar=None, mode
         user_message,
         active_militar=active_militar,
         current_year=now.year,
-        force_report_mode=force_report
+        force_report_mode=force_report,
+        db=db
     )
     if report_match:
+        if report_match.get("tipo") == "no_encontrado":
+            return {
+                "type": "conversation",
+                "answer": report_match["mensaje"],
+                "sql": None,
+                "columns": [],
+                "rows": [],
+                "total_records": 0,
+                "model": f"{model_label} (reporte)",
+                "active_militar": active_militar
+            }
         logger.info(f"[Modo Reportes] Generando enlace para: {report_match['titulo']}")
+        updated_militar = report_match.get("active_militar") or active_militar
         return {
             "type": "report",
             "answer": report_match["mensaje"],
@@ -485,7 +498,7 @@ def process_user_query(user_message, db, history=None, active_militar=None, mode
             "rows": [],
             "total_records": 0,
             "model": f"{model_label} (reporte)",
-            "active_militar": active_militar
+            "active_militar": updated_militar
         }
 
     # 1. Respuestas rapidas sin IA
