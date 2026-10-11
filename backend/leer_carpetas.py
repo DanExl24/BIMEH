@@ -32,7 +32,9 @@ def obtener_carpetas_meses(drive=None):
                 q=q,
                 orderBy="name",
                 fields="files(id, name, mimeType, webViewLink)",
-                pageSize=100
+                pageSize=100,
+                supportsAllDrives=True,
+                includeItemsFromAllDrives=True
             ).execute()
             
             found_folders = response.get("files", [])
@@ -46,7 +48,9 @@ def obtener_carpetas_meses(drive=None):
                     q=q_global,
                     orderBy="name",
                     fields="files(id, name, mimeType, webViewLink)",
-                    pageSize=100
+                    pageSize=100,
+                    supportsAllDrives=True,
+                    includeItemsFromAllDrives=True
                 ).execute()
                 found_folders = response.get("files", [])
 
@@ -91,7 +95,9 @@ def get_carpeta(ID, drive=None):
             .list(
                 q=f"'{ID}' in parents and trashed = false and (mimeType = '{EXCEL_MIME}' or name contains '.xlsx' or name contains '.xls')",
                 fields="files(id, name, mimeType, webViewLink)",
-                pageSize=100
+                pageSize=100,
+                supportsAllDrives=True,
+                includeItemsFromAllDrives=True
             )
             .execute()
         ).get("files", [])

@@ -145,12 +145,25 @@ def get_me(current_user: dict = Depends(get_current_user)):
 
 @router.get("/drive-status")
 def drive_status(correo: str = None):
-    """Verifica si el token de Google Drive está autorizado y activo en el servidor o la BD."""
+    """Verifica si el token o Cuenta de Servicio de Google Drive está autorizada y activa."""
     from config.auth import obtener_credenciales
     try:
         creds = obtener_credenciales(correo_google=correo)
-        if creds and creds.valid:
-            return {"connected": True}
+        if creds:
+            if hasattr(creds, "service_account_email"):
+                return {
+                    "connected": True,
+                    "auth_type": "service_account",
+                    "email": creds.service_account_email,
+                    "permanent": True
+                }
+            if creds.valid:
+                return {
+                    "connected": True,
+                    "auth_type": "oauth",
+                    "email": correo,
+                    "permanent": False
+                }
         return {"connected": False, "reason": "token_invalid"}
     except Exception as e:
         return {"connected": False, "reason": str(e)}

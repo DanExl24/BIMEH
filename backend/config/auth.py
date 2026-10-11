@@ -20,12 +20,14 @@ from app.database import ConnectionWrapper, DB_CONN_PARAMS
 if getattr(sys, 'frozen', False):
     BASE_DIR = sys._MEIPASS
     CREDENTIALS_PATH = os.path.join(BASE_DIR, "config", "credentials.json")
+    SERVICE_ACCOUNT_PATH = os.path.join(BASE_DIR, "config", "service_account.json")
     TOKEN_PATH = os.path.join(os.getcwd(), "config", "token.json")
     os.makedirs(os.path.dirname(TOKEN_PATH), exist_ok=True)
 else:
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
     TOKEN_PATH = os.path.join(BASE_DIR, "token.json")
     CREDENTIALS_PATH = os.path.join(BASE_DIR, "credentials.json")
+    SERVICE_ACCOUNT_PATH = os.path.join(BASE_DIR, "service_account.json")
 
 # Permitir variaciones de scopes otorgados por Google en respuestas OAuth
 os.environ["OAUTHLIB_RELAX_TOKEN_SCOPE"] = "1"
@@ -38,6 +40,47 @@ SCOPES = [
     "https://www.googleapis.com/auth/drive.metadata.readonly",
     "https://www.googleapis.com/auth/spreadsheets.readonly"
 ]
+
+# ---------------------------------------------------------------------------
+# Cuenta de Servicio (Service Account) permanente y sin caducidad de 7 días
+# ---------------------------------------------------------------------------
+def _obtener_credenciales_service_account():
+    """
+    Carga credenciales de una Cuenta de Servicio (Service Account) de Google Cloud si existe.
+    Las cuentas de servicio NUNCA expiran (no tienen límite de 7 días) y operan desatendidas.
+    Soporta:
+      1. Variable de entorno GOOGLE_SERVICE_ACCOUNT_JSON (JSON en texto plano).
+      2. Variable de entorno GOOGLE_APPLICATION_CREDENTIALS (ruta al archivo JSON).
+      3. Archivo físico config/service_account.json.
+    """
+    from google.oauth2 import service_account
+
+    sa_scopes = [
+        "https://www.googleapis.com/auth/drive.readonly",
+        "https://www.googleapis.com/auth/drive.metadata.readonly",
+        "https://www.googleapis.com/auth/spreadsheets.readonly"
+    ]
+
+    # 1. Variable de entorno con el JSON en texto
+    env_json = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON")
+    if env_json:
+        try:
+            info = json.loads(env_json)
+            creds = service_account.Credentials.from_service_account_info(info, scopes=sa_scopes)
+            return creds
+        except Exception as e:
+            print(f"[AUTH] Error cargando Service Account desde GOOGLE_SERVICE_ACCOUNT_JSON: {e}")
+
+    # 2. Archivo en ruta especificada o service_account.json estándar
+    sa_path = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS", SERVICE_ACCOUNT_PATH)
+    if os.path.exists(sa_path):
+        try:
+            creds = service_account.Credentials.from_service_account_file(sa_path, scopes=sa_scopes)
+            return creds
+        except Exception as e:
+            print(f"[AUTH] Error cargando Service Account desde {sa_path}: {e}")
+
+    return None
 
 # ---------------------------------------------------------------------------
 # credentials.json: en producción se escribe desde la env var
@@ -306,9 +349,16 @@ def intercambiar_codigo_oauth(code: str, redirect_uri: str, state: str | None = 
 
 def obtener_credenciales(correo_google: str | None = None, force_new: bool = False) -> Credentials:
     """
-    Obtiene credenciales válidas para un usuario (o el token más reciente).
-    Busca en BD primero, luego en archivo local. Refresca y persiste en BD automáticamente.
+    Obtiene credenciales válidas para Google Drive.
+    Prioridad 1: Cuenta de Servicio (Service Account) permanente y sin caducidad.
+    Prioridad 2: Token OAuth 2.0 (BD PostgreSQL / archivo local).
     """
+    # 0. Cuenta de Servicio: máxima prioridad (permanente, no vence a los 7 días)
+    if not force_new:
+        sa_creds = _obtener_credenciales_service_account()
+        if sa_creds:
+            return sa_creds
+
     creds = None
     email_identificado = correo_google
 

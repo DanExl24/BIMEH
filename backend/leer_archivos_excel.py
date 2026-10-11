@@ -88,7 +88,7 @@ def excel_to_csv_in_memory(file_item, drive=None):
     
     # 1. Petición de descarga de binarios de Drive
     t_down_start = time.time()
-    request = drive.files().get_media(fileId=file_item['id'])
+    request = drive.files().get_media(fileId=file_item['id'], supportsAllDrives=True)
 
     excel_stream = io.BytesIO()
     downloader = MediaIoBaseDownload(excel_stream, request)
