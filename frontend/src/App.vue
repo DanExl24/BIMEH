@@ -32,13 +32,9 @@ onMounted(async () => {
   if (authStore.isAuthenticated) {
     const isValid = await authStore.checkMe()
     if (isValid) {
-      const currentMonthIndex = new Date().getMonth()
-      const monthNames = ['ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO', 'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE']
-      const currentMonthName = monthNames[currentMonthIndex]
-
+      // Sincronización automática de toda la base de datos (descarga los días faltantes de cualquier mes)
       appStore.startDriveSync({
-        tipo: 'mes',
-        mes: currentMonthName,
+        tipo: 'todo',
         overwrite: false
       })
     }

@@ -138,12 +138,9 @@ const handleLogin = async () => {
       try {
         const driveData = await authService.getDriveStatus()
         if (driveData.connected) {
-          const currentMonthIndex = new Date().getMonth()
-          const currentMonthName = MONTHS_LIST[currentMonthIndex]
-
+          // Sincronización automática de toda la base de datos (descarga los días faltantes de cualquier mes)
           appStore.startDriveSync({
-            tipo: 'mes',
-            mes: currentMonthName,
+            tipo: 'todo',
             overwrite: false
           })
 
