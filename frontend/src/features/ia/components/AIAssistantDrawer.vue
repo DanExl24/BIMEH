@@ -525,14 +525,15 @@
                     <div class="flex items-center justify-between gap-2.5 pb-2.5 border-b border-darkBorder/60">
                       <div class="flex items-center gap-2.5">
                         <div class="w-9 h-9 rounded-xl bg-purple-500/15 border border-purple-500/30 text-purple-400 flex items-center justify-center shrink-0 shadow-sm">
-                          <UserCheck class="w-5 h-5 stroke-[2]" />
+                          <Layers v-if="msg.report_info.tipo === 'seleccion_reporte_unidad'" class="w-5 h-5 stroke-[2]" />
+                          <UserCheck v-else class="w-5 h-5 stroke-[2]" />
                         </div>
                         <div>
                           <h4 class="font-bold text-slate-100 text-xs sm:text-[13px] leading-snug">
                             {{ msg.report_info.titulo }}
                           </h4>
                           <span class="text-[10px] font-mono uppercase tracking-wider text-purple-300/90">
-                            Seleccione el tipo de reporte oficial
+                            {{ msg.report_info.tipo === 'seleccion_reporte_unidad' ? 'Formatos oficiales de la unidad' : 'Seleccione el tipo de reporte oficial' }}
                           </span>
                         </div>
                       </div>

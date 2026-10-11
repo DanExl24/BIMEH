@@ -497,7 +497,8 @@ def process_user_query(user_message, db, history=None, active_militar=None, mode
         active_militar=active_militar,
         current_year=now.year,
         force_report_mode=force_report,
-        db=db
+        db=db,
+        history=history
     )
     if report_match:
         if report_match.get("tipo") == "no_encontrado":

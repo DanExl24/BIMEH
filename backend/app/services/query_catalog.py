@@ -974,25 +974,42 @@ def match_report_request(
     active_militar: Optional[Dict[str, Any]] = None,
     current_year: int = 2026,
     force_report_mode: bool = False,
-    db: Optional[Any] = None
+    db: Optional[Any] = None,
+    history: Optional[List[Dict[str, Any]]] = None
 ) -> Optional[Dict[str, Any]]:
     """
     Identifica solicitudes de generacion y descarga de reportes oficiales (Excel / PDF / CSV).
     Soporta:
       1. Base de Datos Maestra de Personal (personal_db)
       2. Catalogo Oficial de Subnovedades (subnovedades)
-      3. Expediente Individual de Militar (personal)
+      3. Expediente Individual de Militar (personal) con 3 opciones interactivas
       4. Reporte Detallado Diario (dia)
-      5. Parte Agil de Novedades (mes con modo=agil)
-      6. Consolidado Mensual (consolidado_mensual)
+      5. Reportes de Unidad / Mensuales con 3 opciones interactivas (Heatmap, Ágil, Historial Completo)
     """
     msg = _norm(user_message)
+    
+    # Recuperación de contexto previo desde el historial si el mensaje actual es de seguimiento o cambio de formato
+    history_month = None
+    history_subnov = None
+    if history:
+        for h_entry in reversed(history):
+            h_text = h_entry.get("text", "") or h_entry.get("content", "") or ""
+            if not h_text:
+                continue
+            h_norm = _norm(h_text)
+            if not history_month:
+                history_month = _extract_month_name(h_norm)
+            if not history_subnov:
+                history_subnov = _extract_subnovedad_oficial(h_norm) or _extract_novedad_type(h_norm)
+            if history_month and history_subnov:
+                break
     
     report_keywords = [
         "reporte", "reportes", "informe", "informes", "descargar", "descarga",
         "exportar", "exportacion", "exporte", "generar reporte", "generar informe",
         "excel", "xlsx", "pdf", "csv", "sabana", "matriz", "heatmap", "consolidado",
-        "expediente", "hoja de vida", "parte agil", "parte diario", "parte oficial"
+        "expediente", "hoja de vida", "parte agil", "parte diario", "parte oficial",
+        "agil", "historial", "historial completo", "formato agil", "formato heatmap", "formato historial"
     ]
     
     is_report_intent = force_report_mode or any(k in msg for k in report_keywords)
@@ -1084,8 +1101,8 @@ def match_report_request(
 
     # Si se identificó a un militar concreto
     if cedula_val:
-        m_nombre = _extract_month_name(msg) or ""
-        subnov_val = _extract_subnovedad_oficial(msg)
+        m_nombre = _extract_month_name(msg) or history_month or ""
+        subnov_val = _extract_subnovedad_oficial(msg) or _extract_novedad_type(msg) or history_subnov
         nom_mil = nom_mil or (active_militar.get("nombre") if active_militar else f"C.C. {cedula_val}")
 
         # Detección de solicitud de novedad más presente / frecuente
@@ -1256,45 +1273,11 @@ def match_report_request(
             )
         }
 
-    # 5. Parte Ágil de Novedades (mes, modo=agil)
-    if any(k in msg for k in ["agil", "parte agil", "resumen de novedades", "resumen mensual", "novedades del mes"]):
-        mes_val = _extract_month_name(msg) or "TODOS"
-        subnov_val = _extract_novedad_type(msg)
-        if mes_val != "TODOS" and not check_month_has_data(mes_val, db):
-            from app.database import get_available_date_range
-            r_range = get_available_date_range(db)
-            return {
-                "tipo": "no_encontrado",
-                "mensaje": (
-                    f"⚠️ **Aviso de Período No Disponible:**\n\n"
-                    f"En la base de datos de BIMEJ 12 **no se registran reportes diarios para el mes de {mes_val}**.\n\n"
-                    f"El sistema actualmente cuenta con reportes cargados para el período de **{r_range['texto']}**.\n\n"
-                    f"💡 Si lo desea, puede solicitar el **Parte Ágil** para un mes con datos disponibles "
-                    f"(por ejemplo: **{r_range['max_month']}**), o bien para **TODO EL AÑO**."
-                )
-            }
-        subnov_query = f"&subnovedad={quote_plus(subnov_val)}" if subnov_val else ""
-        filtro_subnov_txt = f" (Filtro: {subnov_val})" if subnov_val else ""
-        titulo_mes = f"Año {current_year}" if mes_val == "TODOS" else mes_val
-        return {
-            "tipo": "mes",
-            "formato_solicitado": formato,
-            "titulo": f"Parte Ágil de Novedades - {titulo_mes}{filtro_subnov_txt}",
-            "descripcion": f"Resumen ejecutivo condensado por rangos de días con comentarios descriptivos para {titulo_mes}.",
-            "url_excel": f"/api/exportar/excel?tipo=mes&mes={mes_val}&modo=agil{subnov_query}",
-            "url_pdf": f"/api/exportar/pdf?tipo=mes&mes={mes_val}&modo=agil{subnov_query}",
-            "parametros": {"mes": mes_val, "modo": "agil", "subnovedad": subnov_val},
-            "mensaje": (
-                f"He preparado el **Parte Ágil de Novedades** para el período **{titulo_mes}**{filtro_subnov_txt}.\n\n"
-                f"Agrupa las novedades por intervalos de días con sus descripciones oficiales:"
-            )
-        }
+    # 5. Reportes Oficiales de Unidad / Mensuales (Matriz Heatmap, Parte Ágil, Historial Completo)
+    mes_val = _extract_month_name(msg) or history_month or "TODOS"
+    subnov_val = _extract_subnovedad_oficial(msg) or _extract_novedad_type(msg) or history_subnov
 
-    # 6. Consolidado Mensual (consolidado_mensual) - Matriz Heatmap
-    mes_val = _extract_month_name(msg) or "TODOS"
-    subnov_val = _extract_novedad_type(msg)
-
-    if mes_val != "TODOS" and not check_month_has_data(mes_val, db):
+    if mes_val != "TODOS" and db and not check_month_has_data(mes_val, db):
         from app.database import get_available_date_range
         r_range = get_available_date_range(db)
         nov_txt = f" con novedad de {subnov_val}" if subnov_val else ""
@@ -1305,14 +1288,14 @@ def match_report_request(
                 f"En la base de datos de BIMEJ 12 **no se registran reportes diarios para el mes de {mes_val}**.\n\n"
                 f"El sistema actualmente cuenta con reportes diarios cargados para el período de **{r_range['texto']}** "
                 f"(los meses posteriores aún no han sido sincronizados en la base de datos).\n\n"
-                f"💡 Si lo desea, puedo generar el **Consolidado Mensual (Matriz Heatmap)**{nov_txt} para uno de los meses "
+                f"💡 Si lo desea, puede solicitar el reporte{nov_txt} para uno de los meses "
                 f"con información registrada (por ejemplo: **{r_range['max_month']}**), o para **TODO EL AÑO**."
             )
         }
 
     if any(k in msg for k in ["color", "colores", "visual"]):
         modo_matriz = "colores"
-    elif any(k in msg for k in ["completo", "nombre", "subnovedad"]):
+    elif any(k in msg for k in ["completo", "nombre"]):
         modo_matriz = "completo"
     else:
         modo_matriz = "letras"
@@ -1320,18 +1303,87 @@ def match_report_request(
     subnov_query = f"&subnovedad={quote_plus(subnov_val)}" if subnov_val else ""
     filtro_subnov_txt = f" (Filtro: {subnov_val})" if subnov_val else ""
     filtro_subnov_desc = f" con filtro aplicado a la novedad '{subnov_val}'" if subnov_val else ""
-    titulo_mes = f"Año Completo {current_year}" if mes_val == "TODOS" else mes_val
-    return {
-        "tipo": "consolidado_mensual",
-        "formato_solicitado": formato,
-        "titulo": f"Consolidado Mensual - {titulo_mes}{filtro_subnov_txt}",
-        "descripcion": f"Matriz integral de toda la unidad que refleja la operatividad día a día de cada integrante con codificación oficial{filtro_subnov_desc}.",
+    titulo_mes = f"Año Completo {current_year}" if mes_val == "TODOS" else mes_val.upper()
+
+    tit_hm = f"Matriz Heatmap Visual por Colores{filtro_subnov_txt}" if modo_matriz == "colores" else f"Matriz Heatmap (Consolidado Día a Día){filtro_subnov_txt}"
+
+    opc_heatmap = {
+        "id": "heatmap",
+        "titulo": tit_hm,
+        "descripcion": f"Matriz integral de la unidad con la operatividad día a día (D, N, R) de cada integrante{filtro_subnov_desc}.",
+        "badge": "MATRIZ HEATMAP",
+        "tipo_export": "consolidado_mensual",
         "url_excel": f"/api/exportar/excel?tipo=consolidado_mensual&mes={mes_val}&modo={modo_matriz}{subnov_query}",
-        "url_pdf": f"/api/exportar/pdf?tipo=consolidado_mensual&mes={mes_val}&modo={modo_matriz}{subnov_query}",
-        "parametros": {"mes": mes_val, "modo": modo_matriz, "subnovedad": subnov_val},
-        "mensaje": (
-            f"He preparado el **Consolidado Mensual (Matriz Heatmap)** para **{titulo_mes}**{filtro_subnov_txt}.\n\n"
-            f"Seleccione su formato de preferencia para iniciar la descarga oficial:"
+        "url_pdf": f"/api/exportar/pdf?tipo=consolidado_mensual&mes={mes_val}&modo={modo_matriz}{subnov_query}"
+    }
+
+    opc_agil = {
+        "id": "agil",
+        "titulo": f"Parte Ágil de Novedades{filtro_subnov_txt}",
+        "descripcion": f"Resumen ejecutivo nominal agrupado por rangos cronológicos de ausentismos y novedades oficiales para {titulo_mes}.",
+        "badge": "PARTE ÁGIL",
+        "tipo_export": "agil",
+        "url_excel": f"/api/exportar/excel?tipo=agil&mes={mes_val}{subnov_query}",
+        "url_pdf": f"/api/exportar/pdf?tipo=agil&mes={mes_val}{subnov_query}"
+    }
+
+    opc_historial = {
+        "id": "historial",
+        "titulo": f"Historial Completo de Novedades{filtro_subnov_txt}",
+        "descripcion": f"Relación nominal detallada con fecha de reporte, inicio, término y descripción oficial de novedades{filtro_subnov_desc}.",
+        "badge": "HISTORIAL DETALLADO",
+        "tipo_export": "historial_novedades",
+        "url_excel": f"/api/exportar/excel?tipo=historial_novedades&mes={mes_val}{subnov_query}",
+        "url_pdf": f"/api/exportar/pdf?tipo=historial_novedades&mes={mes_val}{subnov_query}"
+    }
+
+    # Determinación del orden de opciones y mensaje según la intención del usuario
+    if any(k in msg for k in ["agil", "parte agil"]):
+        opciones = [opc_agil, opc_heatmap, opc_historial]
+        primary_excel = opc_agil["url_excel"]
+        primary_pdf = opc_agil["url_pdf"]
+        mensaje = (
+            f"He preparado el **Parte Ágil de Novedades** para el período **{titulo_mes}**{filtro_subnov_txt}.\n\n"
+            f"Agrupa los ausentismos por intervalos de fechas con sus justificaciones oficiales.\n"
+            f"A continuación tiene disponible la descarga directa en Excel y PDF, junto a los otros 2 formatos oficiales de la unidad:"
         )
+    elif any(k in msg for k in ["historial", "historial completo", "expediente general"]):
+        opciones = [opc_historial, opc_heatmap, opc_agil]
+        primary_excel = opc_historial["url_excel"]
+        primary_pdf = opc_historial["url_pdf"]
+        mensaje = (
+            f"He preparado el **Historial Completo de Novedades** para el período **{titulo_mes}**{filtro_subnov_txt}.\n\n"
+            f"Contiene la relación detallada de novedades registradas con sus fechas de vigencia y observaciones.\n"
+            f"A continuación puede descargarlo en Excel o PDF, o seleccionar cualquiera de los otros formatos disponibles:"
+        )
+    elif any(k in msg for k in ["heatmap", "matriz", "sabana", "consolidado"]):
+        opciones = [opc_heatmap, opc_agil, opc_historial]
+        primary_excel = opc_heatmap["url_excel"]
+        primary_pdf = opc_heatmap["url_pdf"]
+        mensaje = (
+            f"He preparado la **Matriz Heatmap (Consolidado Mensual)** para **{titulo_mes}**{filtro_subnov_txt}.\n\n"
+            f"Refleja la operatividad día a día (D, N, R) de cada efectivo orgánico del batallón.\n"
+            f"Puede descargarlo directamente con los botones inferiores o consultar los formatos Ágil e Historial Completo:"
+        )
+    else:
+        opciones = [opc_heatmap, opc_agil, opc_historial]
+        primary_excel = opc_heatmap["url_excel"]
+        primary_pdf = opc_heatmap["url_pdf"]
+        mensaje = (
+            f"He preparado los reportes oficiales de la unidad para el período **{titulo_mes}**{filtro_subnov_txt}.\n\n"
+            f"Para este período tiene a su disposición los **3 formatos oficiales de reporte** del sistema BIMEJ 12.\n"
+            f"Puede descargar cualquiera de ellos directamente en **Excel (.xlsx)** o **PDF (.pdf)** con los botones a continuación:"
+        )
+
+    return {
+        "tipo": "seleccion_reporte_unidad",
+        "formato_solicitado": formato,
+        "titulo": f"Reportes Oficiales de la Unidad - {titulo_mes}{filtro_subnov_txt}",
+        "descripcion": f"Consolidado de novedades y operatividad para la unidad militar en {titulo_mes}{filtro_subnov_desc}.",
+        "url_excel": primary_excel,
+        "url_pdf": primary_pdf,
+        "parametros": {"mes": mes_val, "modo": modo_matriz, "subnovedad": subnov_val},
+        "opciones": opciones,
+        "mensaje": mensaje
     }
 

@@ -932,7 +932,21 @@ def exportar_excel(
     elif tipo == "historial_novedades":
         ws.title = "Historial Novedades"
         ws.merge_cells("A1:G1")
-        ws["A1"] = "BIMEJ12 — HISTORIAL COMPLETO DE NOVEDADES"
+        
+        is_all_months = not mes or mes.upper() == "TODOS" or mes == ""
+        if fecha:
+            title_text = f"BIMEJ12 — HISTORIAL DE NOVEDADES — FECHA: {fecha}"
+        elif not is_all_months:
+            title_text = f"BIMEJ12 — HISTORIAL DE NOVEDADES — MES DE {mes.upper()}"
+        else:
+            title_text = "BIMEJ12 — HISTORIAL COMPLETO DE NOVEDADES (ANUAL)"
+            
+        if subnovedad:
+            title_text += f" — NOVEDAD: {subnovedad.upper()}"
+        if cedula:
+            title_text += f" (CC {cedula})"
+            
+        ws["A1"] = title_text
         ws["A1"].font = title_font
         ws["A1"].fill = title_fill
         ws["A1"].alignment = Alignment(horizontal="center", vertical="center")
@@ -950,14 +964,34 @@ def exportar_excel(
             cell.alignment = Alignment(horizontal="center", vertical="center")
             cell.border = thin_border
             
-        cursor.execute("""
+        placeholders_disp = ",".join("%s" for _ in DISPONIBLE_STATUSES)
+        query = f"""
             SELECT p.cedula, p.nombre, sn.nombre, rp.descripcion, rp.fecha_inicio, rp.fecha_final, r.fecha
             FROM REGISTRO_PERSONAL rp
             JOIN PERSONAL p ON rp.id_personal = p.id
             JOIN SUB_NOVEDADES sn ON rp.id_sub_novedad = sn.id
             JOIN REPORTES r ON rp.id_reporte = r.id
-            ORDER BY r.fecha ASC, p.nombre ASC;
-        """)
+            WHERE sn.nombre NOT IN ({placeholders_disp})
+        """
+        params = list(DISPONIBLE_STATUSES)
+        if cedula:
+            query += " AND p.cedula = %s"
+            params.append(cedula)
+        if subnovedad:
+            query += " AND UPPER(sn.nombre) LIKE UPPER(%s)"
+            params.append(f"%{subnovedad}%")
+        if fecha:
+            query += " AND r.fecha = %s"
+            params.append(fecha)
+        elif not is_all_months:
+            dates = get_month_dates(mes)
+            if dates:
+                pl = ",".join("%s" for _ in dates)
+                query += f" AND r.fecha IN ({pl})"
+                params.extend(dates)
+                
+        query += " ORDER BY r.fecha ASC, p.nombre ASC;"
+        cursor.execute(query, params)
         for row in cursor.fetchall():
             ws.append(list(row))
             
@@ -971,7 +1005,10 @@ def exportar_excel(
                     cell.alignment = Alignment(horizontal="left")
                 elif c_idx in (5, 6, 7):
                     cell.alignment = Alignment(horizontal="center")
-        filename = "historial_completo_novedades.xlsx"
+        filename_tag = fecha if fecha else (mes.lower() if mes and mes.upper() != "TODOS" else "anual")
+        if subnovedad:
+            filename_tag += f"_{subnovedad.lower().replace(' ', '_')}"
+        filename = f"historial_novedades_{filename_tag}.xlsx"
         
     elif tipo == "agil":
         is_all_months = not mes or mes.upper() == "TODOS" or mes == ""
@@ -1892,8 +1929,23 @@ def exportar_pdf(
 
         
     elif tipo == "historial_novedades":
-        story.append(Paragraph("BIMEJ12 — HISTORIAL COMPLETO DE NOVEDADES", title_style))
+        is_all_months = not mes or mes.upper() == "TODOS" or mes == ""
+        pdf_title = "BIMEJ12 — HISTORIAL DE NOVEDADES"
+        if fecha:
+            pdf_title += f" — FECHA: {fecha}"
+        elif not is_all_months:
+            pdf_title += f" — MES DE {mes.upper()}"
+        else:
+            pdf_title += " — HISTORIAL ANUAL COMPLETO"
+            
+        if subnovedad:
+            pdf_title += f" — NOVEDAD: {subnovedad.upper()}"
+        if cedula:
+            pdf_title += f" (CC {cedula})"
+            
+        story.append(Paragraph(pdf_title, title_style))
         story.append(Paragraph(f"Generado: {datetime.now().strftime('%Y-%m-%d %H:%M')}", subtitle_style))
+        story.append(Spacer(1, 10))
         
         headers = [
             Paragraph("CÉDULA", th_style),
@@ -1907,14 +1959,34 @@ def exportar_pdf(
         
         data = [headers]
         
-        cursor.execute("""
+        placeholders_disp = ",".join("%s" for _ in DISPONIBLE_STATUSES)
+        query = f"""
             SELECT p.cedula, p.nombre, sn.nombre, rp.descripcion, rp.fecha_inicio, rp.fecha_final, r.fecha
             FROM REGISTRO_PERSONAL rp
             JOIN PERSONAL p ON rp.id_personal = p.id
             JOIN SUB_NOVEDADES sn ON rp.id_sub_novedad = sn.id
             JOIN REPORTES r ON rp.id_reporte = r.id
-            ORDER BY r.fecha ASC, p.nombre ASC;
-        """)
+            WHERE sn.nombre NOT IN ({placeholders_disp})
+        """
+        params = list(DISPONIBLE_STATUSES)
+        if cedula:
+            query += " AND p.cedula = %s"
+            params.append(cedula)
+        if subnovedad:
+            query += " AND UPPER(sn.nombre) LIKE UPPER(%s)"
+            params.append(f"%{subnovedad}%")
+        if fecha:
+            query += " AND r.fecha = %s"
+            params.append(fecha)
+        elif not is_all_months:
+            dates = get_month_dates(mes)
+            if dates:
+                pl = ",".join("%s" for _ in dates)
+                query += f" AND r.fecha IN ({pl})"
+                params.extend(dates)
+                
+        query += " ORDER BY r.fecha ASC, p.nombre ASC;"
+        cursor.execute(query, params)
         
         for row in cursor.fetchall():
             data.append([
@@ -1939,7 +2011,11 @@ def exportar_pdf(
             ('BOTTOMPADDING', (0,0), (-1,-1), 4),
             ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#F8FAFC')])
         ]))
-        filename = "historial_completo_novedades.pdf"
+        story.append(t)
+        filename_tag = fecha if fecha else (mes.lower() if mes and mes.upper() != "TODOS" else "anual")
+        if subnovedad:
+            filename_tag += f"_{subnovedad.lower().replace(' ', '_')}"
+        filename = f"historial_novedades_{filename_tag}.pdf"
         
     elif tipo == "agil":
         is_all_months = not mes or mes.upper() == "TODOS" or mes == ""
