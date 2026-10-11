@@ -25,12 +25,19 @@ export const authService = {
     return http.get('/api/auth/me')
   },
 
-  getDriveStatus: async (): Promise<DriveStatusResponse> => {
-    return http.get<DriveStatusResponse>('/api/auth/drive-status')
+  getDriveStatus: async (correo?: string): Promise<DriveStatusResponse> => {
+    const url = correo 
+      ? `/api/auth/drive-status?correo=${encodeURIComponent(correo)}`
+      : '/api/auth/drive-status'
+    return http.get<DriveStatusResponse>(url)
   },
 
-  getOAuthUrl: async (redirectUri: string): Promise<OAuthUrlResponse> => {
-    const res = await fetch(`${getApiBase()}/api/sincronizar/oauth/url?redirect_uri=${encodeURIComponent(redirectUri)}`)
+  getOAuthUrl: async (redirectUri: string, correo?: string): Promise<OAuthUrlResponse> => {
+    let endpoint = `${getApiBase()}/api/sincronizar/oauth/url?redirect_uri=${encodeURIComponent(redirectUri)}`
+    if (correo) {
+      endpoint += `&correo=${encodeURIComponent(correo)}`
+    }
+    const res = await fetch(endpoint)
     if (!res.ok) {
       const errData = await res.json().catch(() => ({}))
       throw new Error(errData.detail || `Error en el servidor (${res.status})`)

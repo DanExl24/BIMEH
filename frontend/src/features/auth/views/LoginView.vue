@@ -26,11 +26,33 @@
         <span class="font-medium leading-relaxed">{{ errorMessage }}</span>
       </div>
 
+      <!-- Estado de Google OAuth (si el usuario no está verificado en Google Cloud) -->
+      <div
+        v-if="needsGoogleAuth"
+        class="bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs p-4 rounded-xl space-y-2.5"
+      >
+        <div class="flex items-center gap-2 font-bold text-amber-400">
+          <AlertCircle class="w-4 h-4 shrink-0" />
+          <span>Autorización de Google Cloud Requerida</span>
+        </div>
+        <p class="text-slate-300 text-[11px] leading-relaxed">
+          Para acceder al sistema es obligatorio verificar tu cuenta autorizada en Google Cloud. Pulsa el botón para autorizar:
+        </p>
+        <button
+          type="button"
+          @click="iniciarOAuth"
+          class="w-full py-2.5 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 rounded-xl text-xs font-bold text-amber-300 transition-all cursor-pointer flex items-center justify-center gap-2 shadow-sm active:scale-98"
+        >
+          <ExternalLink class="w-4 h-4" />
+          <span>Verificar con Google Cloud Ahora</span>
+        </button>
+      </div>
+
       <!-- Nota informativa previa -->
-      <div class="bg-cyan-500/10 border border-cyan-500/20 text-cyan-300 text-xs p-3 rounded-xl flex items-start gap-2.5">
+      <div v-if="!needsGoogleAuth" class="bg-cyan-500/10 border border-cyan-500/20 text-cyan-300 text-xs p-3 rounded-xl flex items-start gap-2.5">
         <Lock class="w-4 h-4 text-cyan-400 shrink-0 mt-0.5" />
         <span class="text-slate-300 text-[11px] leading-relaxed">
-          Acceso restringido para personal autorizado del BIMEJ 12. Todas las operaciones quedan registradas.
+          Acceso restringido para personal autorizado del BIMEJ 12. Se requiere cuenta de Google autorizada.
         </span>
       </div>
 
@@ -89,6 +111,7 @@ import {
   Mail, 
   KeyRound, 
   AlertCircle, 
+  ExternalLink,
   Loader2 
 } from 'lucide-vue-next'
 
@@ -99,6 +122,7 @@ import { useAppStore } from '@stores/appStore'
 const correo = ref('')
 const password = ref('')
 const errorMessage = ref('')
+const needsGoogleAuth = ref(false)
 
 const authStore = useAuthStore()
 const appStore = useAppStore()
@@ -106,30 +130,58 @@ const router = useRouter()
 
 const handleLogin = async () => {
   errorMessage.value = ''
+  needsGoogleAuth.value = false
   try {
     const success = await authStore.login(correo.value, password.value)
     if (success) {
-      // Intentar sincronización en segundo plano (NO bloquea el login)
+      // Verificar autorización de Google Cloud para este usuario
       try {
-        const driveData = await authService.getDriveStatus()
+        const driveData = await authService.getDriveStatus(correo.value)
         if (driveData.connected) {
-          // Sincronización automática de toda la base de datos (descarga los días faltantes de cualquier mes)
+          // Autorizado con Google Cloud -> Sincronización automática de reportes
           appStore.startDriveSync({
             tipo: 'todo',
             overwrite: false
           })
+          router.push('/')
         } else {
-          console.warn('[LOGIN] Google Drive no conectado. La sincronización automática no se ejecutará.')
+          // Token ausente o revocado en Google Cloud
+          authStore.logout()
+          needsGoogleAuth.value = true
+          errorMessage.value = 'Se requiere autorización de tu cuenta de Google Cloud para ingresar al sistema.'
         }
-      } catch (driveErr) {
-        console.warn('[LOGIN] No se pudo verificar estado de Google Drive:', driveErr)
+      } catch {
+        authStore.logout()
+        needsGoogleAuth.value = true
+        errorMessage.value = 'No se pudo verificar la autorización de Google Cloud en el servidor. Por favor autoriza tu cuenta.'
       }
-
-      // Siempre navegar al sistema, independientemente del estado de Drive
-      router.push('/')
     }
   } catch (error: any) {
     errorMessage.value = error.message || 'Error en las credenciales proporcionadas.'
+  }
+}
+
+const iniciarOAuth = async () => {
+  try {
+    const base = appStore.apiBase ? appStore.apiBase.replace(/\/$/, '') : window.location.origin
+    const callbackUrl = `${base}/api/sincronizar/oauth/callback`
+    const data = await authService.getOAuthUrl(callbackUrl, correo.value)
+    
+    if (data.auth_url) {
+      const electronAPI = (window as unknown as { electronAPI?: { openExternal?: (url: string) => void } }).electronAPI
+      if (electronAPI && typeof electronAPI.openExternal === 'function') {
+        electronAPI.openExternal(data.auth_url)
+      } else {
+        window.open(data.auth_url, '_blank')
+      }
+      needsGoogleAuth.value = false
+      alert('Se abrió una ventana en tu navegador para verificar tu cuenta con Google Cloud. Después de autorizar, vuelve a ingresar tu contraseña aquí.')
+    } else {
+      throw new Error('El servidor no retornó una URL de autorización válida.')
+    }
+  } catch (err: any) {
+    console.error('Error al iniciar OAuth:', err)
+    errorMessage.value = err.message || 'No se pudo iniciar el flujo de autorización de Google. Intenta de nuevo.'
   }
 }
 </script>

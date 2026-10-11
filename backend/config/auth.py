@@ -31,6 +31,9 @@ else:
 os.environ["OAUTHLIB_RELAX_TOKEN_SCOPE"] = "1"
 
 SCOPES = [
+    "openid",
+    "https://www.googleapis.com/auth/userinfo.email",
+    "https://www.googleapis.com/auth/userinfo.profile",
     "https://www.googleapis.com/auth/drive.readonly",
     "https://www.googleapis.com/auth/drive.metadata.readonly",
     "https://www.googleapis.com/auth/spreadsheets.readonly"
@@ -72,6 +75,9 @@ def _get_db_conn():
                 actualizado_en TIMESTAMP DEFAULT NOW()
             );
         """)
+        cursor.execute("""
+            ALTER TABLE USUARIO ADD COLUMN IF NOT EXISTS correo_google VARCHAR(255);
+        """)
         conn.commit()
         return conn
     except Exception as e:
@@ -86,18 +92,40 @@ def _leer_token_db(correo_google: str | None = None) -> tuple[str | None, str | 
     try:
         cursor = conn.cursor()
         if correo_google:
+            correo_limpio = correo_google.strip().lower()
+            # 1. Coincidencia directa por correo_google
             cursor.execute(
-                "SELECT correo_google, token_json FROM google_oauth_tokens WHERE correo_google = %s",
-                (correo_google,)
+                "SELECT correo_google, token_json FROM google_oauth_tokens WHERE LOWER(correo_google) = %s",
+                (correo_limpio,)
             )
+            row = cursor.fetchone()
+            if row:
+                return (row[0], row[1])
+
+            # 2. Coincidencia a través de la cuenta de usuario BIMEH vinculada
+            cursor.execute(
+                """
+                SELECT g.correo_google, g.token_json 
+                FROM USUARIO u 
+                JOIN google_oauth_tokens g ON LOWER(u.correo_google) = LOWER(g.correo_google)
+                WHERE LOWER(u.correo) = %s
+                """,
+                (correo_limpio,)
+            )
+            row = cursor.fetchone()
+            if row:
+                return (row[0], row[1])
+
+            return None, None
         else:
             cursor.execute(
                 "SELECT correo_google, token_json FROM google_oauth_tokens ORDER BY actualizado_en DESC LIMIT 1"
             )
-        row = cursor.fetchone()
-        return (row[0], row[1]) if row else (None, None)
+            row = cursor.fetchone()
+            return (row[0], row[1]) if row else (None, None)
     except Exception as e:
         print(f"[AUTH] Error leyendo token de BD ({e}).")
+        return None, None
         return None, None
     finally:
         try:
@@ -163,21 +191,25 @@ def eliminar_token_existente(correo_google: str | None = None):
         except Exception as e:
             print(f"[AUTH] Error eliminando token local: {e}")
 
-def generar_oauth_url(redirect_uri: str) -> str:
-    """Genera la URL de autorización de Google OAuth con access_type offline."""
+def generar_oauth_url(redirect_uri: str, state: str | None = None) -> str:
+    """Genera la URL de autorización de Google OAuth con access_type offline y state opcional."""
     creds_path = _asegurar_credentials()
     flow = Flow.from_client_secrets_file(creds_path, scopes=SCOPES, redirect_uri=redirect_uri)
     flow.autogenerate_code_verifier = False
-    auth_url, _ = flow.authorization_url(
-        access_type='offline',
-        include_granted_scopes='true',
-        prompt='consent'
-    )
+    auth_kwargs = {
+        'access_type': 'offline',
+        'include_granted_scopes': 'true',
+        'prompt': 'consent'
+    }
+    if state:
+        auth_kwargs['state'] = state
+    auth_url, _ = flow.authorization_url(**auth_kwargs)
     return auth_url
 
-def intercambiar_codigo_oauth(code: str, redirect_uri: str):
+def intercambiar_codigo_oauth(code: str, redirect_uri: str, state: str | None = None):
     """
     Intercambia el código OAuth por credenciales y las guarda en BD y local.
+    Si se proporciona state (correo BIMEH), vincula la cuenta de usuario con correo_google.
     Returns creds.
     """
     creds_path = _asegurar_credentials()
@@ -211,16 +243,55 @@ def intercambiar_codigo_oauth(code: str, redirect_uri: str):
         raise last_error or Exception("No se pudieron intercambiar las credenciales OAuth.")
 
     correo_google = "desconocido"
-    try:
-        import google.oauth2.id_token
-        import google.auth.transport.requests
-        request = google.auth.transport.requests.Request()
-        id_info = google.oauth2.id_token.verify_oauth2_token(creds.id_token, request)
-        correo_google = id_info.get("email", "desconocido")
-    except Exception as e:
-        print(f"[AUTH] No se pudo extraer email de id_token ({e}).")
+    # 1. Intentar obtener email vía id_token
+    if hasattr(creds, 'id_token') and creds.id_token:
+        try:
+            import google.oauth2.id_token
+            import google.auth.transport.requests
+            request = google.auth.transport.requests.Request()
+            id_info = google.oauth2.id_token.verify_oauth2_token(creds.id_token, request)
+            correo_google = id_info.get("email", "desconocido")
+        except Exception as e:
+            print(f"[AUTH] No se pudo extraer email de id_token ({e}).")
+
+    # 2. Si no se obtuvo, intentar con endpoint estándar userinfo de Google
+    if correo_google == "desconocido" and hasattr(creds, 'token') and creds.token:
+        try:
+            import requests
+            resp = requests.get(
+                "https://www.googleapis.com/oauth2/v3/userinfo",
+                headers={"Authorization": f"Bearer {creds.token}"},
+                timeout=10
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                correo_google = data.get("email", "desconocido")
+                print(f"[AUTH] Email obtenido desde userinfo: '{correo_google}'")
+        except Exception as e:
+            print(f"[AUTH] Error consultando userinfo: {e}")
 
     token_json = creds.to_json()
+
+    # Si se especificó el usuario BIMEH en 'state', vincularlo en la base de datos
+    if state and correo_google != "desconocido":
+        correo_bimeh = state.strip().lower()
+        conn = _get_db_conn()
+        if conn:
+            try:
+                cursor = conn.cursor()
+                cursor.execute(
+                    "UPDATE USUARIO SET correo_google = %s WHERE LOWER(correo) = %s",
+                    (correo_google.lower(), correo_bimeh)
+                )
+                conn.commit()
+                print(f"[AUTH] Usuario BIMEH '{correo_bimeh}' vinculado exitosamente a Google '{correo_google}'")
+            except Exception as e:
+                print(f"[AUTH] Error vinculando usuario en BD: {e}")
+            finally:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
 
     # Guardar en BD (produccion) y en archivo local (desarrollo)
     _guardar_token_db(correo_google, token_json)
@@ -254,8 +325,8 @@ def obtener_credenciales(correo_google: str | None = None, force_new: bool = Fal
             print(f"[AUTH] Error cargando token de BD: {e}")
             creds = None
 
-    # 2. Fallback: archivo local (desarrollo)
-    if not creds and os.path.exists(TOKEN_PATH):
+    # 2. Fallback: archivo local (desarrollo, solo si no se solicitó un usuario específico)
+    if not creds and not correo_google and os.path.exists(TOKEN_PATH):
         try:
             creds = Credentials.from_authorized_user_file(TOKEN_PATH, SCOPES)
         except Exception as e:

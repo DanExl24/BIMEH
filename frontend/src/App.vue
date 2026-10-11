@@ -35,7 +35,7 @@ onMounted(async () => {
     if (isValid) {
       // Verificar que Drive esté conectado antes de intentar sincronizar
       try {
-        const driveData = await authService.getDriveStatus()
+        const driveData = await authService.getDriveStatus(authStore.user?.correo)
         if (driveData.connected) {
           // Sincronización automática de toda la base de datos (descarga los días faltantes de cualquier mes)
           appStore.startDriveSync({

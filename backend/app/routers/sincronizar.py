@@ -12,20 +12,25 @@ from config.auth import generar_oauth_url, intercambiar_codigo_oauth
 router = APIRouter(prefix="/api", tags=["Sincronizar"])
 
 @router.get("/sincronizar/oauth/url")
-def obtener_url_oauth(redirect_uri: str = Query(...)):
+def obtener_url_oauth(redirect_uri: str = Query(...), correo: Optional[str] = Query(None)):
     """
     Genera la URL oficial de inicio de sesión con Google OAuth.
     """
     try:
-        url = generar_oauth_url(redirect_uri)
+        url = generar_oauth_url(redirect_uri, state=correo)
         return {"auth_url": url}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/sincronizar/oauth/callback")
-def callback_oauth(request: Request, code: str = Query(...), redirect_uri: Optional[str] = Query(None)):
+def callback_oauth(
+    request: Request, 
+    code: str = Query(...), 
+    redirect_uri: Optional[str] = Query(None),
+    state: Optional[str] = Query(None)
+):
     """
-    Recibe el código de autorización de Google, obtiene y guarda el token.
+    Recibe el código de autorización de Google, obtiene y guarda el token vinculando al usuario si state está presente.
     """
     try:
         if not redirect_uri:
@@ -37,14 +42,14 @@ def callback_oauth(request: Request, code: str = Query(...), redirect_uri: Optio
                 proto = "https"
             redirect_uri = f"{proto}://{host}{path}"
 
-        intercambiar_codigo_oauth(code, redirect_uri)
+        intercambiar_codigo_oauth(code, redirect_uri, state=state)
         html_content = """
         <html>
-            <head><title>Google Drive Conectado</title></head>
+            <head><title>Google Conectado</title></head>
             <body style="font-family: sans-serif; text-align: center; padding-top: 50px; background: #0F172A; color: white;">
-                <h1 style="color: #22C55E;">¡Google Drive Conectado con Éxito! 🎉</h1>
-                <p>Tu cuenta de Google fue autorizada correctamente.</p>
-                <p>Ya puedes volver a la aplicación BIMEH en tu celular o computador.</p>
+                <h1 style="color: #22C55E;">¡Google Conectado con Éxito! 🎉</h1>
+                <p>Tu cuenta autorizada de Google fue verificada correctamente.</p>
+                <p>Ya puedes volver a la aplicación BIMEH para ingresar.</p>
             </body>
         </html>
         """
