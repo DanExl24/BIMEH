@@ -415,6 +415,29 @@ def get_fast_conversational_reply(text):
     if any(g in msg for g in gracias):
         return "cortesia", "A sus ordenes, mi Comandante. Requiere alguna consulta adicional?"
 
+    reportes_info_keywords = [
+        "que mas reportes", "que otros reportes", "que reportes puedes", "que reportes sabes",
+        "que reportes hay", "que reportes tienes", "cuales reportes", "que tipo de reportes",
+        "formatos de reporte", "como funcionan los reportes", "que reportes existen"
+    ]
+    if any(k in msg for k in reportes_info_keywords):
+        return "ayuda_reportes", (
+            "A sus órdenes, mi Comandante. En **BIMEJ 12** puedo generar y exportar reportes oficiales directamente en formatos **Excel (.xlsx)** y **PDF (.pdf)** con las siguientes modalidades:\n\n"
+            "• **1. Consolidados Mensuales (Matriz Heatmap):**\n"
+            "  Matriz operativa integral día a día que refleja el estado de cada efectivo (Disponible, Novedad, Retirado), disponible con codificación oficial de letras o vista visual por colores.\n\n"
+            "• **2. Parte Ágil de Novedades:**\n"
+            "  Resumen ejecutivo nominal agrupado cronológicamente por intervalos de fechas y novedades de ausentismo con justificaciones oficiales.\n\n"
+            "• **3. Historial Completo de Novedades:**\n"
+            "  Relación nominal detallada con fecha de reporte, inicio, término y descripción de la novedad registrada en la unidad.\n\n"
+            "• **4. Reportes Detallados Diarios:**\n"
+            "  Nómina completa de efectivos y ausentismos para una fecha específica (ej: *'Reporte del día de hoy'*).\n\n"
+            "• **5. Expedientes Individuales de Militar:**\n"
+            "  Historial cronológico de cualquier integrante orgánico por cédula o nombre (ej: *'Expediente de cédula 123456'* o *'Reporte de Gómez'*).\n\n"
+            "• **6. Base de Datos Maestra y Catálogos:**\n"
+            "  Censo de personal completo del batallón y catálogo oficial de subnovedades y códigos operacionales.\n\n"
+            "💡 *Puede solicitarlos directamente en el chat (ej: 'Consolidado de junio en Excel' o 'Parte ágil de novedades de mayo') o seleccionando cualquiera de los botones interactivos.*"
+        )
+
     ayuda_keywords = [
         "que haces", "que puedes hacer", "quien eres", "para que sirves",
         "como funcionas", "como te llamas", "que sabes hacer", "ayuda", "comandos",
@@ -464,12 +487,14 @@ def should_apply_militar_context(user_message, active_militar):
     global_triggers = [
         "todo el personal", "todo el batallon", "todos los militares", "en total",
         "del batallon", "en el batallon", "ranking general", "ranking del batallon",
-        "novedades del batallon", "general del batallon"
+        "novedades del batallon", "general del batallon", "la unidad", "de la unidad",
+        "en la unidad", "que mas puedes", "que puedes hacer", "que reportes", "cuales reportes",
+        "como funcionas", "que sabes hacer", "que tipo de reportes", "que mas reportes"
     ]
     if any(t in msg for t in global_triggers):
         return False
     followup_kw = [
-        "su ", "sus ", "el mismo", "este personal", "novedad", "novedades",
+        "su ", "sus ", "el mismo", "este personal", "este militar", "novedad", "novedades",
         "historial", "permisos", "vacaciones", "incapacidad", "estado",
         "presente", "registrada", "frecuente", "meses",
         "menos", "menor", "minima", "menos frecuente", "menos comun", "menos registrada",
@@ -479,8 +504,7 @@ def should_apply_militar_context(user_message, active_militar):
         "agosto", "septiembre", "octubre", "noviembre", "diciembre",
         # peticiones conversacionales de seguimiento
         "sobre el", "de el", "dime mas", "mas info", "mas informacion",
-        "mas datos", "cuentame", "que mas", "mas detalles", "informacion",
-        "datos", "perfil"
+        "mas datos", "cuentame de el", "que mas tiene", "mas detalles", "su perfil"
     ]
     return any(k in msg for k in followup_kw)
 

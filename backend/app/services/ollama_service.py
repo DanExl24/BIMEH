@@ -370,7 +370,10 @@ def should_apply_militar_context(user_message: str, active_militar: Optional[Dic
     global_triggers = [
         "todo el personal", "todo el batallon", "todo el batallón",
         "todos los militares", "total de personal", "en total", "general",
-        "cuantos militares hay", "cuántos militares hay", "fuerza disponible"
+        "cuantos militares hay", "cuántos militares hay", "fuerza disponible",
+        "unidad", "la unidad", "de la unidad", "en la unidad",
+        "que mas puedes", "que puedes hacer", "que reportes", "cuales reportes",
+        "que tipo de reportes", "que mas reportes"
     ]
     if any(gt in msg for gt in global_triggers):
         return False

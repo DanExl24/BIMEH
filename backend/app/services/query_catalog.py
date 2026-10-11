@@ -203,6 +203,7 @@ def _extract_name_tokens(msg_norm: str) -> List[str]:
         "puedes", "podrias", "quiero", "quieres", "puedo", "decir", "decime", "dime",
         "ver", "saber", "conocer", "buscar", "busca", "dame", "mostrar", "mostrame",
         "listar", "lista", "informacion", "datos", "historia", "historial",
+        "hacer", "haces", "generar", "generas", "descargar", "exportar", "sacar",
         "estan", "esta", "estuvo", "estaban", "hubo", "mas", "menos", "menor", "minima", "minimo", "rara", "habitual",
         # conectores, transiciones y adverbios
         "pero", "sino", "aunque", "porque", "pues", "mientras", "cuando", "donde",
@@ -988,6 +989,23 @@ def match_report_request(
     """
     msg = _norm(user_message)
     
+    # 0. Meta-preguntas / consultas informativas sobre capacidades o ayuda de reportes
+    # No deben interceptarse como una descarga de archivo; deben pasar a conversación / IA.
+    meta_report_patterns = [
+        r"\bque\s+(mas\s+|otros?\s+)?reportes\b",
+        r"\bque\s+reportes\s+(puedes|sabes|hay|tienes|haces|generas|existen|manejas)\b",
+        r"\bcuales\s+(son\s+los\s+)?(reportes|formatos)\b",
+        r"\bcuales\s+reportes\s+(puedes|sabes|hay|tienes|haces|generas|existen|manejas)\b",
+        r"\bque\s+tipo(s)?\s+de\s+reportes\b",
+        r"\bcomo\s+(funcionan|descargo|genero)\s+(los\s+)?reportes\b",
+        r"\bque\s+formatos\s+(de\s+reporte\s+)?(tienes|hay|manejas|existen|haces)\b",
+        r"\bque\s+puedes\s+(exportar|descargar|generar)\b",
+        r"\bexplicame\s+(los\s+)?reportes\b",
+        r"\bcomo\s+puedo\s+(pedir|sacar|descargar)\s+(un\s+)?reporte\b"
+    ]
+    if any(re.search(pat, msg) for pat in meta_report_patterns):
+        return None
+    
     # Recuperación de contexto previo desde el historial si el mensaje actual es de seguimiento o cambio de formato
     history_month = None
     history_subnov = None
@@ -1059,8 +1077,33 @@ def match_report_request(
 
     # 3. Expediente Individual de Militar / Reporte por Persona (personal)
     cedula_match = re.search(r"\b(\d{6,10})\b", user_message)
-    cedula_val = int(cedula_match.group(1)) if cedula_match else (int(active_militar.get("cedula")) if active_militar and active_militar.get("cedula") else None)
-    nom_mil = active_militar.get("nombre") if active_militar else None
+
+    # Intención explícita sobre un militar individual
+    is_personal_intent = bool(cedula_match) or any(k in msg for k in [
+        "expediente", "hoja de vida", "de el", "del militar", "del soldado",
+        "este personal", "este militar", "su reporte", "sus reportes", "su historial",
+        "su consolidado", "su parte", "su novedad", "sus novedades"
+    ])
+    
+    # Comprobar si es un cambio de formato tras haber consultado al militar
+    is_personal_followup = bool(
+        active_militar and active_militar.get("cedula") and 
+        any(k in msg for k in ["agil", "heatmap", "matriz", "historial", "excel", "pdf"]) and
+        not any(t in msg for t in ["unidad", "batallon", "del mes", "en el mes", "general", "todos"])
+    )
+
+    if cedula_match:
+        cedula_val = int(cedula_match.group(1))
+        nom_mil = active_militar.get("nombre") if active_militar and str(active_militar.get("cedula")) == str(cedula_val) else None
+    elif is_personal_intent and active_militar and active_militar.get("cedula"):
+        cedula_val = int(active_militar.get("cedula"))
+        nom_mil = active_militar.get("nombre")
+    elif is_personal_followup and active_militar and active_militar.get("cedula"):
+        cedula_val = int(active_militar.get("cedula"))
+        nom_mil = active_militar.get("nombre")
+    else:
+        cedula_val = None
+        nom_mil = None
 
     # Búsqueda por nombre en base de datos si no hay cédula pero hay nombres/apellidos
     name_tokens = _extract_name_tokens(msg)
