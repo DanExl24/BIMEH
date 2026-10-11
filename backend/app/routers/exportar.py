@@ -191,7 +191,7 @@ def exportar_csv(
         
     elif tipo == "consolidado_mensual":
         is_all_months = not mes or mes.upper() == "TODOS" or mes == ""
-        use_letras = (modo == "letras")
+        use_letras = (modo in ("letras", "colores"))
         
         if fecha:
             cursor.execute("SELECT id, fecha FROM REPORTES WHERE fecha = %s;", (fecha,))
@@ -209,14 +209,6 @@ def exportar_csv(
             
         report_ids = [r[0] for r in reports_db]
         report_dates = [r[1] for r in reports_db]
-        
-        if fecha:
-            headers = ["CEDULA", "INTEGRANTE", f"FECHA ({fecha})"]
-        elif is_all_months:
-            headers = ["CEDULA", "INTEGRANTE"] + [f"{d.split('-')[2]}/{d.split('-')[1]}" for d in report_dates]
-        else:
-            headers = ["CEDULA", "INTEGRANTE"] + [f"Día {d.split('-')[2]}" for d in report_dates]
-        writer.writerow(headers)
         
         if report_ids:
             rep_placeholders = ",".join("%s" for _ in report_ids)
@@ -246,29 +238,78 @@ def exportar_csv(
                     person_map[key] = {}
                 person_map[key][row[4]] = row[5]
                 
-            for (cedula_val, nombre_val, f_retiro), reports_dict in sorted(person_map.items(), key=lambda x: x[0][1]):
-                row_data = [cedula_val, nombre_val]
-                for r_id, r_fecha in reports_db:
-                    is_retired = False
-                    if f_retiro and r_fecha >= f_retiro:
-                        is_retired = True
-                        
-                    if is_retired:
-                        row_data.append("R" if use_letras else "RETIRADO")
-                    else:
-                        raw_nov = reports_dict.get(r_id, "N/A")
-                        if use_letras:
-                            if raw_nov in DISPONIBLE_STATUSES:
-                                cell_str = "D"
-                            elif raw_nov == "N/A":
-                                cell_str = "-"
-                            else:
-                                cell_str = "N"
+            if cedula and is_all_months:
+                person_rows = list(person_map.items())
+                p_name = person_rows[0][0][1] if person_rows else ""
+                f_ret = person_rows[0][0][2] if person_rows else None
+                rep_dict = person_rows[0][1] if person_rows else {}
+
+                writer.writerow([f"BIMEJ12 - MATRIZ HEATMAP ANUAL - CC {cedula} ({p_name})"])
+                writer.writerow(["MES"] + [f"D{d}" for d in range(1, 32)])
+
+                month_names_dict = {
+                    '01': ('ENERO', 31), '02': ('FEBRERO', 29), '03': ('MARZO', 31),
+                    '04': ('ABRIL', 30), '05': ('MAYO', 31), '06': ('JUNIO', 30),
+                    '07': ('JULIO', 31), '08': ('AGOSTO', 31), '09': ('SEPTIEMBRE', 30),
+                    '10': ('OCTUBRE', 31), '11': ('NOVIEMBRE', 30), '12': ('DICIEMBRE', 31)
+                }
+                date_to_rid = {r[1]: r[0] for r in reports_db}
+                rep_year = reports_db[0][1].split('-')[0] if reports_db else str(datetime.now().year)
+                active_m_nums = sorted(list(set(r[1].split('-')[1] for r in reports_db)))
+
+                for m_num in active_m_nums:
+                    m_name, max_days = month_names_dict.get(m_num, (f"MES {m_num}", 31))
+                    row_data = [m_name]
+                    for d in range(1, 32):
+                        if d > max_days:
+                            row_data.append("")
+                            continue
+                        dt_str = f"{rep_year}-{m_num}-{d:02d}"
+                        if f_ret and dt_str >= f_ret:
+                            row_data.append("R" if use_letras else "RETIRADO")
+                        elif dt_str not in date_to_rid:
+                            row_data.append("-")
                         else:
-                            cell_str = raw_nov
-                        row_data.append(cell_str)
-                writer.writerow(row_data)
-        filename = f"consolidado_personal_{fecha if fecha else (mes if mes else 'TODOS')}.csv"
+                            rid = date_to_rid[dt_str]
+                            raw_nov = rep_dict.get(rid, "N/A")
+                            if use_letras:
+                                row_data.append("D" if raw_nov in DISPONIBLE_STATUSES else ("-" if raw_nov == "N/A" else "N"))
+                            else:
+                                row_data.append(raw_nov)
+                    writer.writerow(row_data)
+                filename = f"matriz_heatmap_anual_{cedula}.csv"
+            else:
+                if fecha:
+                    headers = ["CEDULA", "INTEGRANTE", f"FECHA ({fecha})"]
+                elif is_all_months:
+                    headers = ["CEDULA", "INTEGRANTE"] + [f"{d.split('-')[2]}/{d.split('-')[1]}" for d in report_dates]
+                else:
+                    headers = ["CEDULA", "INTEGRANTE"] + [f"Día {d.split('-')[2]}" for d in report_dates]
+                writer.writerow(headers)
+
+                for (cedula_val, nombre_val, f_retiro), reports_dict in sorted(person_map.items(), key=lambda x: x[0][1]):
+                    row_data = [cedula_val, nombre_val]
+                    for r_id, r_fecha in reports_db:
+                        is_retired = False
+                        if f_retiro and r_fecha >= f_retiro:
+                            is_retired = True
+                            
+                        if is_retired:
+                            row_data.append("R" if use_letras else "RETIRADO")
+                        else:
+                            raw_nov = reports_dict.get(r_id, "N/A")
+                            if use_letras:
+                                if raw_nov in DISPONIBLE_STATUSES:
+                                    cell_str = "D"
+                                elif raw_nov == "N/A":
+                                    cell_str = "-"
+                                else:
+                                    cell_str = "N"
+                            else:
+                                cell_str = raw_nov
+                            row_data.append(cell_str)
+                    writer.writerow(row_data)
+                filename = f"consolidado_personal_{fecha if fecha else (mes if mes else 'TODOS')}.csv"
         
     else:
         raise HTTPException(status_code=400, detail="Parámetros inválidos para la exportación.")
@@ -583,9 +624,8 @@ def exportar_excel(
         
     elif tipo == "consolidado_mensual":
         is_all_months = not mes or mes.upper() == "TODOS" or mes == ""
-        use_letras = (modo == "letras")
-        
-        ws.title = "Consolidado Completo" if is_all_months else f"Consolidado {mes if mes else ''}"
+        is_colores = (modo == "colores")
+        use_letras = (modo in ("letras", "colores"))
         
         if fecha:
             cursor.execute("SELECT id, fecha FROM REPORTES WHERE fecha = %s;", (fecha,))
@@ -608,121 +648,282 @@ def exportar_excel(
             
         report_ids = [r[0] for r in reports_db]
         report_dates = [r[1] for r in reports_db]
-        
-        num_cols = 2 + len(report_dates)
-        col_letter = get_column_letter(num_cols)
-        
-        ws.merge_cells(f"A1:{col_letter}1")
-        if cedula:
-            title_text = f"BIMEJ12 — HISTORIAL DE PERSONAL (CC {cedula})"
-        else:
-            title_text = "BIMEJ12 — CONSOLIDADO DIARIO DE PERSONAL"
-            
-        if fecha:
-            title_text += f" — DÍA {fecha}"
-        elif not is_all_months:
-            title_text += f" — {mes.upper()}"
-        else:
-            title_text += " — TODOS LOS MESES"
-            
-        ws["A1"] = title_text
-        ws["A1"].font = title_font
-        ws["A1"].fill = title_fill
-        ws["A1"].alignment = Alignment(horizontal="center", vertical="center")
-        ws.row_dimensions[1].height = 40
-        
-        if fecha:
-            headers = ["CÉDULA", "INTEGRANTE", f"FECHA ({fecha})"]
-        elif is_all_months:
-            headers = ["CÉDULA", "INTEGRANTE"] + [f"{d.split('-')[2]}/{d.split('-')[1]}" for d in report_dates]
-        else:
-            headers = ["CÉDULA", "INTEGRANTE"] + [f"Día {d.split('-')[2]}" for d in report_dates]
-            
-        ws.append([])
-        ws.append(headers)
-        ws.row_dimensions[3].height = 25
-        
-        for col_idx in range(1, num_cols + 1):
-            cell = ws.cell(row=3, column=col_idx)
-            cell.font = header_font
-            cell.fill = header_fill
-            cell.alignment = Alignment(horizontal="center", vertical="center")
-            cell.border = thin_border
-            
-        if report_ids:
-            rep_placeholders = ",".join("%s" for _ in report_ids)
-            query = f"""
-                SELECT p.cedula, p.nombre, p.fecha_retiro, r.fecha as report_fecha, rp.id_reporte, sn.nombre as subnovedad
-                FROM REGISTRO_PERSONAL rp
-                JOIN PERSONAL p ON rp.id_personal = p.id
-                JOIN REPORTES r ON rp.id_reporte = r.id
-                JOIN SUB_NOVEDADES sn ON rp.id_sub_novedad = sn.id
-                WHERE rp.id_reporte IN ({rep_placeholders})
-            """
-            params = list(report_ids)
-            if cedula:
-                query += " AND p.cedula = %s"
-                params.append(cedula)
-            if subnovedad:
-                query += " AND UPPER(sn.nombre) LIKE UPPER(%s)"
-                params.append(f"%{subnovedad}%")
-            query += " ORDER BY p.nombre ASC;"
-            
-            cursor.execute(query, params)
-            
-            person_map = {}
-            for row in cursor.fetchall():
-                key = (row[0], row[1], row[2])
-                if key not in person_map:
-                    person_map[key] = {}
-                person_map[key][row[4]] = row[5]
-                
-            for (cedula_val, nombre_val, f_retiro), reports_dict in sorted(person_map.items(), key=lambda x: x[0][1]):
-                row_data = [cedula_val, nombre_val]
-                for r_id, r_fecha in reports_db:
-                    is_retired = False
-                    if f_retiro and r_fecha >= f_retiro:
-                        is_retired = True
-                        
-                    if is_retired:
-                        cell_str = "R" if use_letras else "RETIRADO"
+
+        if cedula and is_all_months:
+            # Matriz Anual Individual (Mes x D01..D31)
+            p_name = ""
+            p_ret = None
+            rep_dict = {}
+            if report_ids:
+                rep_placeholders = ",".join("%s" for _ in report_ids)
+                query = f"""
+                    SELECT p.cedula, p.nombre, p.fecha_retiro, r.fecha as report_fecha, rp.id_reporte, sn.nombre as subnovedad
+                    FROM REGISTRO_PERSONAL rp
+                    JOIN PERSONAL p ON rp.id_personal = p.id
+                    JOIN REPORTES r ON rp.id_reporte = r.id
+                    JOIN SUB_NOVEDADES sn ON rp.id_sub_novedad = sn.id
+                    WHERE rp.id_reporte IN ({rep_placeholders}) AND p.cedula = %s
+                """
+                params = list(report_ids) + [cedula]
+                if subnovedad:
+                    query += " AND UPPER(sn.nombre) LIKE UPPER(%s)"
+                    params.append(f"%{subnovedad}%")
+                query += " ORDER BY r.fecha ASC;"
+                cursor.execute(query, params)
+                for row in cursor.fetchall():
+                    p_name = row[1]
+                    p_ret = row[2]
+                    rep_dict[row[4]] = row[5]
+
+            ws.title = "Matriz Heatmap Anual"
+            ws.merge_cells("A1:AF1")
+            ws["A1"] = f"BIMEJ12 — MATRIZ HEATMAP ANUAL COMPLETA — CC {cedula} ({p_name})"
+            ws["A1"].font = Font(name="Calibri", size=12, bold=True, color="FFFFFF")
+            ws["A1"].fill = PatternFill(start_color="0F172A", end_color="0F172A", fill_type="solid")
+            ws["A1"].alignment = Alignment(horizontal="center", vertical="center")
+            ws.row_dimensions[1].height = 36
+
+            ws.merge_cells("A2:AF2")
+            if is_colores:
+                ws["A2"] = "LEYENDA:   [ D ] VERDE = DISPONIBLE   |   [ N ] ÁMBAR = NOVEDAD   |   [ R ] ROJO = RETIRADO   |   [ - ] OSCURO = SIN REGISTRO"
+                ws["A2"].font = Font(name="Calibri", size=8.5, bold=True, color="38BDF8")
+            else:
+                ws["A2"] = "LEYENDA:   [ D ] DISPONIBLE   |   [ N ] NOVEDAD   |   [ R ] RETIRADO   |   [ - ] SIN REGISTRO"
+                ws["A2"].font = Font(name="Calibri", size=8.5, bold=True, color="94A3B8")
+            ws["A2"].fill = PatternFill(start_color="1E293B", end_color="1E293B", fill_type="solid")
+            ws["A2"].alignment = Alignment(horizontal="center", vertical="center")
+            ws.row_dimensions[2].height = 20
+
+            headers = ["MES"] + [f"D{d}" for d in range(1, 32)]
+            ws.append([])
+            ws.append(headers)
+            ws.row_dimensions[4].height = 22
+
+            ws.column_dimensions["A"].width = 16
+            for d in range(1, 32):
+                c_let = get_column_letter(d + 1)
+                ws.column_dimensions[c_let].width = 4.8
+
+            for c_idx in range(1, 33):
+                c = ws.cell(row=4, column=c_idx)
+                c.font = Font(name="Calibri", size=9, bold=True, color="FFFFFF")
+                c.fill = PatternFill(start_color="1E293B", end_color="1E293B", fill_type="solid")
+                c.alignment = Alignment(horizontal="center", vertical="center")
+                c.border = thin_border
+
+            month_names_dict = {
+                '01': ('ENERO', 31), '02': ('FEBRERO', 29), '03': ('MARZO', 31),
+                '04': ('ABRIL', 30), '05': ('MAYO', 31), '06': ('JUNIO', 30),
+                '07': ('JULIO', 31), '08': ('AGOSTO', 31), '09': ('SEPTIEMBRE', 30),
+                '10': ('OCTUBRE', 31), '11': ('NOVIEMBRE', 30), '12': ('DICIEMBRE', 31)
+            }
+            date_to_rid = {r[1]: r[0] for r in reports_db}
+            rep_year = reports_db[0][1].split('-')[0] if reports_db else str(datetime.now().year)
+            active_m_nums = sorted(list(set(r[1].split('-')[1] for r in reports_db))) if reports_db else [f"{m:02d}" for m in range(1, 13)]
+
+            cur_row = 5
+            for m_num in active_m_nums:
+                m_name, max_days = month_names_dict.get(m_num, (f"MES {m_num}", 31))
+                ws.cell(row=cur_row, column=1, value=m_name)
+                c_mes = ws.cell(row=cur_row, column=1)
+                c_mes.font = Font(name="Calibri", size=9.5, bold=True, color="F1F5F9")
+                c_mes.fill = PatternFill(start_color="0F172A", end_color="0F172A", fill_type="solid")
+                c_mes.alignment = Alignment(horizontal="left", vertical="center", indent=1)
+                c_mes.border = thin_border
+                ws.row_dimensions[cur_row].height = 22
+
+                for d in range(1, 32):
+                    c = ws.cell(row=cur_row, column=d + 1)
+                    c.border = thin_border
+                    c.alignment = Alignment(horizontal="center", vertical="center")
+
+                    if d > max_days:
+                        c.value = ""
+                        c.fill = PatternFill(start_color="0B1329", end_color="0B1329", fill_type="solid")
+                        continue
+
+                    dt_str = f"{rep_year}-{m_num}-{d:02d}"
+                    is_ret = (p_ret and dt_str >= p_ret)
+                    if is_ret:
+                        val = "R" if use_letras else "RETIRADO"
+                    elif dt_str not in date_to_rid:
+                        val = "-"
                     else:
-                        raw_nov = reports_dict.get(r_id, "N/A")
+                        rid = date_to_rid[dt_str]
+                        nov = rep_dict.get(rid, "N/A")
                         if use_letras:
-                            if raw_nov in DISPONIBLE_STATUSES:
-                                cell_str = "D"
-                            elif raw_nov == "N/A":
-                                cell_str = "-"
-                            else:
-                                cell_str = "N"
+                            val = "D" if nov in DISPONIBLE_STATUSES else ("-" if nov == "N/A" else "N")
                         else:
-                            cell_str = raw_nov
-                    row_data.append(cell_str)
-                ws.append(row_data)
-                
-        for r_idx in range(4, ws.max_row + 1):
-            ws.row_dimensions[r_idx].height = 24 if not use_letras else 20
-            for c_idx in range(1, num_cols + 1):
-                cell = ws.cell(row=r_idx, column=c_idx)
-                cell.font = normal_font
-                cell.border = thin_border
-                if c_idx >= 3:
-                    cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
-                    val = str(cell.value)
-                    if val in DISPONIBLE_STATUSES or val == "D":
-                        cell.fill = PatternFill(start_color="D1FAE5", end_color="D1FAE5", fill_type="solid")
-                        cell.font = Font(name="Calibri", size=9, color="065F46", bold=True)
-                    elif val in ("N/A", "-"):
-                        cell.fill = PatternFill(start_color="F3F4F6", end_color="F3F4F6", fill_type="solid")
-                        cell.font = Font(name="Calibri", size=9, color="6B7280")
-                    elif val in ("RETIRADO", "R"):
-                        cell.fill = PatternFill(start_color="FEE2E2", end_color="FEE2E2", fill_type="solid")
-                        cell.font = Font(name="Calibri", size=9, color="DC2626", bold=True)
+                            val = nov
+                    
+                    c.value = val
+
+                    if is_colores:
+                        if val in ("D",) or val in DISPONIBLE_STATUSES:
+                            c.fill = PatternFill(start_color="10B981", end_color="10B981", fill_type="solid")
+                            c.font = Font(name="Calibri", size=9.5, bold=True, color="FFFFFF")
+                        elif val in ("N",) or (val not in ("-", "N/A", "R", "RETIRADO") and val not in DISPONIBLE_STATUSES):
+                            c.fill = PatternFill(start_color="F59E0B", end_color="F59E0B", fill_type="solid")
+                            c.font = Font(name="Calibri", size=9.5, bold=True, color="FFFFFF")
+                        elif val in ("R", "RETIRADO"):
+                            c.fill = PatternFill(start_color="EF4444", end_color="EF4444", fill_type="solid")
+                            c.font = Font(name="Calibri", size=9.5, bold=True, color="FFFFFF")
+                        else:
+                            c.fill = PatternFill(start_color="1E293B", end_color="1E293B", fill_type="solid")
+                            c.font = Font(name="Calibri", size=9.5, bold=False, color="64748B")
                     else:
-                        cell.fill = PatternFill(start_color="FFE4E6", end_color="FFE4E6", fill_type="solid")
-                        cell.font = Font(name="Calibri", size=8 if not use_letras else 9, color="991B1B", bold=True)
-                        
-        filename = f"consolidado_personal_{fecha if fecha else (mes if mes else 'TODOS')}.xlsx"
+                        if val in ("D",) or val in DISPONIBLE_STATUSES:
+                            c.fill = PatternFill(start_color="D1FAE5", end_color="D1FAE5", fill_type="solid")
+                            c.font = Font(name="Calibri", size=9, bold=True, color="065F46")
+                        elif val in ("-", "N/A"):
+                            c.fill = PatternFill(start_color="F3F4F6", end_color="F3F4F6", fill_type="solid")
+                            c.font = Font(name="Calibri", size=9, bold=False, color="6B7280")
+                        elif val in ("R", "RETIRADO"):
+                            c.fill = PatternFill(start_color="FEE2E2", end_color="FEE2E2", fill_type="solid")
+                            c.font = Font(name="Calibri", size=9, bold=True, color="DC2626")
+                        else:
+                            c.fill = PatternFill(start_color="FFE4E6", end_color="FFE4E6", fill_type="solid")
+                            c.font = Font(name="Calibri", size=9, bold=True, color="991B1B")
+
+                cur_row += 1
+
+            filename = f"matriz_heatmap_anual_{cedula}.xlsx"
+
+        else:
+            ws.title = "Consolidado Completo" if is_all_months else f"Consolidado {mes if mes else ''}"
+            
+            num_cols = 2 + len(report_dates)
+            col_letter = get_column_letter(num_cols)
+            
+            ws.merge_cells(f"A1:{col_letter}1")
+            if cedula:
+                title_text = f"BIMEJ12 — HISTORIAL DE PERSONAL (CC {cedula})"
+            else:
+                title_text = "BIMEJ12 — CONSOLIDADO DIARIO DE PERSONAL"
+                
+            if fecha:
+                title_text += f" — DÍA {fecha}"
+            elif not is_all_months:
+                title_text += f" — {mes.upper()}"
+            else:
+                title_text += " — TODOS LOS MESES"
+                
+            ws["A1"] = title_text
+            ws["A1"].font = title_font
+            ws["A1"].fill = title_fill
+            ws["A1"].alignment = Alignment(horizontal="center", vertical="center")
+            ws.row_dimensions[1].height = 40
+            
+            if fecha:
+                headers = ["CÉDULA", "INTEGRANTE", f"FECHA ({fecha})"]
+            elif is_all_months:
+                headers = ["CÉDULA", "INTEGRANTE"] + [f"{d.split('-')[2]}/{d.split('-')[1]}" for d in report_dates]
+            else:
+                headers = ["CÉDULA", "INTEGRANTE"] + [f"Día {d.split('-')[2]}" for d in report_dates]
+                
+            ws.append([])
+            ws.append(headers)
+            ws.row_dimensions[3].height = 25
+            
+            for col_idx in range(1, num_cols + 1):
+                cell = ws.cell(row=3, column=col_idx)
+                cell.font = header_font
+                cell.fill = header_fill
+                cell.alignment = Alignment(horizontal="center", vertical="center")
+                cell.border = thin_border
+                
+            if report_ids:
+                rep_placeholders = ",".join("%s" for _ in report_ids)
+                query = f"""
+                    SELECT p.cedula, p.nombre, p.fecha_retiro, r.fecha as report_fecha, rp.id_reporte, sn.nombre as subnovedad
+                    FROM REGISTRO_PERSONAL rp
+                    JOIN PERSONAL p ON rp.id_personal = p.id
+                    JOIN REPORTES r ON rp.id_reporte = r.id
+                    JOIN SUB_NOVEDADES sn ON rp.id_sub_novedad = sn.id
+                    WHERE rp.id_reporte IN ({rep_placeholders})
+                """
+                params = list(report_ids)
+                if cedula:
+                    query += " AND p.cedula = %s"
+                    params.append(cedula)
+                if subnovedad:
+                    query += " AND UPPER(sn.nombre) LIKE UPPER(%s)"
+                    params.append(f"%{subnovedad}%")
+                query += " ORDER BY p.nombre ASC;"
+                
+                cursor.execute(query, params)
+                
+                person_map = {}
+                for row in cursor.fetchall():
+                    key = (row[0], row[1], row[2])
+                    if key not in person_map:
+                        person_map[key] = {}
+                    person_map[key][row[4]] = row[5]
+                    
+                for (cedula_val, nombre_val, f_retiro), reports_dict in sorted(person_map.items(), key=lambda x: x[0][1]):
+                    row_data = [cedula_val, nombre_val]
+                    for r_id, r_fecha in reports_db:
+                        is_retired = False
+                        if f_retiro and r_fecha >= f_retiro:
+                            is_retired = True
+                            
+                        if is_retired:
+                            cell_str = "R" if use_letras else "RETIRADO"
+                        else:
+                            raw_nov = reports_dict.get(r_id, "N/A")
+                            if use_letras:
+                                if raw_nov in DISPONIBLE_STATUSES:
+                                    cell_str = "D"
+                                elif raw_nov == "N/A":
+                                    cell_str = "-"
+                                else:
+                                    cell_str = "N"
+                            else:
+                                cell_str = raw_nov
+                        row_data.append(cell_str)
+                    ws.append(row_data)
+                    
+            for r_idx in range(4, ws.max_row + 1):
+                ws.row_dimensions[r_idx].height = 24 if not use_letras else 20
+                for c_idx in range(1, num_cols + 1):
+                    cell = ws.cell(row=r_idx, column=c_idx)
+                    cell.font = normal_font
+                    cell.border = thin_border
+                    if c_idx >= 3:
+                        cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+                        val = str(cell.value)
+                        if is_colores:
+                            if val in DISPONIBLE_STATUSES or val == "D":
+                                cell.fill = PatternFill(start_color="10B981", end_color="10B981", fill_type="solid")
+                                cell.font = Font(name="Calibri", size=9, color="FFFFFF", bold=True)
+                            elif val in ("N/A", "-"):
+                                cell.fill = PatternFill(start_color="1E293B", end_color="1E293B", fill_type="solid")
+                                cell.font = Font(name="Calibri", size=9, color="64748B")
+                            elif val in ("RETIRADO", "R"):
+                                cell.fill = PatternFill(start_color="EF4444", end_color="EF4444", fill_type="solid")
+                                cell.font = Font(name="Calibri", size=9, color="FFFFFF", bold=True)
+                            else:
+                                cell.fill = PatternFill(start_color="F59E0B", end_color="F59E0B", fill_type="solid")
+                                cell.font = Font(name="Calibri", size=9, color="FFFFFF", bold=True)
+                        else:
+                            if val in DISPONIBLE_STATUSES or val == "D":
+                                cell.fill = PatternFill(start_color="D1FAE5", end_color="D1FAE5", fill_type="solid")
+                                cell.font = Font(name="Calibri", size=9, color="065F46", bold=True)
+                            elif val in ("N/A", "-"):
+                                cell.fill = PatternFill(start_color="F3F4F6", end_color="F3F4F6", fill_type="solid")
+                                cell.font = Font(name="Calibri", size=9, color="6B7280")
+                            elif val in ("RETIRADO", "R"):
+                                cell.fill = PatternFill(start_color="FEE2E2", end_color="FEE2E2", fill_type="solid")
+                                cell.font = Font(name="Calibri", size=9, color="DC2626", bold=True)
+                            else:
+                                cell.fill = PatternFill(start_color="FFE4E6", end_color="FFE4E6", fill_type="solid")
+                                cell.font = Font(name="Calibri", size=8 if not use_letras else 9, color="991B1B", bold=True)
+
+            if use_letras or is_colores:
+                for c_idx in range(3, num_cols + 1):
+                    ws.column_dimensions[get_column_letter(c_idx)].width = 4.8
+                            
+            filename = f"consolidado_personal_{fecha if fecha else (mes if mes else 'TODOS')}.xlsx"
 
 
         
@@ -1397,7 +1598,8 @@ def exportar_pdf(
         
     elif tipo == "consolidado_mensual":
         is_all_months = not mes or mes.upper() == "TODOS" or mes == ""
-        use_letras = (modo == "letras")
+        is_colores = (modo == "colores")
+        use_letras = (modo in ("letras", "colores"))
         
         doc_layout = landscape(letter)
         doc = SimpleDocTemplate(
@@ -1416,16 +1618,23 @@ def exportar_pdf(
             cursor.execute("SELECT id, fecha FROM REPORTES WHERE fecha = %s;", (fecha,))
             reports_db = cursor.fetchall()
         elif is_all_months:
-            pdf_title = "BIMEJ12 — CONSOLIDADO DIARIO DE PERSONAL — TODOS LOS MESES"
-            story.append(Paragraph(pdf_title, title_style))
-            story.append(Paragraph(f"Generado: {datetime.now().strftime('%Y-%m-%d %H:%M')} | D = Disponible, N = Novedad, R = Retirado, - = Sin Registro", subtitle_style))
             cursor.execute("SELECT id, fecha FROM REPORTES ORDER BY fecha ASC;")
             reports_db = cursor.fetchall()
+            if not cedula:
+                pdf_title = "BIMEJ12 — CONSOLIDADO DIARIO DE PERSONAL — TODOS LOS MESES"
+                story.append(Paragraph(pdf_title, title_style))
+                if is_colores:
+                    story.append(Paragraph(f"Generado: {datetime.now().strftime('%Y-%m-%d %H:%M')} | <font color='#10B981'><b>■ [D] Verde = Disponible</b></font> &nbsp;|&nbsp; <font color='#F59E0B'><b>■ [N] Ámbar = Novedad</b></font> &nbsp;|&nbsp; <font color='#EF4444'><b>■ [R] Rojo = Retirado</b></font> &nbsp;|&nbsp; <font color='#64748B'><b>■ [-] Oscuro = Sin Registro</b></font>", subtitle_style))
+                else:
+                    story.append(Paragraph(f"Generado: {datetime.now().strftime('%Y-%m-%d %H:%M')} | D = Disponible, N = Novedad, R = Retirado, - = Sin Registro", subtitle_style))
         else:
             pdf_title = f"BIMEJ12 — CONSOLIDADO DIARIO DE PERSONAL — {mes.upper()}"
             story.append(Paragraph(pdf_title, title_style))
-            mode_desc = "D = Disponible, N = Novedad, R = Retirado" if use_letras else "Detalle Completo de Novedades"
-            story.append(Paragraph(f"Generado: {datetime.now().strftime('%Y-%m-%d %H:%M')} | {mode_desc}", subtitle_style))
+            if is_colores:
+                legend_txt = "<font color='#10B981'><b>■ [D] Verde = Disponible</b></font> &nbsp;|&nbsp; <font color='#F59E0B'><b>■ [N] Ámbar = Novedad</b></font> &nbsp;|&nbsp; <font color='#EF4444'><b>■ [R] Rojo = Retirado</b></font> &nbsp;|&nbsp; <font color='#64748B'><b>■ [-] Oscuro = Sin Registro</b></font>"
+            else:
+                legend_txt = "D = Disponible, N = Novedad, R = Retirado, - = Sin Registro" if use_letras else "Detalle Completo de Novedades"
+            story.append(Paragraph(f"Generado: {datetime.now().strftime('%Y-%m-%d %H:%M')} | {legend_txt}", subtitle_style))
             
             dates = get_month_dates(mes)
             if not dates:
@@ -1435,13 +1644,16 @@ def exportar_pdf(
             reports_db = cursor.fetchall()
 
         report_ids = [r[0] for r in reports_db]
-        print(f"[PDF DEBUG] Se encontraron {len(reports_db)} reportes en BD (report_ids: {report_ids[:5]}...)")
         
         # Styles for cells (Unique names per request)
         p_disp_style = ParagraphStyle(f'PDispG_{uid}', parent=td_style, fontSize=5 if not use_letras else 4.5, leading=6, textColor=colors.HexColor('#065F46'), fontName='Helvetica-Bold', alignment=1)
         p_nov_style = ParagraphStyle(f'PNovG_{uid}', parent=td_style, fontSize=5 if not use_letras else 4.5, leading=6, textColor=colors.HexColor('#92400E'), fontName='Helvetica-Bold', alignment=1)
         p_na_style = ParagraphStyle(f'PNAG_{uid}', parent=td_style, fontSize=5, leading=6, textColor=colors.HexColor('#9CA3AF'), alignment=1)
         p_ret_style = ParagraphStyle(f'PRetG_{uid}', parent=td_style, fontSize=4.5, leading=6, textColor=colors.HexColor('#7F1D1D'), fontName='Helvetica-Bold', alignment=1)
+
+        p_white_bold = ParagraphStyle(f'PWhiteB_{uid}', parent=td_style, fontSize=6 if is_all_months and cedula else 4.5, leading=7, textColor=colors.white, fontName='Helvetica-Bold', alignment=1)
+        p_slate_muted = ParagraphStyle(f'PSlateM_{uid}', parent=td_style, fontSize=6 if is_all_months and cedula else 4.5, leading=7, textColor=colors.HexColor('#94A3B8'), alignment=1)
+        p_month_style = ParagraphStyle(f'PMonthB_{uid}', parent=td_style, fontSize=6.5, leading=8, textColor=colors.white, fontName='Helvetica-Bold', alignment=0)
         month_title_style = ParagraphStyle(f'MonthTitle_{uid}', parent=subtitle_style, fontSize=11, leading=14, textColor=colors.HexColor('#06B6D4'), fontName='Helvetica-Bold', spaceBefore=10, spaceAfter=5)
 
         if report_ids:
@@ -1465,7 +1677,6 @@ def exportar_pdf(
             
             cursor.execute(query, params)
             rows = cursor.fetchall()
-            print(f"[PDF DEBUG] Filas recuperadas para REGISTRO_PERSONAL: {len(rows)}")
             
             person_map = {}
             for row in rows:
@@ -1473,88 +1684,206 @@ def exportar_pdf(
                 if key not in person_map:
                     person_map[key] = {}
                 person_map[key][row[4]] = row[5]
-            print(f"[PDF DEBUG] Person map construido con {len(person_map)} personas.")
-                
-            from collections import defaultdict
-            months_grouped = defaultdict(list)
-            for r in reports_db:
-                m_num = r[1].split('-')[1]
-                months_grouped[m_num].append(r)
-                
+
             month_names_dict = {
-                '01': 'ENERO', '02': 'FEBRERO', '03': 'MARZO', '04': 'ABRIL',
-                ('05'): 'MAYO', '06': 'JUNIO', '07': 'JULIO', '08': 'AGOSTO',
-                '09': 'SEPTIEMBRE', '10': 'OCTUBRE', '11': 'NOVIEMBRE', '12': 'DICIEMBRE'
+                '01': ('ENERO', 31), '02': ('FEBRERO', 29), '03': ('MARZO', 31), '04': ('ABRIL', 30),
+                '05': ('MAYO', 31), '06': ('JUNIO', 30), '07': ('JULIO', 31), '08': ('AGOSTO', 31),
+                '09': ('SEPTIEMBRE', 30), '10': ('OCTUBRE', 31), '11': ('NOVIEMBRE', 30), '12': ('DICIEMBRE', 31)
             }
 
-            for m_num, m_reports in sorted(months_grouped.items()):
-                m_name = month_names_dict.get(m_num, f"MES {m_num}")
-                if is_all_months and not fecha:
-                    story.append(Paragraph(f"MES DE {m_name}", month_title_style))
-                
-                m_dates = [r[1] for r in m_reports]
-                headers = [
-                    Paragraph("CÉDULA", th_style),
-                    Paragraph("INTEGRANTE", th_style)
-                ] + [Paragraph(d.split('-')[2], th_style) for d in m_dates]
-                
+            if cedula and is_all_months:
+                # PDF: Matriz Heatmap Anual para Personal Individual (Mes x D01..D31)
+                person_rows = list(person_map.items())
+                p_name = person_rows[0][0][1] if person_rows else ""
+                f_ret = person_rows[0][0][2] if person_rows else None
+                rep_dict = person_rows[0][1] if person_rows else {}
+                rep_year = reports_db[0][1].split('-')[0] if reports_db else str(datetime.now().year)
+
+                story.append(Paragraph("BIMEJ12 — MATRIZ HEATMAP ANUAL COMPLETA", title_style))
+                story.append(Paragraph(f"<b>Cédula:</b> {cedula} &nbsp;|&nbsp; <b>Integrante:</b> {p_name} &nbsp;|&nbsp; <b>Año:</b> {rep_year} &nbsp;|&nbsp; Generado: {datetime.now().strftime('%Y-%m-%d %H:%M')}", subtitle_style))
+                if is_colores:
+                    story.append(Paragraph("<font color='#10B981'><b>■ [D] Verde = Disponible</b></font> &nbsp;&nbsp;|&nbsp;&nbsp; <font color='#F59E0B'><b>■ [N] Ámbar = Novedad</b></font> &nbsp;&nbsp;|&nbsp;&nbsp; <font color='#EF4444'><b>■ [R] Rojo = Retirado</b></font> &nbsp;&nbsp;|&nbsp;&nbsp; <font color='#64748B'><b>■ [-] Oscuro = Sin Registro</b></font>", subtitle_style))
+                else:
+                    story.append(Paragraph("D = Disponible, N = Novedad, R = Retirado, - = Sin Registro", subtitle_style))
+                story.append(Spacer(1, 10))
+
+                headers = [Paragraph("MES", th_style)] + [Paragraph(f"D{d}", th_style) for d in range(1, 32)]
                 data = [headers]
-                for (c_num, name, f_retiro), reports_dict in sorted(person_map.items(), key=lambda x: x[0][1]):
-                    row_data = [
-                        Paragraph(str(c_num), td_style),
-                        Paragraph(name, td_style)
-                    ]
-                    for r_id, r_fecha in m_reports:
-                        is_retired = False
-                        if f_retiro and r_fecha >= f_retiro:
-                            is_retired = True
-                            
-                        if is_retired:
-                            row_data.append(Paragraph("R" if use_letras else "RETIRADO", p_ret_style))
-                        else:
-                            raw_nov = reports_dict.get(r_id, "N/A")
-                            if use_letras:
-                                if raw_nov in DISPONIBLE_STATUSES:
-                                    row_data.append(Paragraph("D", p_disp_style))
-                                elif raw_nov == "N/A":
-                                    row_data.append(Paragraph("-", p_na_style))
-                                else:
-                                    row_data.append(Paragraph("N", p_nov_style))
-                            else:
-                                if raw_nov in DISPONIBLE_STATUSES:
-                                    row_data.append(Paragraph(raw_nov, p_disp_style))
-                                elif raw_nov == "N/A":
-                                    row_data.append(Paragraph("-", p_na_style))
-                                else:
-                                    row_data.append(Paragraph(raw_nov, p_nov_style))
-                    data.append(row_data)
-                    
-                num_days_col = len(m_dates)
-                cedula_width = 45
-                min_name_width = 110
-                avail_days_width = 720 - cedula_width - min_name_width
-                day_col_width = min(max(int(avail_days_width / max(num_days_col, 1)), 12), 120)
-                total_days_width = day_col_width * num_days_col
-                name_width = 720 - cedula_width - total_days_width
-                col_widths = [cedula_width, name_width] + [day_col_width for _ in m_dates]
-                
-                t = Table(data, colWidths=col_widths, repeatRows=1)
-                t.setStyle(TableStyle([
-                    ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1E293B')),
-                    ('ALIGN', (0,0), (1,-1), 'LEFT'),
-                    ('ALIGN', (2,0), (-1,-1), 'CENTER'),
+                table_styles = [
+                    ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#0F172A')),
+                    ('BACKGROUND', (0,1), (0,-1), colors.HexColor('#0F172A')),
+                    ('ALIGN', (0,0), (0,-1), 'LEFT'),
+                    ('ALIGN', (1,0), (-1,-1), 'CENTER'),
                     ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-                    ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')),
-                    ('TOPPADDING', (0,0), (-1,-1), 1.5 if not use_letras else 2),
-                    ('BOTTOMPADDING', (0,0), (-1,-1), 1.5 if not use_letras else 2),
+                    ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#334155')),
+                    ('TOPPADDING', (0,0), (-1,-1), 2),
+                    ('BOTTOMPADDING', (0,0), (-1,-1), 2),
                     ('LEFTPADDING', (0,0), (-1,-1), 1),
                     ('RIGHTPADDING', (0,0), (-1,-1), 1),
-                    ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#F8FAFC')])
-                ]))
+                ]
+
+                date_to_rid = {r[1]: r[0] for r in reports_db}
+                active_m_nums = sorted(list(set(r[1].split('-')[1] for r in reports_db))) if reports_db else [f"{m:02d}" for m in range(1, 13)]
+
+                r_idx = 1
+                for m_num in active_m_nums:
+                    m_name, max_days = month_names_dict.get(m_num, (f"MES {m_num}", 31))
+                    row_data = [Paragraph(m_name, p_month_style)]
+                    for d in range(1, 32):
+                        c_idx = d
+                        if d > max_days:
+                            row_data.append(Paragraph("", td_style))
+                            table_styles.append(('BACKGROUND', (c_idx, r_idx), (c_idx, r_idx), colors.HexColor('#0B1329')))
+                            continue
+
+                        dt_str = f"{rep_year}-{m_num}-{d:02d}"
+                        is_ret = (f_ret and dt_str >= f_ret)
+                        if is_ret:
+                            val = "R" if use_letras else "RETIRADO"
+                        elif dt_str not in date_to_rid:
+                            val = "-"
+                        else:
+                            rid = date_to_rid[dt_str]
+                            nov = rep_dict.get(rid, "N/A")
+                            if use_letras:
+                                val = "D" if nov in DISPONIBLE_STATUSES else ("-" if nov == "N/A" else "N")
+                            else:
+                                val = nov
+
+                        if is_colores:
+                            if val in ("D",) or val in DISPONIBLE_STATUSES:
+                                row_data.append(Paragraph("D", p_white_bold))
+                                table_styles.append(('BACKGROUND', (c_idx, r_idx), (c_idx, r_idx), colors.HexColor('#10B981')))
+                            elif val in ("N",) or (val not in ("-", "N/A", "R", "RETIRADO") and val not in DISPONIBLE_STATUSES):
+                                row_data.append(Paragraph("N", p_white_bold))
+                                table_styles.append(('BACKGROUND', (c_idx, r_idx), (c_idx, r_idx), colors.HexColor('#F59E0B')))
+                            elif val in ("R", "RETIRADO"):
+                                row_data.append(Paragraph("R", p_white_bold))
+                                table_styles.append(('BACKGROUND', (c_idx, r_idx), (c_idx, r_idx), colors.HexColor('#EF4444')))
+                            else:
+                                row_data.append(Paragraph("-", p_slate_muted))
+                                table_styles.append(('BACKGROUND', (c_idx, r_idx), (c_idx, r_idx), colors.HexColor('#1E293B')))
+                        else:
+                            if val in ("D",) or val in DISPONIBLE_STATUSES:
+                                row_data.append(Paragraph("D", p_disp_style))
+                                table_styles.append(('BACKGROUND', (c_idx, r_idx), (c_idx, r_idx), colors.HexColor('#D1FAE5')))
+                            elif val in ("N",) or (val not in ("-", "N/A", "R", "RETIRADO") and val not in DISPONIBLE_STATUSES):
+                                row_data.append(Paragraph("N", p_nov_style))
+                                table_styles.append(('BACKGROUND', (c_idx, r_idx), (c_idx, r_idx), colors.HexColor('#FFE4E6')))
+                            elif val in ("R", "RETIRADO"):
+                                row_data.append(Paragraph("R", p_ret_style))
+                                table_styles.append(('BACKGROUND', (c_idx, r_idx), (c_idx, r_idx), colors.HexColor('#FEE2E2')))
+                            else:
+                                row_data.append(Paragraph("-", p_na_style))
+                                table_styles.append(('BACKGROUND', (c_idx, r_idx), (c_idx, r_idx), colors.HexColor('#F3F4F6')))
+
+                    data.append(row_data)
+                    r_idx += 1
+
+                col_widths = [60] + [21 for _ in range(31)]
+                t = Table(data, colWidths=col_widths, repeatRows=1)
+                t.setStyle(TableStyle(table_styles))
                 story.append(t)
                 story.append(Spacer(1, 10))
-                
-        filename = f"consolidado_personal_{fecha if fecha else (mes if mes else 'TODOS')}.pdf"
+                filename = f"matriz_heatmap_anual_{cedula}.pdf"
+
+            else:
+                from collections import defaultdict
+                months_grouped = defaultdict(list)
+                for r in reports_db:
+                    m_num = r[1].split('-')[1]
+                    months_grouped[m_num].append(r)
+
+                for m_num, m_reports in sorted(months_grouped.items()):
+                    m_name = month_names_dict.get(m_num, (f"MES {m_num}", 31))[0]
+                    if is_all_months and not fecha:
+                        story.append(Paragraph(f"MES DE {m_name}", month_title_style))
+                    
+                    m_dates = [r[1] for r in m_reports]
+                    headers = [
+                        Paragraph("CÉDULA", th_style),
+                        Paragraph("INTEGRANTE", th_style)
+                    ] + [Paragraph(d.split('-')[2], th_style) for d in m_dates]
+                    
+                    data = [headers]
+                    table_styles = [
+                        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#0F172A' if is_colores else '#1E293B')),
+                        ('ALIGN', (0,0), (1,-1), 'LEFT'),
+                        ('ALIGN', (2,0), (-1,-1), 'CENTER'),
+                        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+                        ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#334155' if is_colores else '#CBD5E1')),
+                        ('TOPPADDING', (0,0), (-1,-1), 1.5 if not use_letras else 2),
+                        ('BOTTOMPADDING', (0,0), (-1,-1), 1.5 if not use_letras else 2),
+                        ('LEFTPADDING', (0,0), (-1,-1), 1),
+                        ('RIGHTPADDING', (0,0), (-1,-1), 1),
+                    ]
+                    if not is_colores:
+                        table_styles.append(('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#F8FAFC')]))
+
+                    r_idx = 1
+                    for (c_num, name, f_retiro), reports_dict in sorted(person_map.items(), key=lambda x: x[0][1]):
+                        row_data = [
+                            Paragraph(str(c_num), td_style),
+                            Paragraph(name, td_style)
+                        ]
+                        for d_idx, (r_id, r_fecha) in enumerate(m_reports):
+                            c_idx = 2 + d_idx
+                            is_retired = False
+                            if f_retiro and r_fecha >= f_retiro:
+                                is_retired = True
+                                
+                            if is_retired:
+                                if is_colores:
+                                    row_data.append(Paragraph("R", p_white_bold))
+                                    table_styles.append(('BACKGROUND', (c_idx, r_idx), (c_idx, r_idx), colors.HexColor('#EF4444')))
+                                else:
+                                    row_data.append(Paragraph("R" if use_letras else "RETIRADO", p_ret_style))
+                            else:
+                                raw_nov = reports_dict.get(r_id, "N/A")
+                                if use_letras:
+                                    if raw_nov in DISPONIBLE_STATUSES:
+                                        if is_colores:
+                                            row_data.append(Paragraph("D", p_white_bold))
+                                            table_styles.append(('BACKGROUND', (c_idx, r_idx), (c_idx, r_idx), colors.HexColor('#10B981')))
+                                        else:
+                                            row_data.append(Paragraph("D", p_disp_style))
+                                    elif raw_nov == "N/A":
+                                        if is_colores:
+                                            row_data.append(Paragraph("-", p_slate_muted))
+                                            table_styles.append(('BACKGROUND', (c_idx, r_idx), (c_idx, r_idx), colors.HexColor('#1E293B')))
+                                        else:
+                                            row_data.append(Paragraph("-", p_na_style))
+                                    else:
+                                        if is_colores:
+                                            row_data.append(Paragraph("N", p_white_bold))
+                                            table_styles.append(('BACKGROUND', (c_idx, r_idx), (c_idx, r_idx), colors.HexColor('#F59E0B')))
+                                        else:
+                                            row_data.append(Paragraph("N", p_nov_style))
+                                else:
+                                    if raw_nov in DISPONIBLE_STATUSES:
+                                        row_data.append(Paragraph(raw_nov, p_disp_style))
+                                    elif raw_nov == "N/A":
+                                        row_data.append(Paragraph("-", p_na_style))
+                                    else:
+                                        row_data.append(Paragraph(raw_nov, p_nov_style))
+                        data.append(row_data)
+                        r_idx += 1
+                        
+                    num_days_col = len(m_dates)
+                    cedula_width = 45
+                    min_name_width = 110
+                    avail_days_width = 720 - cedula_width - min_name_width
+                    day_col_width = min(max(int(avail_days_width / max(num_days_col, 1)), 12), 120)
+                    total_days_width = day_col_width * num_days_col
+                    name_width = 720 - cedula_width - total_days_width
+                    col_widths = [cedula_width, name_width] + [day_col_width for _ in m_dates]
+                    
+                    t = Table(data, colWidths=col_widths, repeatRows=1)
+                    t.setStyle(TableStyle(table_styles))
+                    story.append(t)
+                    story.append(Spacer(1, 10))
+                    
+                filename = f"consolidado_personal_{fecha if fecha else (mes if mes else 'TODOS')}.pdf"
 
 
 

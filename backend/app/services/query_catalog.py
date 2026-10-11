@@ -1100,15 +1100,18 @@ def match_report_request(
         desc_personal = f"Relación nominal de novedades{filtro_subnov_txt}. {'Aparecerá sin registros al no tener ausentismos.' if sin_novedades else ''}"
         desc_agil = f"Resumen ejecutivo de ausentismos. {'Aparecerá vacío al estar 100% disponible.' if sin_novedades else ''}"
 
+        modo_hm = "colores" if any(k in msg for k in ["color", "colores", "visual"]) else "letras"
+        tit_hm = f"Matriz Heatmap Visual por Colores{filtro_subnov_txt}" if modo_hm == "colores" else f"Matriz Heatmap (Consolidado Día a Día){filtro_subnov_txt}"
+
         opciones = [
             {
                 "id": "heatmap",
-                "titulo": f"Matriz Heatmap (Consolidado Día a Día){filtro_subnov_txt}",
+                "titulo": tit_hm,
                 "descripcion": desc_heatmap,
                 "badge": badge_heatmap,
                 "tipo_export": "consolidado_mensual",
-                "url_excel": f"/api/exportar/excel?tipo=consolidado_mensual&cedula={cedula_val}{mes_query}{subnov_query}&modo=letras",
-                "url_pdf": f"/api/exportar/pdf?tipo=consolidado_mensual&cedula={cedula_val}{mes_query}{subnov_query}&modo=letras"
+                "url_excel": f"/api/exportar/excel?tipo=consolidado_mensual&cedula={cedula_val}{mes_query}{subnov_query}&modo={modo_hm}",
+                "url_pdf": f"/api/exportar/pdf?tipo=consolidado_mensual&cedula={cedula_val}{mes_query}{subnov_query}&modo={modo_hm}"
             },
             {
                 "id": "personal",
@@ -1192,8 +1195,8 @@ def match_report_request(
             "formato_solicitado": formato,
             "titulo": f"Reportes Oficiales: {nom_mil}{filtro_subnov_txt}",
             "descripcion": f"Personal identificado: {nom_mil} (C.C. {cedula_val}){periodo_txt}{filtro_subnov_txt}. Seleccione la modalidad de reporte que desea generar:",
-            "url_excel": f"/api/exportar/excel?tipo=consolidado_mensual&cedula={cedula_val}{mes_query}{subnov_query}&modo=letras",
-            "url_pdf": f"/api/exportar/pdf?tipo=consolidado_mensual&cedula={cedula_val}{mes_query}{subnov_query}&modo=letras",
+            "url_excel": f"/api/exportar/excel?tipo=consolidado_mensual&cedula={cedula_val}{mes_query}{subnov_query}&modo={modo_hm}",
+            "url_pdf": f"/api/exportar/pdf?tipo=consolidado_mensual&cedula={cedula_val}{mes_query}{subnov_query}&modo={modo_hm}",
             "parametros": {"cedula": cedula_val, "mes": m_nombre or "TODOS", "subnovedad": subnov_val},
             "active_militar": detected_militar,
             "opciones": opciones,
@@ -1240,7 +1243,12 @@ def match_report_request(
 
     # 6. Consolidado Mensual (consolidado_mensual) - Matriz Heatmap
     mes_val = _extract_month_name(msg) or "TODOS"
-    modo_matriz = "completo" if any(k in msg for k in ["completo", "nombre", "subnovedad"]) else "letras"
+    if any(k in msg for k in ["color", "colores", "visual"]):
+        modo_matriz = "colores"
+    elif any(k in msg for k in ["completo", "nombre", "subnovedad"]):
+        modo_matriz = "completo"
+    else:
+        modo_matriz = "letras"
     titulo_mes = f"Año Completo {current_year}" if mes_val == "TODOS" else mes_val
     return {
         "tipo": "consolidado_mensual",

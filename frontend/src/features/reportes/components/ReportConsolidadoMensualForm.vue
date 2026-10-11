@@ -37,6 +37,7 @@
           >
             <option value="letras">Abreviado (D / N / R)</option>
             <option value="completo">Nombre de Subnovedad</option>
+            <option value="colores">Por Colores (Heatmap Visual)</option>
           </select>
         </div>
       </div>
@@ -84,7 +85,7 @@ const props = defineProps<{
 }>()
 
 const selectedMonth = ref(props.defaultMonth || 'MAYO')
-const selectedMode = ref<'letras' | 'completo'>('letras')
+const selectedMode = ref<'letras' | 'completo' | 'colores'>('letras')
 const reportStore = useReportDownloadStore()
 
 watch(() => props.defaultMonth, (newMonth) => {

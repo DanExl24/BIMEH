@@ -87,11 +87,11 @@
           <label class="text-xs uppercase font-bold text-slate-300">Modo de Celdas:</label>
           <select 
             v-model="mode"
-            :disabled="!selectedMonth || selectedMonth === ''"
             class="w-full bg-darkBg border border-darkBorder rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-100 outline-none focus:border-cyan-500/60 cursor-pointer shadow-sm disabled:opacity-40"
           >
             <option value="letras">LETRAS DEFINIDAS (D, N, R)</option>
             <option value="detalle">DETALLE DE NOVEDAD</option>
+            <option value="colores">POR COLORES (HEATMAP VISUAL)</option>
           </select>
         </div>
 
@@ -179,7 +179,7 @@ const format = ref<'excel' | 'csv' | 'pdf'>('excel')
 const reportType = ref<'personal' | 'consolidado_mensual' | 'agil'>(props.defaultReportType)
 const selectedMonth = ref(props.defaultMonth || dateStore.selectedMonth || dateStore.latestMonth || '')
 const selectedSubnovedad = ref('')
-const mode = ref<'letras' | 'detalle'>('letras')
+const mode = ref<'letras' | 'detalle' | 'colores'>('letras')
 
 const effectiveAvailableMonths = computed(() => {
   if (props.availableMonths && props.availableMonths.length > 0) {
