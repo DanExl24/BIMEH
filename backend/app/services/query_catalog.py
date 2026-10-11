@@ -12,6 +12,7 @@ Si retorna (None, None) el sistema cae al camino lento (LLM genera el SQL).
 
 import re
 import unicodedata
+import difflib
 from datetime import datetime
 from typing import Optional, Tuple, Dict, Any, List
 
@@ -68,6 +69,60 @@ NOVEDADES_MAP: Dict[str, str] = {
 }
 
 
+MAPA_SUBNOVEDADES_OFICIAL: List[Tuple[str, str]] = [
+    (r"\b(incapacidad(es)?(\s+medica?s?)?|incapacitad[oa]s?|excusa(\s+medica)?)\b", "INCAPACIDAD"),
+    (r"\b(vacacion(es)?|descanso)\b", "VACACIONES"),
+    (r"\b(permiso(s)?)\b", "PERMISO"),
+    (r"\b(comision(\s+de\s+servicio(s)?)?)\b", "COMISION DE SERVICIO"),
+    (r"\b(hospital(izad[oa]s?)?|clinica)\b", "HOSPITALIZADOS"),
+    (r"\b(curso\s+de\s+ley)\b", "CURSO DE LEY"),
+    (r"\b(curso(s)?)\b", "CURSOS"),
+    (r"\b(le[is]{1,2}hmania[sz]is)\b", "TRATAMIENTO LESIHMANIASIS"),
+    (r"\b(desertor(es)?|desercion)\b", "DESERTOR"),
+    (r"\b(detenid[oa]s?|penitenciario|carcel)\b", "DETENIDO CENTRO PENITENCIARIO"),
+    (r"\b(retiro\s+asistido)\b", "RETIRO ASISTIDO"),
+    (r"\b(retiro\s+en\s+tramite)\b", "RETIRO EN TRAMITE"),
+    (r"\b(retardad[oa]s?|retardo)\b", "RETARDADO"),
+    (r"\b(reentrenamiento|reentreanamiento)\b", "REENTREANAMIENTO"),
+    (r"\b(area(\s+de)?\s+operaciones|operacion(es)?)\b", "AREA OPERACIONES"),
+    (r"\b(cdo(\s+unidad)?|comando)\b", "CDO UNIDAD"),
+    (r"\b(ciclo\s+code)\b", "CICLO CODE"),
+    (r"\b(comite\s+incorporacion)\b", "COMITE INCORPORACION"),
+    (r"\b(pendiente\s+presentacion)\b", "PENDIENTE PRESENTACION"),
+]
+
+def _extract_subnovedad_oficial(msg_norm: str) -> Optional[str]:
+    """Identifica si el usuario pide filtrar por una subnovedad específica."""
+    for pat, canon in MAPA_SUBNOVEDADES_OFICIAL:
+        if re.search(pat, msg_norm):
+            return canon
+    return None
+
+def _find_best_militar_fuzzy(user_tokens: List[str], candidates: List[Tuple[Any, str]]) -> Optional[Tuple[Any, str]]:
+    """Tolerancia a erratas de digitación en nombres de militares (ej: 'iglesis' -> 'IGLESIAS')."""
+    best_candidate = None
+    best_score = 0.0
+    for ced, nom in candidates:
+        name_words = nom.upper().split()
+        score = 0.0
+        matched_tokens = 0
+        for ut in user_tokens:
+            ut_upper = ut.upper()
+            if any(ut_upper in nw for nw in name_words):
+                score += 1.0
+                matched_tokens += 1
+            else:
+                close = difflib.get_close_matches(ut_upper, name_words, n=1, cutoff=0.72)
+                if close:
+                    score += 0.85
+                    matched_tokens += 1
+        is_strong_match = (matched_tokens == len(user_tokens)) or (len(user_tokens) > 2 and matched_tokens >= 2 and score >= 1.7)
+        if is_strong_match and score > best_score:
+            best_score = score
+            best_candidate = (ced, nom)
+    return best_candidate
+
+
 # ---------------------------------------------------------------------------
 # Extractores de variables desde el mensaje
 # ---------------------------------------------------------------------------
@@ -122,10 +177,12 @@ def _extract_name_tokens(msg_norm: str) -> List[str]:
         "listar", "lista", "informacion", "datos", "historia", "historial",
         "estan", "esta", "estuvo", "estaban", "hubo", "mas", "menos", "menor", "minima", "minimo", "rara", "habitual",
         # conectores, transiciones y adverbios
+        "pero", "sino", "aunque", "porque", "pues", "mientras", "cuando", "donde",
         "ahora", "entonces", "luego", "despues", "antes", "tambien", "ademas", "solo", "solamente",
         "otro", "otra", "otros", "otras", "mismo", "misma", "mismos", "mismas",
         "siguiente", "proximo", "proxima", "pasado", "pasada", "anterior", "nuevo", "nueva",
         "actual", "actualmente", "respecto", "sobre", "acerca", "favor", "porfa", "aqui", "alli",
+        "filtrar", "filtrando", "filtro", "filtros",
         # palabras de tiempo y conteo
         "todos", "todas", "todo", "toda", "dias", "dia", "fecha", "fechas", "mes", "meses",
         "ano", "anos", "anio", "anios", "hoy", "ayer", "semana", "tiempo",
@@ -846,75 +903,90 @@ def match_report_request(
             if p_rows:
                 cedula_val = int(p_rows[0][0])
                 nom_mil = p_rows[0][1]
-            elif any(k in msg for k in ["persona", "militar", "soldado", "expediente", "hoja de vida", "del persona", "de la persona"]):
-                busqueda_txt = " ".join(t.upper() for t in name_tokens)
-                return {
-                    "tipo": "no_encontrado",
-                    "formato_solicitado": formato,
-                    "titulo": f"Personal no encontrado: {busqueda_txt}",
-                    "descripcion": f"No se encontró ningún militar registrado con el nombre o apellido '{busqueda_txt}' en la base de datos de BIMEJ 12.",
-                    "url_excel": None,
-                    "url_pdf": None,
-                    "parametros": {},
-                    "mensaje": (
-                        f"Mi Comandante, no se encontró en los registros de BIMEJ 12 a ningún militar con el nombre o apellido '**{busqueda_txt}**'.\n\n"
-                        f"Por favor verifique los apellidos o proporcione el número de cédula (ej: *'reporte de cédula 12345678'*)."
-                    )
-                }
+            else:
+                # Fallback a fuzzy matching para tolerar erratas (ej: 'santiago iglesis' -> 'MENDEZ IGLESIAS DANIEL SANTIAGO')
+                cur.execute("SELECT cedula, nombre FROM v_personal_resumen")
+                all_person = cur.fetchall()
+                best_cand = _find_best_militar_fuzzy(name_tokens, all_person)
+                if best_cand:
+                    cedula_val = int(best_cand[0])
+                    nom_mil = best_cand[1]
+                elif any(k in msg for k in ["persona", "militar", "soldado", "expediente", "hoja de vida", "del persona", "de la persona"]):
+                    busqueda_txt = " ".join(t.upper() for t in name_tokens)
+                    return {
+                        "tipo": "no_encontrado",
+                        "formato_solicitado": formato,
+                        "titulo": f"Personal no encontrado: {busqueda_txt}",
+                        "descripcion": f"No se encontró ningún militar registrado con el nombre o apellido '{busqueda_txt}' en la base de datos de BIMEJ 12.",
+                        "url_excel": None,
+                        "url_pdf": None,
+                        "parametros": {},
+                        "mensaje": (
+                            f"Mi Comandante, no se encontró en los registros de BIMEJ 12 a ningún militar con el nombre o apellido '**{busqueda_txt}**'.\n\n"
+                            f"Por favor verifique los apellidos o proporcione el número de cédula (ej: *'reporte de cédula 12345678'*)."
+                        )
+                    }
         except Exception as e:
             logger.warning(f"[Reporte Personal DB Search] Error: {e}")
 
     # Si se identificó a un militar concreto
     if cedula_val:
         m_nombre = _extract_month_name(msg) or ""
+        subnov_val = _extract_subnovedad_oficial(msg)
         nom_mil = nom_mil or (active_militar.get("nombre") if active_militar else f"C.C. {cedula_val}")
+        
         mes_query = f"&mes={m_nombre}" if m_nombre else ""
+        subnov_query = f"&subnovedad={subnov_val}" if subnov_val else ""
+        
         periodo_txt = f" para {m_nombre}" if m_nombre else " (Historial Anual / Completo)"
+        filtro_subnov_txt = f" [Filtro: {subnov_val}]" if subnov_val else ""
         detected_militar = {"cedula": str(cedula_val), "nombre": nom_mil}
 
         opciones = [
             {
                 "id": "heatmap",
-                "titulo": "Matriz Heatmap (Consolidado Día a Día)",
-                "descripcion": f"Matriz día a día con códigos oficiales de operatividad y disponibilidad (D, N, R){periodo_txt}.",
+                "titulo": f"Matriz Heatmap (Consolidado Día a Día){filtro_subnov_txt}",
+                "descripcion": f"Matriz día a día con códigos oficiales de operatividad y disponibilidad (D, N, R){periodo_txt}{filtro_subnov_txt}.",
                 "badge": "HEATMAP",
                 "tipo_export": "consolidado_mensual",
-                "url_excel": f"/api/exportar/excel?tipo=consolidado_mensual&cedula={cedula_val}{mes_query}&modo=letras",
-                "url_pdf": f"/api/exportar/pdf?tipo=consolidado_mensual&cedula={cedula_val}{mes_query}&modo=letras"
+                "url_excel": f"/api/exportar/excel?tipo=consolidado_mensual&cedula={cedula_val}{mes_query}{subnov_query}&modo=letras",
+                "url_pdf": f"/api/exportar/pdf?tipo=consolidado_mensual&cedula={cedula_val}{mes_query}{subnov_query}&modo=letras"
             },
             {
                 "id": "personal",
-                "titulo": "Historial Completo (Expediente Cronológico)",
-                "descripcion": "Relación nominal detallada de todas las novedades registradas, fechas desde/hasta y observaciones.",
+                "titulo": f"Historial Completo (Expediente Cronológico){filtro_subnov_txt}",
+                "descripcion": f"Relación nominal detallada de novedades registradas, fechas desde/hasta y observaciones{filtro_subnov_txt}.",
                 "badge": "EXPEDIENTE",
                 "tipo_export": "personal",
-                "url_excel": f"/api/exportar/excel?tipo=personal&cedula={cedula_val}{mes_query}",
-                "url_pdf": f"/api/exportar/pdf?tipo=personal&cedula={cedula_val}{mes_query}"
+                "url_excel": f"/api/exportar/excel?tipo=personal&cedula={cedula_val}{mes_query}{subnov_query}",
+                "url_pdf": f"/api/exportar/pdf?tipo=personal&cedula={cedula_val}{mes_query}{subnov_query}"
             },
             {
                 "id": "agil",
-                "titulo": "Exportación Ágil (Resumen de Novedades)",
-                "descripcion": "Resumen ejecutivo condensado por intervalos de días (excluye días ordinarios disponibles).",
+                "titulo": f"Exportación Ágil (Resumen de Novedades){filtro_subnov_txt}",
+                "descripcion": f"Resumen ejecutivo condensado por intervalos de días (excluye días ordinarios disponibles){filtro_subnov_txt}.",
                 "badge": "ÁGIL",
                 "tipo_export": "agil",
-                "url_excel": f"/api/exportar/excel?tipo=agil&cedula={cedula_val}{mes_query}",
-                "url_pdf": f"/api/exportar/pdf?tipo=agil&cedula={cedula_val}{mes_query}"
+                "url_excel": f"/api/exportar/excel?tipo=agil&cedula={cedula_val}{mes_query}{subnov_query}",
+                "url_pdf": f"/api/exportar/pdf?tipo=agil&cedula={cedula_val}{mes_query}{subnov_query}"
             }
         ]
 
+        subnov_msg = f"\n• Subnovedad filtrada: **{subnov_val}**" if subnov_val else ""
         return {
             "tipo": "seleccion_reporte_personal",
             "formato_solicitado": formato,
-            "titulo": f"Reportes Oficiales: {nom_mil}",
-            "descripcion": f"Personal identificado: {nom_mil} (C.C. {cedula_val}){periodo_txt}. Seleccione la modalidad de reporte que desea generar:",
-            "url_excel": f"/api/exportar/excel?tipo=consolidado_mensual&cedula={cedula_val}{mes_query}&modo=letras",
-            "url_pdf": f"/api/exportar/pdf?tipo=consolidado_mensual&cedula={cedula_val}{mes_query}&modo=letras",
-            "parametros": {"cedula": cedula_val, "mes": m_nombre or "TODOS"},
+            "titulo": f"Reportes Oficiales: {nom_mil}{filtro_subnov_txt}",
+            "descripcion": f"Personal identificado: {nom_mil} (C.C. {cedula_val}){periodo_txt}{filtro_subnov_txt}. Seleccione la modalidad de reporte que desea generar:",
+            "url_excel": f"/api/exportar/excel?tipo=consolidado_mensual&cedula={cedula_val}{mes_query}{subnov_query}&modo=letras",
+            "url_pdf": f"/api/exportar/pdf?tipo=consolidado_mensual&cedula={cedula_val}{mes_query}{subnov_query}&modo=letras",
+            "parametros": {"cedula": cedula_val, "mes": m_nombre or "TODOS", "subnovedad": subnov_val},
             "active_militar": detected_militar,
             "opciones": opciones,
             "mensaje": (
                 f"He identificado al militar **{nom_mil}** (C.C. {cedula_val}).\n\n"
-                f"Para este integrante tiene a su disposición 3 formatos oficiales de reporte{periodo_txt}.\n\n"
+                f"• Período: **{m_nombre or 'Todo el año / Historial completo'}**{subnov_msg}\n\n"
+                f"Para este integrante tiene a su disposición 3 formatos oficiales de reporte.\n"
                 f"Por favor seleccione qué tipo de reporte desea generar a continuación:"
             )
         }
