@@ -197,21 +197,45 @@ def _extract_name_tokens(msg_norm: str) -> List[str]:
         "hay", "y", "o", "a", "me", "te", "nos", "como", "sobre", "acerca",
         # pronombres / interrogativos
         "cuantos", "cuantas", "quien", "quienes", "cual", "cuales",
-        "como", "donde", "cuando", "este", "esta", "estos", "estas", "ese", "esa", "aquel",
-        # verbos y peticiones
+        "como", "donde", "cuando", "este", "esta", "estos", "estas", "ese", "esa", "esos", "esas", "aquel", "aquella",
+        # verbos, auxiliaries y peticiones
         "sabes", "conoces", "tiene", "tienes", "sabe", "conoce", "tuvo", "habia",
         "puedes", "podrias", "quiero", "quieres", "puedo", "decir", "decime", "dime",
-        "ver", "saber", "conocer", "buscar", "busca", "dame", "mostrar", "mostrame",
+        "ver", "veo", "ves", "ve", "vemos", "verlo", "verla",
+        "saber", "conocer", "buscar", "busca", "dame", "mostrar", "mostrame", "mostrarlo", "mostrarla",
         "listar", "lista", "informacion", "datos", "historia", "historial",
-        "hacer", "haces", "generar", "generas", "descargar", "exportar", "sacar",
+        "hacer", "haces", "hace", "hacen", "hacerlo", "hacerla", "hacerlos", "hacerlas", "hice", "hizo", "hicieron",
+        "poder", "puede", "pueden", "podria", "podrian", "pude", "pudo",
+        "tener", "tienen", "tenemos", "tendra", "tuviera",
+        "generar", "generas", "genera", "generan", "generarlo", "generarla",
+        "descargar", "descargas", "descarga", "descargarlo", "descargarla",
+        "exportar", "exportas", "exporta", "exportarlo", "exportarla",
+        "filtrar", "filtras", "filtra", "filtran", "filtrando", "filtrarlo", "filtrarla", "filtro", "filtros",
+        "sacar", "sacas", "saca", "sacarlo", "sacarla",
+        "consultar", "consultas", "consulta", "consultarlo", "consultarla",
+        "explicar", "explicas", "explica", "explicame",
+        "dar", "darme", "darle", "darles",
         "estan", "esta", "estuvo", "estaban", "hubo", "mas", "menos", "menor", "minima", "minimo", "rara", "habitual",
+        # pronombres, determinantes y adjetivos
+        "especifico", "especifica", "especificos", "especificas",
+        "particular", "particulares",
+        "alguien", "nadie", "alguno", "alguna", "algunos", "algunas",
+        "determinado", "determinada", "determinados", "determinadas",
+        "cierto", "cierta", "ciertos", "ciertas",
+        "cualquier", "cualquiera", "cualesquiera",
+        "uno", "una", "unos", "unas", "otro", "otra", "otros", "otras",
+        "cada", "mismo", "misma", "mismos", "mismas",
+        # conceptos de consulta o sistema
+        "opcion", "opciones", "posible", "posibilidad", "posibilidades",
+        "forma", "formas", "manera", "maneras", "modo", "modos",
+        "caso", "casos", "ejemplo", "ejemplos", "pregunta", "preguntas", "duda", "dudas",
+        "sistema", "asistente", "tema", "proyecto", "ecosistema", "modulo", "modulos",
+        "formato", "formatos", "tipo", "tipos",
         # conectores, transiciones y adverbios
         "pero", "sino", "aunque", "porque", "pues", "mientras", "cuando", "donde",
         "ahora", "entonces", "luego", "despues", "antes", "tambien", "ademas", "solo", "solamente",
-        "otro", "otra", "otros", "otras", "mismo", "misma", "mismos", "mismas",
         "siguiente", "proximo", "proxima", "pasado", "pasada", "anterior", "nuevo", "nueva",
         "actual", "actualmente", "respecto", "sobre", "acerca", "favor", "porfa", "aqui", "alli",
-        "filtrar", "filtrando", "filtro", "filtros",
         # palabras de tiempo y conteo
         "todos", "todas", "todo", "toda", "dias", "dia", "fecha", "fechas", "mes", "meses",
         "ano", "anos", "anio", "anios", "hoy", "ayer", "semana", "tiempo",
@@ -970,6 +994,24 @@ def _inspect_soldier_novedades(
         return default_res
 
 
+def _is_conversational_inquiry(msg_norm: str) -> bool:
+    """
+    Detecta si el mensaje es una consulta conversacional, pregunta sobre capacidades,
+    formatos, dudas o posibilidades del sistema BIMEH, que debe ser respondida por la IA (Gemini/Ollama)
+    y NO interceptada como una orden directa de descarga de archivo.
+    """
+    inquiry_patterns = [
+        r"^(puedes|podrias|es posible|se puede|hay forma|tienes opcion|se podria|seria posible)\b",
+        r"\b(puedes|podrias|se puede|es posible|hay forma|tienes opcion)\s+(hacerlo|sacarlo|filtrarlo|generarlo|consultarlo|verlo|hacer|sacar|filtrar|generar|consultar|ver)\b",
+        r"\b(por|para)\s+(un|una|algun|alguna|cierto|determinado)?\s*(personal|militar|soldado|persona)\s+(en\s+)?(especifico|especifica|particular)\b",
+        r"\b(como\s+funciona|como\s+se\s+hace|como\s+puedo|para\s+que\s+sirve|que\s+significa)\b",
+        r"\b(que\s+diferencia\s+hay|cual\s+es\s+la\s+diferencia)\b",
+        r"\b(puedes\s+explicar|me\s+explicas|explicame)\b",
+        r"\b(que\s+opciones|que\s+formatos)\b",
+    ]
+    return any(re.search(pat, msg_norm) for pat in inquiry_patterns)
+
+
 def match_report_request(
     user_message: str,
     active_militar: Optional[Dict[str, Any]] = None,
@@ -989,8 +1031,12 @@ def match_report_request(
     """
     msg = _norm(user_message)
     
-    # 0. Meta-preguntas / consultas informativas sobre capacidades o ayuda de reportes
-    # No deben interceptarse como una descarga de archivo; deben pasar a conversación / IA.
+    # 0. Consultas conversacionales / explicativas sobre capacidades o funcionamiento
+    # Deben responderse por IA con contexto conversacional, nunca interceptarse como archivo.
+    if _is_conversational_inquiry(msg):
+        return None
+
+    # Meta-preguntas / consultas informativas sobre capacidades o ayuda de reportes
     meta_report_patterns = [
         r"\bque\s+(mas\s+|otros?\s+)?reportes\b",
         r"\bque\s+reportes\s+(puedes|sabes|hay|tienes|haces|generas|existen|manejas)\b",
@@ -1106,8 +1152,14 @@ def match_report_request(
         nom_mil = None
 
     # Búsqueda por nombre en base de datos si no hay cédula pero hay nombres/apellidos
+    # Solo buscar por nombre en BD si hay intención explícita de solicitar datos/reporte de un militar específico
+    is_explicit_soldier_name_request = bool(re.search(
+        r"\b(reporte|informe|expediente|hoja\s+de\s+vida|historial|datos|sabana)\s+(de|del|para|sobre)\s+([a-záéíóúñ]+)",
+        msg
+    )) or is_personal_intent
+
     name_tokens = _extract_name_tokens(msg)
-    if not cedula_val and db and name_tokens:
+    if not cedula_val and db and name_tokens and is_explicit_soldier_name_request:
         like_clauses = " AND ".join(_name_like_clause(t) for t in name_tokens[:4])
         try:
             cur = db.cursor()
@@ -1124,7 +1176,7 @@ def match_report_request(
                 if best_cand:
                     cedula_val = int(best_cand[0])
                     nom_mil = best_cand[1]
-                elif any(k in msg for k in ["persona", "militar", "soldado", "expediente", "hoja de vida", "del persona", "de la persona"]):
+                elif is_explicit_soldier_name_request and len(name_tokens) >= 1:
                     busqueda_txt = " ".join(t.upper() for t in name_tokens)
                     return {
                         "tipo": "no_encontrado",
