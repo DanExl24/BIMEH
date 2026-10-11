@@ -23,11 +23,24 @@ export interface IAStatusResponse {
   error?: string | null
 }
 
+export interface IAReportInfo {
+  tipo: 'consolidado_mensual' | 'mes' | 'dia' | 'personal' | 'personal_db' | 'subnovedades' | string
+  formato_solicitado: 'excel' | 'pdf'
+  titulo: string
+  descripcion?: string
+  url_excel?: string
+  url_pdf?: string
+  url_csv?: string
+  parametros?: Record<string, any>
+  mensaje?: string
+}
+
 export interface IAChatMessage {
   id: string
   sender: 'user' | 'assistant'
   text: string
-  type?: 'conversation' | 'data' | 'error'
+  type?: 'conversation' | 'data' | 'report' | 'error'
+  report_info?: IAReportInfo
   sql?: string | null
   columns?: string[]
   rows?: Record<string, any>[]
@@ -44,8 +57,9 @@ export interface ActiveMilitar {
 
 export interface IAChatResponse {
   status: 'success' | 'error'
-  type: 'conversation' | 'data' | 'error'
+  type: 'conversation' | 'data' | 'report' | 'error'
   answer: string
+  report_info?: IAReportInfo
   sql?: string | null
   columns: string[]
   rows: Record<string, any>[]

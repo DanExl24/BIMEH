@@ -12,7 +12,7 @@ import unicodedata
 import httpx
 from typing import Dict, Any, List, Optional
 from datetime import datetime
-from app.services.query_catalog import match_catalog
+from app.services.query_catalog import match_catalog, match_report_request
 
 logger = logging.getLogger(__name__)
 
@@ -498,20 +498,57 @@ def process_user_query(
     db,
     history: Optional[List[Dict[str, Any]]] = None,
     active_militar: Optional[Dict[str, Any]] = None,
-    model: Optional[str] = None
+    model: Optional[str] = None,
+    mode: str = "chat"
 ) -> Dict[str, Any]:
     """
     Procesa un mensaje en lenguaje natural:
+    0. Si solicita un reporte oficial o modo == "report", genera los enlaces directos (Excel / PDF).
     1. Determina si requiere consulta de base de datos.
     2. Si requiere SQL, lo genera y valida teniendo en cuenta el historial y el militar en contexto.
     3. Ejecuta la consulta en PostgreSQL con auto-corrección (Self-Healing).
     4. Solicita a la IA que sintetice los resultados en lenguaje militar conciso.
     """
     model = get_configured_model()
+    force_report = (mode == "report")
+    now_year = datetime.now().year
+
+    # 0. Fast-path de Reportes Oficiales
+    report_match = match_report_request(
+        user_message,
+        active_militar=active_militar,
+        current_year=now_year,
+        force_report_mode=force_report
+    )
+    if report_match:
+        logger.info(f"[Modo Reportes Ollama] Generando enlace para: {report_match['titulo']}")
+        return {
+            "type": "report",
+            "answer": report_match["mensaje"],
+            "report_info": report_match,
+            "sql": None,
+            "columns": [],
+            "rows": [],
+            "total_records": 0,
+            "model": f"{model} (reporte)",
+            "active_militar": active_militar
+        }
 
     # Respuesta ultrarrápida para saludos y cortesía militar (0.01s sin saturar CPU)
     conv_tipo, fast_reply = get_fast_conversational_reply(user_message)
     if conv_tipo and fast_reply:
+        if force_report and conv_tipo in ("ayuda", "saludo"):
+            fast_reply = (
+                "A sus órdenes, mi Comandante. Está en el **Modo Reportes Oficiales** de BIMEJ 12.\n\n"
+                "Puede solicitar la generación y descarga directa en **Excel (.xlsx)** o **PDF (.pdf)** de:\n\n"
+                "• **Consolidados Mensuales:** Matriz Heatmap de operatividad (ej: *'Consolidado de junio en Excel'*).\n"
+                "• **Partes Ágiles de Novedades:** Resumen condensado por rangos y fechas (ej: *'Parte ágil de novedades de mayo en PDF'*).\n"
+                "• **Reportes Detallados Diarios:** Relación nominal de efectivos por fecha (ej: *'Reporte del día de hoy en Excel'*).\n"
+                "• **Expedientes Individuales:** Historial de un militar por cédula (ej: *'Expediente de cédula 1098765432 en PDF'*).\n"
+                "• **Base de Datos Maestra:** Censo de personal completo (ej: *'Descargar base de datos de personal'*).\n"
+                "• **Catálogo de Códigos:** Diccionario oficial de subnovedades.\n\n"
+                "También puede acceder al **Centro de Reportes** en el menú principal para configurar filtros avanzados."
+            )
         return {
             "type": "conversation",
             "answer": fast_reply,

@@ -20,7 +20,7 @@ from datetime import datetime
 from google import genai
 from google.genai import types
 
-from app.services.query_catalog import match_catalog
+from app.services.query_catalog import match_catalog, match_report_request
 
 logger = logging.getLogger(__name__)
 
@@ -461,14 +461,48 @@ def should_apply_militar_context(user_message, active_militar):
     return any(k in msg for k in followup_kw)
 
 
-def process_user_query(user_message, db, history=None, active_militar=None, model=None):
+def process_user_query(user_message, db, history=None, active_militar=None, model=None, mode="chat"):
     active_model = model or os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite")
     model_label = f"gemini ({active_model})"
     now = datetime.now()
+    force_report = (mode == "report")
+
+    # 0. Solicitud de Reporte Oficial (Excel / PDF / CSV) o Modo Reportes Activo
+    report_match = match_report_request(
+        user_message,
+        active_militar=active_militar,
+        current_year=now.year,
+        force_report_mode=force_report
+    )
+    if report_match:
+        logger.info(f"[Modo Reportes] Generando enlace para: {report_match['titulo']}")
+        return {
+            "type": "report",
+            "answer": report_match["mensaje"],
+            "report_info": report_match,
+            "sql": None,
+            "columns": [],
+            "rows": [],
+            "total_records": 0,
+            "model": f"{model_label} (reporte)",
+            "active_militar": active_militar
+        }
 
     # 1. Respuestas rapidas sin IA
     conv_tipo, fast_reply = get_fast_conversational_reply(user_message)
     if conv_tipo:
+        if force_report and conv_tipo in ("ayuda", "saludo"):
+            fast_reply = (
+                "A sus órdenes, mi Comandante. Está en el **Modo Reportes Oficiales** de BIMEJ 12.\n\n"
+                "Puede solicitar la generación y descarga directa en **Excel (.xlsx)** o **PDF (.pdf)** de:\n\n"
+                "• **Consolidados Mensuales:** Matriz Heatmap de operatividad (ej: *'Consolidado de junio en Excel'*).\n"
+                "• **Partes Ágiles de Novedades:** Resumen condensado por rangos y fechas (ej: *'Parte ágil de novedades de mayo en PDF'*).\n"
+                "• **Reportes Detallados Diarios:** Relación nominal de efectivos por fecha (ej: *'Reporte del día de hoy en Excel'*).\n"
+                "• **Expedientes Individuales:** Historial de un militar por cédula (ej: *'Expediente de cédula 1098765432 en PDF'*).\n"
+                "• **Base de Datos Maestra:** Censo de personal completo (ej: *'Descargar base de datos de personal'*).\n"
+                "• **Catálogo de Códigos:** Diccionario oficial de subnovedades.\n\n"
+                "También puede acceder al **Centro de Reportes** en el menú principal para configurar filtros avanzados."
+            )
         return {"type": "conversation", "answer": fast_reply, "sql": None,
                 "columns": [], "rows": [], "total_records": 0,
                 "model": model_label, "active_militar": active_militar}

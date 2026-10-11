@@ -36,6 +36,7 @@ class ChatMessageRequest(BaseModel):
     history: Optional[List[Dict[str, Any]]] = Field(default=None, description="Historial previo de mensajes")
     active_militar: Optional[Dict[str, Any]] = Field(default=None, description="Militar en contexto activo (cedula, nombre)")
     model: Optional[str] = Field(default=None, description="Modelo de Gemini u Ollama a utilizar para esta consulta")
+    mode: Optional[str] = Field(default="chat", description="Modo de operacion: 'chat' o 'report'")
 
 
 class ApreciacionRequest(BaseModel):
@@ -115,7 +116,8 @@ def chat_with_ia(req: ChatMessageRequest, db = Depends(get_db)):
             "user_message": req.message,
             "db": db,
             "history": req.history,
-            "active_militar": req.active_militar
+            "active_militar": req.active_militar,
+            "mode": req.mode or "chat"
         }
         if req.model:
             query_kwargs["model"] = req.model

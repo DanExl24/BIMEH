@@ -702,3 +702,202 @@ def match_catalog(
         )
 
     return None, None
+
+
+# ---------------------------------------------------------------------------
+# MODO REPORTES: Generacion interactiva de Excel y PDF desde el Asistente
+# ---------------------------------------------------------------------------
+
+MESES_STR_MAP: Dict[str, str] = {
+    "enero": "ENERO", "febrero": "FEBRERO", "marzo": "MARZO", "abril": "ABRIL",
+    "mayo": "MAYO", "junio": "JUNIO", "julio": "JULIO", "agosto": "AGOSTO",
+    "septiembre": "SEPTIEMBRE", "octubre": "OCTUBRE", "noviembre": "NOVIEMBRE", "diciembre": "DICIEMBRE",
+    "ene": "ENERO", "feb": "FEBRERO", "mar": "MARZO", "abr": "ABRIL",
+    "jun": "JUNIO", "jul": "JULIO", "ago": "AGOSTO", "sep": "SEPTIEMBRE",
+    "oct": "OCTUBRE", "nov": "NOVIEMBRE", "dic": "DICIEMBRE"
+}
+
+def _extract_month_name(msg_norm: str) -> Optional[str]:
+    if re.search(r"\b(todos|todo el ano|anual|ano completo|anualidad|todos los meses)\b", msg_norm):
+        return "TODOS"
+    for k, v in MESES_STR_MAP.items():
+        if re.search(rf"\b{re.escape(k)}\b", msg_norm):
+            return v
+    return None
+
+def _extract_report_date(msg_norm: str, user_msg: str) -> Optional[str]:
+    # YYYY-MM-DD
+    iso = re.search(r"\b(20\d{2}-\d{1,2}-\d{1,2})\b", user_msg)
+    if iso:
+        parts = iso.group(1).split("-")
+        return f"{parts[0]}-{int(parts[1]):02d}-{int(parts[2]):02d}"
+    
+    # DD/MM/YYYY or DD-MM-YYYY
+    dmy = re.search(r"\b(\d{1,2})[/-](\d{1,2})[/-](20\d{2})\b", user_msg)
+    if dmy:
+        d, m, y = int(dmy.group(1)), int(dmy.group(2)), int(dmy.group(3))
+        return f"{y:04d}-{m:02d}-{d:02d}"
+
+    # hoy / del dia
+    if re.search(r"\b(hoy|el dia de hoy|del dia)\b", msg_norm):
+        return datetime.now().strftime("%Y-%m-%d")
+    
+    # DD de [mes]
+    for k, m_name in MESES_STR_MAP.items():
+        m_match = re.search(rf"\b(\d{1,2})\s+de\s+{re.escape(k)}\b", msg_norm)
+        if m_match:
+            d_val = int(m_match.group(1))
+            m_num = MESES_ES.get(k, 1)
+            year_val = datetime.now().year
+            return f"{year_val}-{m_num:02d}-{d_val:02d}"
+            
+    return None
+
+def match_report_request(
+    user_message: str,
+    active_militar: Optional[Dict[str, Any]] = None,
+    current_year: int = 2026,
+    force_report_mode: bool = False
+) -> Optional[Dict[str, Any]]:
+    """
+    Identifica solicitudes de generacion y descarga de reportes oficiales (Excel / PDF / CSV).
+    Soporta:
+      1. Base de Datos Maestra de Personal (personal_db)
+      2. Catalogo Oficial de Subnovedades (subnovedades)
+      3. Expediente Individual de Militar (personal)
+      4. Reporte Detallado Diario (dia)
+      5. Parte Agil de Novedades (mes con modo=agil)
+      6. Consolidado Mensual (consolidado_mensual)
+    """
+    msg = _norm(user_message)
+    
+    report_keywords = [
+        "reporte", "reportes", "informe", "informes", "descargar", "descarga",
+        "exportar", "exportacion", "exporte", "generar reporte", "generar informe",
+        "excel", "xlsx", "pdf", "csv", "sabana", "matriz", "heatmap", "consolidado",
+        "expediente", "hoja de vida", "parte agil", "parte diario", "parte oficial"
+    ]
+    
+    is_report_intent = force_report_mode or any(k in msg for k in report_keywords)
+    if not is_report_intent:
+        return None
+        
+    # Formato solicitado
+    if "pdf" in msg and not ("excel" in msg or "xlsx" in msg):
+        formato = "pdf"
+    else:
+        formato = "excel"
+        
+    # 1. Base de Datos Maestra de Personal (personal_db)
+    if any(k in msg for k in ["base de datos", "personal db", "maestro de personal", "nomina", "censo de personal", "censo completo", "todos los militares", "censo maestro"]):
+        return {
+            "tipo": "personal_db",
+            "formato_solicitado": formato,
+            "titulo": "Base de Datos Maestra de Personal BIMEJ 12",
+            "descripcion": "Censo maestro de efectivos orgánicos del batallón, incluyendo cédula, grado, apellidos, nombres y estado operacional.",
+            "url_excel": "/api/exportar/excel?tipo=personal_db",
+            "url_pdf": "/api/exportar/pdf?tipo=personal_db",
+            "url_csv": "/api/exportar/csv?tipo=personal_db",
+            "parametros": {"tipo": "personal_db"},
+            "mensaje": (
+                "He generado los enlaces de descarga para la **Base de Datos Maestra de Personal** de BIMEJ 12.\n\n"
+                "Contiene el censo completo de efectivos, cédulas, nombres y estado operacional. "
+                "Puede descargarlo directamente en **Excel (.xlsx)** o **PDF (.pdf)** con los botones a continuación:"
+            )
+        }
+
+    # 2. Catálogo Oficial de Subnovedades (subnovedades)
+    if any(k in msg for k in ["subnovedad", "subnovedades", "catalogo de novedades", "codigos de novedad", "tabla de codigos"]):
+        return {
+            "tipo": "subnovedades",
+            "formato_solicitado": formato,
+            "titulo": "Catálogo Oficial de Subnovedades y Códigos Operativos",
+            "descripcion": "Diccionario oficial con la totalidad de códigos de novedades, descripciones y tipos de ausentismo configurados en el sistema.",
+            "url_excel": "/api/exportar/excel?tipo=subnovedades",
+            "url_pdf": "/api/exportar/pdf?tipo=subnovedades",
+            "url_csv": "/api/exportar/csv?tipo=subnovedades",
+            "parametros": {"tipo": "subnovedades"},
+            "mensaje": (
+                "He preparado la descarga del **Catálogo Oficial de Subnovedades** de BIMEJ 12.\n\n"
+                "Disponible para descarga inmediata en formato **Excel** y **PDF**:"
+            )
+        }
+
+    # 3. Expediente Individual de Militar (personal)
+    cedula_match = re.search(r"\b(\d{6,10})\b", user_message)
+    cedula_val = int(cedula_match.group(1)) if cedula_match else (int(active_militar.get("cedula")) if active_militar and active_militar.get("cedula") else None)
+    
+    es_expediente = any(k in msg for k in ["expediente", "hoja de vida", "individual", "militar"]) or (active_militar is not None and any(k in msg for k in ["reporte", "informe", "descargar", "excel", "pdf"]))
+    if es_expediente and cedula_val:
+        m_nombre = _extract_month_name(msg) or ""
+        nom_mil = active_militar.get("nombre", f"C.C. {cedula_val}") if active_militar else f"C.C. {cedula_val}"
+        mes_query = f"&mes={m_nombre}" if m_nombre else ""
+        periodo_txt = f" ({m_nombre})" if m_nombre else " (Historial Completo)"
+        return {
+            "tipo": "personal",
+            "formato_solicitado": formato,
+            "titulo": f"Expediente Individual - {nom_mil}{periodo_txt}",
+            "descripcion": f"Historial detallado de novedades, fechas de inicio y fin, observaciones y récord operativo para el militar con C.C. {cedula_val}.",
+            "url_excel": f"/api/exportar/excel?tipo=personal&cedula={cedula_val}{mes_query}",
+            "url_pdf": f"/api/exportar/pdf?tipo=personal&cedula={cedula_val}{mes_query}",
+            "parametros": {"cedula": cedula_val, "mes": m_nombre or "TODOS"},
+            "mensaje": (
+                f"He generado el **Expediente Individual de Novedades** para **{nom_mil}**{periodo_txt}.\n\n"
+                f"Haga clic en el botón para descargar el reporte oficial en su formato preferido:"
+            )
+        }
+
+    # 4. Reporte Detallado Diario (dia)
+    fecha_val = _extract_report_date(msg, user_message)
+    if (fecha_val or any(k in msg for k in ["parte diario", "reporte diario", "del dia", "reporte del dia", "dia"])) and not any(k in msg for k in ["consolidado", "agil", "mes", "mensual"]):
+        f_target = fecha_val or datetime.now().strftime("%Y-%m-%d")
+        return {
+            "tipo": "dia",
+            "formato_solicitado": formato,
+            "titulo": f"Reporte Detallado de Personal - Día {f_target}",
+            "descripcion": f"Relación nominal de todo el personal de la unidad militar con detalle de novedades, ausencias y efectivos disponibles para la fecha {f_target}.",
+            "url_excel": f"/api/exportar/excel?tipo=dia&fecha={f_target}",
+            "url_pdf": f"/api/exportar/pdf?tipo=dia&fecha={f_target}",
+            "parametros": {"fecha": f_target},
+            "mensaje": (
+                f"He preparado el **Reporte Detallado Diario** para el **{f_target}**.\n\n"
+                f"Contiene la relación nominal de todo el personal con novedad y disponible en dicha jornada:"
+            )
+        }
+
+    # 5. Parte Ágil de Novedades (mes, modo=agil)
+    if any(k in msg for k in ["agil", "parte agil", "resumen de novedades", "resumen mensual", "novedades del mes"]):
+        mes_val = _extract_month_name(msg) or "TODOS"
+        titulo_mes = f"Año {current_year}" if mes_val == "TODOS" else mes_val
+        return {
+            "tipo": "mes",
+            "formato_solicitado": formato,
+            "titulo": f"Parte Ágil de Novedades - {titulo_mes}",
+            "descripcion": f"Resumen ejecutivo condensado por rangos de días con comentarios descriptivos para {titulo_mes}.",
+            "url_excel": f"/api/exportar/excel?tipo=mes&mes={mes_val}&modo=agil",
+            "url_pdf": f"/api/exportar/pdf?tipo=mes&mes={mes_val}&modo=agil",
+            "parametros": {"mes": mes_val, "modo": "agil"},
+            "mensaje": (
+                f"He preparado el **Parte Ágil de Novedades** para el período **{titulo_mes}**.\n\n"
+                f"Agrupa las novedades por intervalos de días con sus descripciones oficiales:"
+            )
+        }
+
+    # 6. Consolidado Mensual (consolidado_mensual) - Matriz Heatmap
+    mes_val = _extract_month_name(msg) or "TODOS"
+    modo_matriz = "completo" if any(k in msg for k in ["completo", "nombre", "subnovedad"]) else "letras"
+    titulo_mes = f"Año Completo {current_year}" if mes_val == "TODOS" else mes_val
+    return {
+        "tipo": "consolidado_mensual",
+        "formato_solicitado": formato,
+        "titulo": f"Consolidado Mensual - {titulo_mes}",
+        "descripcion": f"Matriz integral de toda la unidad que refleja la operatividad día a día de cada integrante con codificación oficial.",
+        "url_excel": f"/api/exportar/excel?tipo=consolidado_mensual&mes={mes_val}&modo={modo_matriz}",
+        "url_pdf": f"/api/exportar/pdf?tipo=consolidado_mensual&mes={mes_val}&modo={modo_matriz}",
+        "parametros": {"mes": mes_val, "modo": modo_matriz},
+        "mensaje": (
+            f"He preparado el **Consolidado Mensual (Matriz Heatmap)** para **{titulo_mes}**.\n\n"
+            f"Seleccione su formato de preferencia para iniciar la descarga oficial:"
+        )
+    }
+

@@ -216,13 +216,100 @@
         </div>
       </div>
 
+      <!-- Selector de Modo de Operación: Consultas vs Reportes (Excel / PDF) -->
+      <div class="px-4 py-2.5 bg-slate-950/80 border-b border-darkBorder/70 flex items-center justify-between gap-2 shrink-0">
+        <div class="flex items-center gap-1 p-1 bg-slate-900/95 rounded-2xl border border-darkBorder/80 text-xs shadow-inner">
+          <button
+            type="button"
+            @click="cambiarModo('chat')"
+            class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer select-none"
+            :class="modoAsistente === 'chat'
+              ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm'
+              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 border border-transparent'"
+          >
+            <MessageSquare class="w-3.5 h-3.5" />
+            <span>Consultas</span>
+          </button>
+          
+          <button
+            type="button"
+            @click="cambiarModo('report')"
+            class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer select-none relative"
+            :class="modoAsistente === 'report'
+              ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-sm'
+              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 border border-transparent'"
+          >
+            <FileSpreadsheet class="w-3.5 h-3.5" />
+            <span>Modo Reportes</span>
+            <span class="px-1.5 py-0.2 rounded text-[9px] font-black bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 uppercase tracking-wider">
+              Excel / PDF
+            </span>
+          </button>
+        </div>
+
+        <!-- Botón de Enlace al Centro de Reportes Oficiales -->
+        <button
+          type="button"
+          @click="irACentroReportes"
+          class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-bold text-slate-400 hover:text-cyan-300 hover:bg-slate-800/70 border border-transparent hover:border-darkBorder transition-all cursor-pointer"
+          title="Abrir la vista completa del Centro de Reportes Oficiales"
+        >
+          <ExternalLink class="w-3.5 h-3.5 text-cyan-400" />
+          <span class="hidden sm:inline">Centro de Reportes</span>
+        </button>
+      </div>
+
       <!-- 2. Área de Mensajes del Chat (Scrollable) -->
       <div 
         ref="chatContainer"
         class="flex-1 p-4 sm:p-5 overflow-y-auto space-y-4 scrollbar-thin font-sans"
       >
-        <!-- Estado Vacío: Bienvenida y Sugerencias -->
-        <div v-if="mensajes.length === 0" class="py-6 px-2 text-center space-y-5 animate-in fade-in duration-300">
+        <!-- Estado Vacío: Modo Reportes -->
+        <div v-if="mensajes.length === 0 && modoAsistente === 'report'" class="py-6 px-2 text-center space-y-5 animate-in fade-in duration-300">
+          <div class="w-16 h-16 rounded-3xl bg-emerald-500/10 border border-emerald-500/25 flex items-center justify-center mx-auto text-emerald-400 shadow-lg shadow-emerald-500/10">
+            <FileSpreadsheet class="w-8 h-8 stroke-[2]" />
+          </div>
+
+          <div class="max-w-md mx-auto space-y-1.5">
+            <div class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+              Modo Reportes Oficiales
+            </div>
+            <h3 class="text-sm sm:text-base font-black text-slate-100 uppercase tracking-wide">
+              Descarga Interactiva en Excel y PDF
+            </h3>
+            <p class="text-xs text-slate-400 leading-relaxed">
+              Solicite a la IA reportes consolidados, partes ágiles, historiales individuales o la base de datos completa.
+              Integrado con el
+              <button type="button" @click="irACentroReportes" class="text-emerald-400 font-bold underline hover:text-emerald-300 cursor-pointer">Centro de Reportes</button>.
+            </p>
+          </div>
+
+          <!-- Píldoras de Reportes Sugeridos -->
+          <div class="space-y-2 max-w-lg mx-auto text-left">
+            <p class="text-[10px] font-bold uppercase tracking-wider text-slate-500 px-1">
+              Seleccione un reporte para generar inmediatamente:
+            </p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <button
+                v-for="repSug in sugerenciasReporte"
+                :key="repSug.texto"
+                @click="enviarMensajeDirecto(repSug.texto)"
+                type="button"
+                class="p-2.5 rounded-xl bg-slate-950/70 hover:bg-slate-800/90 border border-darkBorder hover:border-emerald-500/40 text-left transition-all cursor-pointer group text-xs text-slate-300 hover:text-emerald-300 flex items-start gap-2.5 shadow-sm"
+              >
+                <component :is="repSug.icono" class="w-4 h-4 text-emerald-400 shrink-0 mt-0.5 group-hover:scale-110 transition-transform" />
+                <div class="flex-1 min-w-0">
+                  <div class="font-bold text-slate-200 text-xs">{{ repSug.titulo }}</div>
+                  <div class="text-[11px] text-slate-400 truncate">{{ repSug.descripcion }}</div>
+                </div>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Estado Vacío: Modo Consultas -->
+        <div v-else-if="mensajes.length === 0" class="py-6 px-2 text-center space-y-5 animate-in fade-in duration-300">
           <div class="w-16 h-16 rounded-3xl bg-cyan-500/10 border border-cyan-500/25 flex items-center justify-center mx-auto text-cyan-400 shadow-lg shadow-cyan-500/10">
             <ShieldCheck class="w-8 h-8 stroke-[2]" />
           </div>
@@ -430,6 +517,123 @@
                     </table>
                   </div>
                 </div>
+
+                <!-- Tarjeta Interactiva de Reporte Oficial (Excel / PDF / CSV) -->
+                <div v-if="msg.report_info" class="mt-3 pt-3 border-t border-darkBorder/70 space-y-3">
+                  <div class="p-3.5 rounded-2xl bg-slate-900/90 border border-emerald-500/30 shadow-lg shadow-emerald-500/5 space-y-3">
+                    <!-- Cabecera de la tarjeta del reporte -->
+                    <div class="flex items-start justify-between gap-2.5">
+                      <div class="flex items-center gap-2.5">
+                        <div 
+                          class="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border shadow-sm"
+                          :class="msg.report_info.formato_solicitado === 'excel'
+                            ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400'
+                            : 'bg-cyan-500/15 border-cyan-500/30 text-cyan-400'"
+                        >
+                          <FileSpreadsheet v-if="msg.report_info.formato_solicitado === 'excel'" class="w-5 h-5 stroke-[2.2]" />
+                          <FileText v-else class="w-5 h-5 stroke-[2.2]" />
+                        </div>
+                        <div>
+                          <div class="flex items-center gap-2">
+                            <h4 class="font-bold text-slate-100 text-xs sm:text-[13px] leading-snug">
+                              {{ msg.report_info.titulo }}
+                            </h4>
+                          </div>
+                          <span class="text-[10px] font-mono uppercase tracking-wider text-slate-400">
+                            Reporte Oficial BIMEJ 12
+                          </span>
+                        </div>
+                      </div>
+
+                      <!-- Badge de Formato Solicitado -->
+                      <span 
+                        class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border shrink-0"
+                        :class="msg.report_info.formato_solicitado === 'excel'
+                          ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+                          : 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30'"
+                      >
+                        {{ msg.report_info.formato_solicitado === 'excel' ? '.XLSX' : '.PDF' }}
+                      </span>
+                    </div>
+
+                    <!-- Descripción del Reporte -->
+                    <p v-if="msg.report_info.descripcion" class="text-[11px] text-slate-300/90 leading-relaxed bg-slate-950/60 p-2.5 rounded-xl border border-darkBorder/60">
+                      {{ msg.report_info.descripcion }}
+                    </p>
+
+                    <!-- Botones de Descarga y Acciones -->
+                    <div class="flex flex-wrap items-center gap-2 pt-1">
+                      <!-- Botón Primario: Formato Solicitado -->
+                      <button
+                        v-if="msg.report_info.formato_solicitado === 'excel' && msg.report_info.url_excel"
+                        type="button"
+                        @click="descargarReporte(msg.report_info.url_excel, msg.report_info.titulo + ' - Excel', 'excel')"
+                        class="px-3.5 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs transition-all shadow-md shadow-emerald-500/20 flex items-center gap-1.5 cursor-pointer active:scale-95"
+                      >
+                        <Download class="w-4 h-4 stroke-[2.5]" />
+                        <span>Descargar Excel (.xlsx)</span>
+                      </button>
+
+                      <button
+                        v-else-if="msg.report_info.formato_solicitado === 'pdf' && msg.report_info.url_pdf"
+                        type="button"
+                        @click="descargarReporte(msg.report_info.url_pdf, msg.report_info.titulo + ' - PDF', 'pdf')"
+                        class="px-3.5 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black text-xs transition-all shadow-md shadow-cyan-500/20 flex items-center gap-1.5 cursor-pointer active:scale-95"
+                      >
+                        <Download class="w-4 h-4 stroke-[2.5]" />
+                        <span>Descargar PDF (.pdf)</span>
+                      </button>
+
+                      <!-- Botón Alternativo 1: PDF si solicitó Excel -->
+                      <button
+                        v-if="msg.report_info.formato_solicitado === 'excel' && msg.report_info.url_pdf"
+                        type="button"
+                        @click="descargarReporte(msg.report_info.url_pdf, msg.report_info.titulo + ' - PDF', 'pdf')"
+                        class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700/80 border border-cyan-500/30 text-cyan-300 font-bold text-xs transition-all flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95"
+                        title="Descargar también en formato PDF"
+                      >
+                        <FileText class="w-3.5 h-3.5" />
+                        <span>También en PDF</span>
+                      </button>
+
+                      <!-- Botón Alternativo 2: Excel si solicitó PDF -->
+                      <button
+                        v-if="msg.report_info.formato_solicitado === 'pdf' && msg.report_info.url_excel"
+                        type="button"
+                        @click="descargarReporte(msg.report_info.url_excel, msg.report_info.titulo + ' - Excel', 'excel')"
+                        class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700/80 border border-emerald-500/30 text-emerald-300 font-bold text-xs transition-all flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95"
+                        title="Descargar también en formato Excel"
+                      >
+                        <FileSpreadsheet class="w-3.5 h-3.5" />
+                        <span>También en Excel</span>
+                      </button>
+
+                      <!-- Botón CSV si está disponible -->
+                      <button
+                        v-if="msg.report_info.url_csv"
+                        type="button"
+                        @click="descargarReporte(msg.report_info.url_csv, msg.report_info.titulo + ' - CSV', 'csv')"
+                        class="px-2.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700/80 border border-darkBorder text-slate-300 font-bold text-xs transition-all flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95"
+                        title="Descargar en formato CSV plano"
+                      >
+                        <span>CSV</span>
+                      </button>
+                    </div>
+
+                    <!-- Enlace de apoyo al Centro de Reportes Oficiales -->
+                    <div class="pt-2 border-t border-darkBorder/40 flex items-center justify-between text-[11px] text-slate-400">
+                      <span>¿Requiere filtros personalizados?</span>
+                      <button
+                        type="button"
+                        @click="irACentroReportes"
+                        class="inline-flex items-center gap-1 text-cyan-400 hover:text-cyan-300 font-bold underline cursor-pointer"
+                      >
+                        <span>Ir al Centro de Reportes</span>
+                        <ArrowRight class="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </template>
             </div>
           </div>
@@ -490,8 +694,13 @@
             v-model="inputTexto"
             type="text"
             :disabled="isEnviando || !status?.online"
-            :placeholder="activeMilitar ? `Pregunte sobre ${activeMilitar.nombre} (ej: ¿cuál es su novedad más frecuente?)...` : 'Pregunte sobre personal, novedades, fuerza disponible o días de ausencia...'"
-            class="flex-1 bg-slate-950 border border-darkBorder hover:border-cyan-500/40 focus:border-cyan-400 text-slate-100 rounded-xl px-3.5 py-2.5 text-xs font-medium focus:outline-none transition-all placeholder:text-slate-600 disabled:opacity-50"
+            :placeholder="modoAsistente === 'report'
+              ? (activeMilitar ? `Pida reporte de ${activeMilitar.nombre} (ej: expediente en PDF)...` : 'Pida un reporte: ej. Consolidado de junio en Excel, Parte de hoy en PDF, Base de datos...')
+              : (activeMilitar ? `Pregunte sobre ${activeMilitar.nombre} (ej: ¿cuál es su novedad más frecuente?)...` : 'Pregunte sobre personal, novedades, fuerza disponible o días de ausencia...')"
+            class="flex-1 bg-slate-950 border border-darkBorder text-slate-100 rounded-xl px-3.5 py-2.5 text-xs font-medium focus:outline-none transition-all placeholder:text-slate-600 disabled:opacity-50"
+            :class="modoAsistente === 'report'
+              ? 'hover:border-emerald-500/40 focus:border-emerald-400'
+              : 'hover:border-cyan-500/40 focus:border-cyan-400'"
           />
 
           <!-- Botón Detener mientras se procesa -->
@@ -506,15 +715,19 @@
             <span>Detener</span>
           </button>
 
-          <!-- Botón Consultar normal -->
+          <!-- Botón de Envío Dinámico (Consultar vs Generar Reporte) -->
           <button
             v-else
             type="submit"
             :disabled="!inputTexto.trim() || !status?.online"
-            class="px-4 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs transition-all shadow-md shadow-cyan-500/20 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 shrink-0"
+            class="px-4 py-2.5 rounded-xl font-bold text-xs transition-all shadow-md cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 shrink-0 select-none active:scale-95"
+            :class="modoAsistente === 'report'
+              ? 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-emerald-500/20'
+              : 'bg-cyan-500 hover:bg-cyan-400 text-slate-950 shadow-cyan-500/20'"
           >
-            <Send class="w-4 h-4" />
-            <span class="hidden sm:inline">Consultar</span>
+            <FileSpreadsheet v-if="modoAsistente === 'report'" class="w-4 h-4 stroke-[2.5]" />
+            <Send v-else class="w-4 h-4" />
+            <span class="hidden sm:inline">{{ modoAsistente === 'report' ? 'Generar Reporte' : 'Consultar' }}</span>
           </button>
         </form>
 
@@ -540,6 +753,8 @@
 
 <script setup lang="ts">
 import { ref, watch, nextTick, onMounted, onUnmounted, computed } from 'vue'
+import { useRouter } from 'vue-router'
+import { useReportDownloadStore } from '@stores/reportDownloadStore'
 import {
   Bot,
   X,
@@ -557,10 +772,16 @@ import {
   Copy,
   Pencil,
   Square,
-  Cpu
+  Cpu,
+  FileSpreadsheet,
+  FileText,
+  Download,
+  MessageSquare,
+  ExternalLink,
+  Layers
 } from 'lucide-vue-next'
 
-import type { IAStatusResponse, IAChatMessage, ActiveMilitar, IAModelInfo } from '../types/ia.types'
+import type { IAStatusResponse, IAChatMessage, ActiveMilitar, IAModelInfo, IAReportInfo } from '../types/ia.types'
 import { iaService } from '../services/ia.service'
 import { marked } from 'marked'
 
@@ -599,6 +820,57 @@ const limpiarMilitarActivo = () => {
 }
 
 const mostrarConfig = ref(false)
+
+// ---------------------------------------------------------------------------
+// Modo de Operación del Asistente: Consultas vs Generador de Reportes
+// ---------------------------------------------------------------------------
+const router = useRouter()
+const reportDownloadStore = useReportDownloadStore()
+
+const modoAsistente = ref<'chat' | 'report'>(
+  (localStorage.getItem('bimej12_ai_mode') as 'chat' | 'report') || 'chat'
+)
+
+const cambiarModo = (nuevoModo: 'chat' | 'report') => {
+  modoAsistente.value = nuevoModo
+  localStorage.setItem('bimej12_ai_mode', nuevoModo)
+}
+
+const irACentroReportes = () => {
+  router.push('/reportes')
+  emit('close')
+}
+
+const descargarReporte = (url: string, titulo: string, formato: string) => {
+  reportDownloadStore.downloadReport(url, titulo, formato)
+}
+
+const sugerenciasReporte = [
+  {
+    titulo: 'Consolidado Mensual de Junio (Excel)',
+    descripcion: 'Matriz heatmap día a día de toda la unidad',
+    texto: 'Consolidado mensual de junio en Excel',
+    icono: FileSpreadsheet
+  },
+  {
+    titulo: 'Parte Ágil de Novedades (PDF)',
+    descripcion: 'Resumen mensual agrupado por rangos de días',
+    texto: 'Parte ágil de novedades del mes en PDF',
+    icono: FileText
+  },
+  {
+    titulo: 'Base de Datos de Personal (Excel)',
+    descripcion: 'Censo completo de efectivos orgánicos',
+    texto: 'Descargar base de datos de personal en Excel',
+    icono: FileSpreadsheet
+  },
+  {
+    titulo: 'Reporte Detallado del Día (Excel)',
+    descripcion: 'Relación nominal diaria con novedades',
+    texto: 'Reporte del día de hoy en Excel',
+    icono: FileSpreadsheet
+  }
+]
 
 // ---------------------------------------------------------------------------
 // Modelos de Google AI Studio y Control de Cuota
@@ -735,6 +1007,14 @@ const faseCargaTexto = computed(() => {
   }
 
   const modelName = status.value?.model_configured || (isGemini.value ? 'Gemini' : 'Ollama')
+
+  if (modoAsistente.value === 'report') {
+    if (tiempoTranscurrido.value < 3) {
+      return 'Analizando solicitud de reporte oficial...'
+    } else {
+      return 'Compilando registros y preparando descarga...'
+    }
+  }
 
   if (esConversacionSimple.value) {
     if (tiempoTranscurrido.value < 4) {
@@ -930,7 +1210,8 @@ const enviarMensaje = async (customQuery?: string) => {
       historyPayload,
       activeMilitar.value,
       abortController.value.signal,
-      modeloActivo.value
+      modeloActivo.value,
+      modoAsistente.value
     )
     if (res.active_militar !== undefined) {
       activeMilitar.value = res.active_militar
@@ -940,6 +1221,7 @@ const enviarMensaje = async (customQuery?: string) => {
       sender: 'assistant',
       text: res.answer,
       type: res.type,
+      report_info: res.report_info,
       sql: res.sql,
       columns: res.columns,
       rows: res.rows,

@@ -22,7 +22,8 @@ export const iaService = {
     history?: any[],
     activeMilitar?: ActiveMilitar | null,
     signal?: AbortSignal,
-    model?: string
+    model?: string,
+    mode: 'chat' | 'report' | string = 'chat'
   ): Promise<IAChatResponse> => {
     return http.post<IAChatResponse>(
       '/api/ia/chat',
@@ -30,7 +31,8 @@ export const iaService = {
         message,
         history,
         active_militar: activeMilitar,
-        model
+        model,
+        mode
       },
       { signal }
     )
