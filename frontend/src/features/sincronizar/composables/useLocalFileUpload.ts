@@ -3,7 +3,7 @@ import { syncService } from '../services/sync.service'
 import { useAppStore } from '@stores/appStore'
 
 interface UseLocalFileUploadOptions {
-  mode: Ref<'dias' | 'mes'>
+  mode: Ref<'dias' | 'mes' | 'todo'>
   mes: Ref<string>
   selectedDates: Ref<string[]>
   overwrite: Ref<boolean>
@@ -64,10 +64,10 @@ export function useLocalFileUpload(options: UseLocalFileUploadOptions) {
 
     const formData = new FormData()
     formData.append('file', selectedFile.value)
-    formData.append('tipo', options.mode.value)
+    formData.append('tipo', options.mode.value === 'todo' ? 'mes' : options.mode.value)
     formData.append('overwrite', options.overwrite.value ? 'true' : 'false')
 
-    if (options.mode.value === 'mes') {
+    if (options.mode.value === 'mes' || options.mode.value === 'todo') {
       formData.append('mes', options.mes.value)
     } else {
       const datesParam = [...options.selectedDates.value].sort().join(',')

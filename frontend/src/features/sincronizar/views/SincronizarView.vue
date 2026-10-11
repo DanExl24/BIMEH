@@ -5,13 +5,17 @@
 
     <!-- Configuration and Upload Card -->
     <div class="glass-panel p-5 sm:p-7 rounded-3xl space-y-6 border border-darkBorder shadow-xl">
-      <!-- 1. Source & Mode Selectors -->
+      <!-- 1. Source & Mode Selectors with Google Drive Status -->
       <SyncSourceSelector 
         v-model:source="syncSource" 
         v-model:mode="syncMode" 
+        :drive-connected="driveConnected"
+        :checking-drive="checkingDrive"
+        @refresh-drive="checkDriveStatus"
+        @reconnect-drive="reconnectDrive"
       />
 
-      <!-- 2. Scope Configuration: By Month or By Days -->
+      <!-- 2. Scope Configuration: By Month, By Days, or All Months -->
       <div class="grid grid-cols-1 md:grid-cols-2 gap-5 pt-2 border-t border-darkBorder/60">
         <!-- Month scope -->
         <div v-if="syncMode === 'mes'" class="space-y-2">
@@ -36,6 +40,29 @@
           @select-all="selectAllDays"
           @clear-all="clearAllDays"
         />
+
+        <!-- All Months Scope (Todo el año) -->
+        <div 
+          v-else-if="syncMode === 'todo'" 
+          class="col-span-1 md:col-span-2 p-5 bg-gradient-to-br from-cyan-500/10 via-blue-500/5 to-cyan-500/10 border border-cyan-500/30 rounded-2xl space-y-3 shadow-inner"
+        >
+          <div class="flex items-center gap-2.5 text-cyan-400 font-bold text-xs uppercase tracking-wider">
+            <CalendarRange class="w-4 h-4 shrink-0" />
+            <span>Sincronización Total del Año (Todos los Meses)</span>
+          </div>
+          <p class="text-xs text-slate-300 leading-relaxed">
+            Se escanearán y sincronizarán todos los reportes diarios de todos los meses del año (ENERO a DICIEMBRE) almacenados en Google Drive. El sistema detectará automáticamente los días faltantes en la base de datos y los insertará sin alterar los datos ya existentes.
+          </p>
+          <div class="flex flex-wrap gap-1.5 pt-1">
+            <span 
+              v-for="m in months" 
+              :key="m" 
+              class="px-2.5 py-1 bg-darkBg/90 border border-darkBorder rounded-xl text-[11px] font-mono text-cyan-300 font-bold shadow-sm"
+            >
+              {{ m }}
+            </span>
+          </div>
+        </div>
       </div>
 
       <!-- 3. Local File Dropzone (if source is local) -->
@@ -92,16 +119,19 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { 
   FolderSync as CloudSync, 
   Loader2, 
   CheckCircle2, 
-  AlertCircle 
+  AlertCircle,
+  CalendarRange
 } from 'lucide-vue-next'
 
 import { useAppStore } from '@stores/appStore'
 import { useDateStore } from '@stores/dateStore'
+import { useAuthStore } from '@features/auth/stores/authStore'
+import { authService } from '@features/auth/services/auth.service'
 import { MONTHS_LIST } from '@utils/date'
 import { useMultiDaySelection } from '../composables/useMultiDaySelection'
 import { useLocalFileUpload } from '../composables/useLocalFileUpload'
@@ -115,12 +145,61 @@ import SyncDriveProgress from '../components/SyncDriveProgress.vue'
 
 const appStore = useAppStore()
 const dateStore = useDateStore()
+const authStore = useAuthStore()
 
-const syncSource = ref<'local' | 'drive'>('local')
-const syncMode = ref<'dias' | 'mes'>('dias')
+const syncSource = ref<'local' | 'drive'>('drive')
+const syncMode = ref<'dias' | 'mes' | 'todo'>('todo')
 const syncMonth = ref(dateStore.selectedMonth || dateStore.latestMonth || 'MAYO')
 const overwrite = ref(false)
 const months = MONTHS_LIST
+
+// Estado de conexión con Google Drive
+const driveConnected = ref(false)
+const checkingDrive = ref(false)
+
+const checkDriveStatus = async () => {
+  checkingDrive.value = true
+  try {
+    const data = await authService.getDriveStatus(authStore.user?.correo)
+    driveConnected.value = !!data.connected
+  } catch (err) {
+    console.error('Error al verificar estado de Google Drive:', err)
+    driveConnected.value = false
+  } finally {
+    checkingDrive.value = false
+  }
+}
+
+const reconnectDrive = async () => {
+  try {
+    const base = appStore.apiBase ? appStore.apiBase.replace(/\/$/, '') : window.location.origin
+    const callbackUrl = `${base}/api/sincronizar/oauth/callback`
+    const userEmail = authStore.user?.correo
+    const data = await authService.getOAuthUrl(callbackUrl, userEmail)
+    
+    if (data.auth_url) {
+      const electronAPI = (window as unknown as { electronAPI?: { openExternal?: (url: string) => void } }).electronAPI
+      if (electronAPI && typeof electronAPI.openExternal === 'function') {
+        electronAPI.openExternal(data.auth_url)
+      } else {
+        window.open(data.auth_url, '_blank')
+      }
+      alert('Se abrió la ventana para actualizar la autorización de Google Drive. Cuando completes el proceso en tu navegador, pulsa el botón de verificar conexión.')
+    } else {
+      throw new Error('El servidor no retornó una URL de autorización válida.')
+    }
+  } catch (err: any) {
+    console.error('Error iniciando OAuth:', err)
+    alert(err.message || 'Error al iniciar la autorización con Google Drive.')
+  }
+}
+
+// Si cambia a local y estaba en 'todo', cambiar a 'mes'
+watch(syncSource, (newSource) => {
+  if (newSource === 'local' && syncMode.value === 'todo') {
+    syncMode.value = 'mes'
+  }
+})
 
 // Multi-day selection composable
 const {
@@ -158,12 +237,16 @@ const isSubmitDisabled = computed(() => {
   if (loadingSubmit.value || appStore.syncStatus === 'running') return true
   if (syncSource.value === 'local' && !selectedFile.value) return true
   if (syncMode.value === 'dias' && selectedDates.value.length === 0) return true
+  // En modo 'todo' no requiere selección adicional
   return false
 })
 
 const getSubmitButtonText = () => {
   if (loadingSubmit.value || appStore.syncStatus === 'running') return 'PROCESANDO SINCRONIZACIÓN...'
   if (syncSource.value === 'drive') {
+    if (syncMode.value === 'todo') {
+      return 'SINCRONIZAR TODOS LOS MESES DESDE GOOGLE DRIVE'
+    }
     return syncMode.value === 'mes'
       ? `SINCRONIZAR MES (${syncMonth.value}) DESDE GOOGLE DRIVE`
       : `SINCRONIZAR (${selectedDates.value.length}) DÍAS DESDE GOOGLE DRIVE`
@@ -195,4 +278,8 @@ const confirmDriveOverwrite = () => {
     overwrite: true
   })
 }
+
+onMounted(() => {
+  checkDriveStatus()
+})
 </script>
