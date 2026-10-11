@@ -71,14 +71,21 @@ def _obtener_credenciales_service_account():
         except Exception as e:
             print(f"[AUTH] Error cargando Service Account desde GOOGLE_SERVICE_ACCOUNT_JSON: {e}")
 
-    # 2. Archivo en ruta especificada o service_account.json estándar
-    sa_path = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS", SERVICE_ACCOUNT_PATH)
-    if os.path.exists(sa_path):
-        try:
-            creds = service_account.Credentials.from_service_account_file(sa_path, scopes=sa_scopes)
-            return creds
-        except Exception as e:
-            print(f"[AUTH] Error cargando Service Account desde {sa_path}: {e}")
+    # 2. Archivo en ruta especificada o service_account.json / service-account.json
+    candidatos_path = [
+        os.environ.get("GOOGLE_APPLICATION_CREDENTIALS"),
+        SERVICE_ACCOUNT_PATH,
+        os.path.join(BASE_DIR, "service-account.json"),
+        os.path.join(BASE_DIR, "config", "service_account.json"),
+        os.path.join(BASE_DIR, "config", "service-account.json"),
+    ]
+    for sa_path in candidatos_path:
+        if sa_path and os.path.exists(sa_path):
+            try:
+                creds = service_account.Credentials.from_service_account_file(sa_path, scopes=sa_scopes)
+                return creds
+            except Exception as e:
+                print(f"[AUTH] Error cargando Service Account desde {sa_path}: {e}")
 
     return None
 

@@ -29,6 +29,11 @@ token.json
 credentials.json
 **/credentials.json
 *credentials*.md
+service_account.json
+**/service_account.json
+service-account.json
+**/service-account.json
+*service*account*.json
 redeploy.ps1
 
 # ==========================================

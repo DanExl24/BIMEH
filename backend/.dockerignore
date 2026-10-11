@@ -11,6 +11,9 @@ __pycache__
 .env.*
 !.env.example
 *credentials*
+*service*account*
+service_account.json
+service-account.json
 token.json
 credentials.json
 

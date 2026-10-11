@@ -27,6 +27,7 @@ services:
       - DB_PASSWORD=${DB_PASSWORD:-postgres}
       - ALLOW_ORIGINS=${ALLOW_ORIGINS:-https://bimeh.adsoproject.dev,https://api-bimeh.adsoproject.dev,http://localhost:5173,http://localhost:80}
       - GOOGLE_CREDENTIALS_JSON=${GOOGLE_CREDENTIALS_JSON:-}
+      - GOOGLE_SERVICE_ACCOUNT_JSON=${GOOGLE_SERVICE_ACCOUNT_JSON:-}
       - AI_BACKEND=${AI_BACKEND:-gemini}
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}
       - GEMINI_MODEL=${GEMINI_MODEL:-gemini-3.5-flash-lite}
