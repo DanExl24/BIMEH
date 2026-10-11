@@ -435,13 +435,16 @@ def _auto_synthesize(user_message: str, query_result: Dict[str, Any], db=None) -
     if total == 0:
         mes_solicitado = _extract_month(_norm(user_message))
         if mes_solicitado and not check_month_has_data(mes_solicitado, db):
+            from app.database import get_available_date_range
+            r_range = get_available_date_range(db)
             nombre_mes = [k for k, v in MESES_ES.items() if v == mes_solicitado and len(k) > 3]
             m_label = nombre_mes[0].capitalize() if nombre_mes else f"mes {mes_solicitado}"
             return (
                 f"Se consultó la base de datos de BIMEJ 12 pero **no se encontraron registros para {m_label}**, "
-                f"debido a que el sistema actualmente cuenta con reportes diarios cargados desde **enero hasta julio de 2026** "
+                f"debido a que el sistema actualmente cuenta con reportes diarios cargados de **{r_range['texto']}** "
                 f"(no se registran partes diarios cargados para {m_label.lower()}).\n\n"
-                f"💡 Para consultar novedades de personal, puede solicitar un mes con registros disponibles como **junio** o **julio**."
+                f"💡 Para consultar novedades de personal, puede solicitar un mes con registros disponibles como **{r_range['max_month'].lower()}**, "
+                f"o cargar/sincronizar los partes correspondientes desde el módulo de **Sincronizar Datos**."
             )
         nov_type = _extract_novedad_type(_norm(user_message))
         if mes_solicitado and nov_type:

@@ -15,7 +15,7 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
 from reportlab.lib.pagesizes import letter, landscape
 
-from app.database import get_db, get_month_dates
+from app.database import get_db, get_month_dates, get_available_date_range
 from app.dependencies import DISPONIBLE_STATUSES
 
 def format_agil_month_ranges(records: List[tuple], highlight_html: bool = False) -> str:
@@ -202,7 +202,8 @@ def exportar_csv(
         else:
             dates = get_month_dates(mes)
             if not dates:
-                raise HTTPException(status_code=400, detail=f"No hay reportes registrados para el mes de {mes.upper()}. Los meses disponibles en el sistema son de ENERO a JULIO.")
+                r_info = get_available_date_range(db)
+                raise HTTPException(status_code=400, detail=f"No hay reportes registrados para el mes de {mes.upper()}. Los reportes disponibles en el sistema van de {r_info['texto']}.")
             placeholders = ",".join("%s" for _ in dates)
             cursor.execute(f"SELECT id, fecha FROM REPORTES WHERE fecha IN ({placeholders}) ORDER BY fecha ASC;", dates)
             reports_db = cursor.fetchall()
@@ -641,7 +642,8 @@ def exportar_excel(
         else:
             dates = get_month_dates(mes)
             if not dates:
-                raise HTTPException(status_code=400, detail=f"No hay reportes registrados para el mes de {mes.upper()}. Los meses disponibles en el sistema son de ENERO a JULIO.")
+                r_info = get_available_date_range(db)
+                raise HTTPException(status_code=400, detail=f"No hay reportes registrados para el mes de {mes.upper()}. Los reportes disponibles en el sistema van de {r_info['texto']}.")
             placeholders = ",".join("%s" for _ in dates)
             cursor.execute(f"SELECT id, fecha FROM REPORTES WHERE fecha IN ({placeholders}) ORDER BY fecha ASC;", dates)
             reports_db = cursor.fetchall()
@@ -1638,7 +1640,8 @@ def exportar_pdf(
             
             dates = get_month_dates(mes)
             if not dates:
-                raise HTTPException(status_code=400, detail=f"No hay reportes registrados para el mes de {mes.upper()}. Los meses disponibles en el sistema son de ENERO a JULIO.")
+                r_info = get_available_date_range(db)
+                raise HTTPException(status_code=400, detail=f"No hay reportes registrados para el mes de {mes.upper()}. Los reportes disponibles en el sistema van de {r_info['texto']}.")
             placeholders = ",".join("%s" for _ in dates)
             cursor.execute(f"SELECT id, fecha FROM REPORTES WHERE fecha IN ({placeholders}) ORDER BY fecha ASC;", dates)
             reports_db = cursor.fetchall()

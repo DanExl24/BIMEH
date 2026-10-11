@@ -165,6 +165,55 @@ def get_month_dates(month_name: str) -> List[str]:
     return filtered
 
 
+def get_available_date_range(db=None) -> dict:
+    """
+    Retorna el rango dinámico de fechas y meses cargados en la tabla REPORTES de BIMEJ 12.
+    """
+    meses_nombres = {
+        1: "ENERO", 2: "FEBRERO", 3: "MARZO", 4: "ABRIL",
+        5: "MAYO", 6: "JUNIO", 7: "JULIO", 8: "AGOSTO",
+        9: "SEPTIEMBRE", 10: "OCTUBRE", 11: "NOVIEMBRE", 12: "DICIEMBRE"
+    }
+    close_conn = False
+    if db is None:
+        conn = ConnectionWrapper(conn_params=DB_CONN_PARAMS)
+        close_conn = True
+    else:
+        conn = db
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT MIN(to_date(fecha, 'YYYY-MM-DD')), MAX(to_date(fecha, 'YYYY-MM-DD')) FROM REPORTES;")
+        row = cursor.fetchone()
+        if row and row[0] and row[1]:
+            min_d, max_d = row[0], row[1]
+            min_nom = meses_nombres.get(min_d.month, "ENERO")
+            max_nom = meses_nombres.get(max_d.month, "JULIO")
+            return {
+                "min_date": min_d.strftime("%Y-%m-%d"),
+                "max_date": max_d.strftime("%Y-%m-%d"),
+                "min_month": min_nom,
+                "max_month": max_nom,
+                "year": max_d.year,
+                "texto": f"{min_nom} a {max_nom} de {max_d.year}"
+            }
+    except Exception:
+        pass
+    finally:
+        if close_conn:
+            try:
+                conn.close()
+            except Exception:
+                pass
+    return {
+        "min_date": "2026-01-01",
+        "max_date": "2026-07-31",
+        "min_month": "ENERO",
+        "max_month": "JULIO",
+        "year": 2026,
+        "texto": "ENERO a JULIO de 2026"
+    }
+
+
 def asegurar_optimizaciones_db():
     """
     Crea índices de rendimiento y vistas analíticas en PostgreSQL si aún no existen.

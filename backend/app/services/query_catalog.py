@@ -1261,14 +1261,16 @@ def match_report_request(
         mes_val = _extract_month_name(msg) or "TODOS"
         subnov_val = _extract_novedad_type(msg)
         if mes_val != "TODOS" and not check_month_has_data(mes_val, db):
+            from app.database import get_available_date_range
+            r_range = get_available_date_range(db)
             return {
                 "tipo": "no_encontrado",
                 "mensaje": (
                     f"⚠️ **Aviso de Período No Disponible:**\n\n"
                     f"En la base de datos de BIMEJ 12 **no se registran reportes diarios para el mes de {mes_val}**.\n\n"
-                    f"El sistema actualmente cuenta con reportes cargados para el período de **ENERO a JULIO de 2026**.\n\n"
+                    f"El sistema actualmente cuenta con reportes cargados para el período de **{r_range['texto']}**.\n\n"
                     f"💡 Si lo desea, puede solicitar el **Parte Ágil** para un mes con datos disponibles "
-                    f"(por ejemplo: **JUNIO** o **JULIO**), o bien para **TODO EL AÑO**."
+                    f"(por ejemplo: **{r_range['max_month']}**), o bien para **TODO EL AÑO**."
                 )
             }
         subnov_query = f"&subnovedad={quote_plus(subnov_val)}" if subnov_val else ""
@@ -1293,16 +1295,18 @@ def match_report_request(
     subnov_val = _extract_novedad_type(msg)
 
     if mes_val != "TODOS" and not check_month_has_data(mes_val, db):
+        from app.database import get_available_date_range
+        r_range = get_available_date_range(db)
         nov_txt = f" con novedad de {subnov_val}" if subnov_val else ""
         return {
             "tipo": "no_encontrado",
             "mensaje": (
                 f"⚠️ **Aviso de Período No Disponible:**\n\n"
                 f"En la base de datos de BIMEJ 12 **no se registran reportes diarios para el mes de {mes_val}**.\n\n"
-                f"El sistema actualmente cuenta con reportes diarios cargados desde **ENERO hasta JULIO de 2026** "
-                f"(los meses posteriores aún no han sido cargados o procesados en el sistema).\n\n"
+                f"El sistema actualmente cuenta con reportes diarios cargados para el período de **{r_range['texto']}** "
+                f"(los meses posteriores aún no han sido sincronizados en la base de datos).\n\n"
                 f"💡 Si lo desea, puedo generar el **Consolidado Mensual (Matriz Heatmap)**{nov_txt} para uno de los meses "
-                f"con información registrada (por ejemplo: **JUNIO** o **JULIO**), o para **TODO EL AÑO**."
+                f"con información registrada (por ejemplo: **{r_range['max_month']}**), o para **TODO EL AÑO**."
             )
         }
 
