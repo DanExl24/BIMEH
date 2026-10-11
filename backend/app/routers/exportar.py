@@ -202,7 +202,7 @@ def exportar_csv(
         else:
             dates = get_month_dates(mes)
             if not dates:
-                raise HTTPException(status_code=400, detail="No hay reportes para el mes especificado.")
+                raise HTTPException(status_code=400, detail=f"No hay reportes registrados para el mes de {mes.upper()}. Los meses disponibles en el sistema son de ENERO a JULIO.")
             placeholders = ",".join("%s" for _ in dates)
             cursor.execute(f"SELECT id, fecha FROM REPORTES WHERE fecha IN ({placeholders}) ORDER BY fecha ASC;", dates)
             reports_db = cursor.fetchall()
@@ -641,7 +641,7 @@ def exportar_excel(
         else:
             dates = get_month_dates(mes)
             if not dates:
-                raise HTTPException(status_code=400, detail="No hay reportes para el mes especificado.")
+                raise HTTPException(status_code=400, detail=f"No hay reportes registrados para el mes de {mes.upper()}. Los meses disponibles en el sistema son de ENERO a JULIO.")
             placeholders = ",".join("%s" for _ in dates)
             cursor.execute(f"SELECT id, fecha FROM REPORTES WHERE fecha IN ({placeholders}) ORDER BY fecha ASC;", dates)
             reports_db = cursor.fetchall()
@@ -1638,7 +1638,7 @@ def exportar_pdf(
             
             dates = get_month_dates(mes)
             if not dates:
-                raise HTTPException(status_code=400, detail="No hay reportes para el mes especificado.")
+                raise HTTPException(status_code=400, detail=f"No hay reportes registrados para el mes de {mes.upper()}. Los meses disponibles en el sistema son de ENERO a JULIO.")
             placeholders = ",".join("%s" for _ in dates)
             cursor.execute(f"SELECT id, fecha FROM REPORTES WHERE fecha IN ({placeholders}) ORDER BY fecha ASC;", dates)
             reports_db = cursor.fetchall()

@@ -20,7 +20,10 @@ from datetime import datetime
 from google import genai
 from google.genai import types
 
-from app.services.query_catalog import match_catalog, match_report_request
+from app.services.query_catalog import (
+    match_catalog, match_report_request, _extract_month,
+    MESES_ES, _extract_novedad_type, check_month_has_data
+)
 
 logger = logging.getLogger(__name__)
 
@@ -280,12 +283,30 @@ def _is_refusal(text):
     return any(p in t for p in REFUSAL_PHRASES)
 
 
-def _auto_synthesize(user_message, query_result):
+def _auto_synthesize(user_message, query_result, db=None):
     total = query_result.get("total", 0)
     rows = query_result.get("rows", [])
     cols = query_result.get("columns", [])
 
     if total == 0:
+        mes_solicitado = _extract_month(_norm(user_message))
+        if mes_solicitado and not check_month_has_data(mes_solicitado, db):
+            nombre_mes = [k for k, v in MESES_ES.items() if v == mes_solicitado and len(k) > 3]
+            m_label = nombre_mes[0].capitalize() if nombre_mes else f"mes {mes_solicitado}"
+            return (
+                f"Se consultó la base de datos de BIMEJ 12 pero **no se encontraron registros para {m_label}**, "
+                f"debido a que el sistema actualmente cuenta con reportes diarios cargados desde **enero hasta julio de 2026** "
+                f"(no se registran partes diarios cargados para {m_label.lower()}).\n\n"
+                f"💡 Para consultar novedades de personal, puede solicitar un mes con registros disponibles como **junio** o **julio**."
+            )
+        nov_type = _extract_novedad_type(_norm(user_message))
+        if mes_solicitado and nov_type:
+            nombre_mes = [k for k, v in MESES_ES.items() if v == mes_solicitado and len(k) > 3]
+            m_label = nombre_mes[0].capitalize() if nombre_mes else f"mes {mes_solicitado}"
+            return (
+                f"Se consultó la base de datos de BIMEJ 12 para el mes de **{m_label}**, pero **no se registraron efectivos con novedad de {nov_type.lower()}** "
+                f"en dicho período (el personal se encontraba disponible o con otras novedades registradas)."
+            )
         return "Se consultó la base de datos de BIMEJ 12 pero **no se encontraron registros coincidentes** para los criterios indicados."
 
     # Caso 1: Un solo valor escalar (ej: COUNT)
@@ -536,7 +557,7 @@ def process_user_query(user_message, db, history=None, active_militar=None, mode
             cat_result = None
 
         if cat_result is not None:
-            synth = _auto_synthesize(user_message, cat_result)
+            synth = _auto_synthesize(user_message, cat_result, db=db)
             detected_m = catalog_active
             if cat_result.get("rows"):
                 first = cat_result["rows"][0]
@@ -618,7 +639,7 @@ def process_user_query(user_message, db, history=None, active_militar=None, mode
 
     # Sintesis
     if query_result["total"] == 0 or query_result["total"] <= 5:
-        synthesis = _auto_synthesize(user_message, query_result)
+        synthesis = _auto_synthesize(user_message, query_result, db=db)
     else:
         try:
             synthesis = query_gemini(
@@ -628,9 +649,9 @@ def process_user_query(user_message, db, history=None, active_militar=None, mode
                 temperature=0.2, max_tokens=150, model=active_model
             )
             if _is_refusal(synthesis):
-                synthesis = _auto_synthesize(user_message, query_result)
+                synthesis = _auto_synthesize(user_message, query_result, db=db)
         except Exception:
-            synthesis = _auto_synthesize(user_message, query_result)
+            synthesis = _auto_synthesize(user_message, query_result, db=db)
 
     detected_m = active_militar if is_followup else None
     if query_result.get("rows"):

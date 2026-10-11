@@ -15,6 +15,7 @@ import unicodedata
 import difflib
 from datetime import datetime
 from typing import Optional, Tuple, Dict, Any, List
+from urllib.parse import quote_plus
 
 
 # ---------------------------------------------------------------------------
@@ -39,6 +40,33 @@ MESES_ES: Dict[str, int] = {
     "ene": 1, "feb": 2, "mar": 3, "abr": 4, "jun": 6,
     "jul": 7, "ago": 8, "sep": 9, "oct": 10, "nov": 11, "dic": 12,
 }
+
+
+def check_month_has_data(month_name_or_num: Any, db=None) -> bool:
+    """
+    Verifica si un mes cuenta con reportes registrados en la base de datos de BIMEJ 12.
+    Acepta nombre del mes ('SEPTIEMBRE') o número (1..12).
+    """
+    try:
+        from app.database import get_month_dates
+        if isinstance(month_name_or_num, int):
+            meses_nombres = {
+                1: "ENERO", 2: "FEBRERO", 3: "MARZO", 4: "ABRIL",
+                5: "MAYO", 6: "JUNIO", 7: "JULIO", 8: "AGOSTO",
+                9: "SEPTIEMBRE", 10: "OCTUBRE", 11: "NOVIEMBRE", 12: "DICIEMBRE"
+            }
+            m_nom = meses_nombres.get(month_name_or_num, "")
+        else:
+            m_nom = str(month_name_or_num).strip().upper()
+        if not m_nom or m_nom == "TODOS":
+            return True
+        dates = get_month_dates(m_nom)
+        return len(dates) > 0
+    except Exception:
+        if isinstance(month_name_or_num, int):
+            return month_name_or_num in {1, 2, 3, 4, 5, 6, 7}
+        m_str = str(month_name_or_num).strip().upper()
+        return m_str in {"ENERO", "FEBRERO", "MARZO", "ABRIL", "MAYO", "JUNIO", "JULIO", "TODOS"}
 
 NOVEDADES_MAP: Dict[str, str] = {
     "vacacion": "VACACIONES",
@@ -198,10 +226,15 @@ def _extract_name_tokens(msg_norm: str) -> List[str]:
         "causa", "causas", "motivo", "motivos", "afectacion", "afectaciones", "impacto",
         "principal", "principales", "mayor", "mayores", "menor", "menores",
         # rangos militares y sinonimos de personas (no son nombres propios)
-        "personal", "persona", "personas", "integrante", "integrantes", "miembro", "miembros",
-        "militar", "militares", "soldado", "soldados", "cabo", "sargento",
-        "teniente", "mayor", "coronel", "capitan", "suboficial", "efectivo", "efectivos",
-        "batallon", "bimej", "compania", "companias", "registro", "registros", "estado",
+        "personal", "personales", "persona", "personas", "integrante", "integrantes", "miembro", "miembros",
+        "militar", "militares", "soldado", "soldados", "cabo", "cabos", "sargento", "sargentos",
+        "teniente", "tenientes", "subteniente", "subtenientes", "mayor", "mayores", "coronel", "coroneles",
+        "capitan", "capitanes", "general", "generales", "suboficial", "suboficiales", "oficial", "oficiales",
+        "efectivo", "efectivos", "elemento", "elementos", "cuadro", "cuadros", "tropa", "tropas",
+        "dragoneante", "dragoneantes", "agente", "agentes", "slp", "slb", "slr",
+        "batallon", "bimej", "compania", "companias", "peloton", "pelotones", "seccion", "secciones",
+        "listado", "listados", "listame", "relacion", "relaciones", "censo", "censos", "nomina", "nominas",
+        "registro", "registros", "estado",
         "activo", "activos", "retirado", "retirados",
         # terminos de reportes y formatos (no son nombres de personas)
         "consolidado", "consolidados", "mensual", "mensuales", "diario", "diarios",
@@ -584,7 +617,7 @@ def match_catalog(
                 f"Personal con {novedad_type} entre {fi} y {ff}"
             )
         # Solo tipo novedad sin fecha
-        if re.search(r"\b(quien|quienes|personal|lista|mostrar|hay|tienen|estan)\b", msg):
+        if re.search(r"\b(quien|quienes|personal|personales|lista|listar|listado|mostrar|hay|tienen|estan)\b", msg):
             return (
                 f"SELECT cedula, nombre, fecha_reporte, novedad, descripcion "
                 f"FROM v_novedades_detalle "
@@ -1226,40 +1259,74 @@ def match_report_request(
     # 5. Parte Ágil de Novedades (mes, modo=agil)
     if any(k in msg for k in ["agil", "parte agil", "resumen de novedades", "resumen mensual", "novedades del mes"]):
         mes_val = _extract_month_name(msg) or "TODOS"
+        subnov_val = _extract_novedad_type(msg)
+        if mes_val != "TODOS" and not check_month_has_data(mes_val, db):
+            return {
+                "tipo": "no_encontrado",
+                "mensaje": (
+                    f"⚠️ **Aviso de Período No Disponible:**\n\n"
+                    f"En la base de datos de BIMEJ 12 **no se registran reportes diarios para el mes de {mes_val}**.\n\n"
+                    f"El sistema actualmente cuenta con reportes cargados para el período de **ENERO a JULIO de 2026**.\n\n"
+                    f"💡 Si lo desea, puede solicitar el **Parte Ágil** para un mes con datos disponibles "
+                    f"(por ejemplo: **JUNIO** o **JULIO**), o bien para **TODO EL AÑO**."
+                )
+            }
+        subnov_query = f"&subnovedad={quote_plus(subnov_val)}" if subnov_val else ""
+        filtro_subnov_txt = f" (Filtro: {subnov_val})" if subnov_val else ""
         titulo_mes = f"Año {current_year}" if mes_val == "TODOS" else mes_val
         return {
             "tipo": "mes",
             "formato_solicitado": formato,
-            "titulo": f"Parte Ágil de Novedades - {titulo_mes}",
+            "titulo": f"Parte Ágil de Novedades - {titulo_mes}{filtro_subnov_txt}",
             "descripcion": f"Resumen ejecutivo condensado por rangos de días con comentarios descriptivos para {titulo_mes}.",
-            "url_excel": f"/api/exportar/excel?tipo=mes&mes={mes_val}&modo=agil",
-            "url_pdf": f"/api/exportar/pdf?tipo=mes&mes={mes_val}&modo=agil",
-            "parametros": {"mes": mes_val, "modo": "agil"},
+            "url_excel": f"/api/exportar/excel?tipo=mes&mes={mes_val}&modo=agil{subnov_query}",
+            "url_pdf": f"/api/exportar/pdf?tipo=mes&mes={mes_val}&modo=agil{subnov_query}",
+            "parametros": {"mes": mes_val, "modo": "agil", "subnovedad": subnov_val},
             "mensaje": (
-                f"He preparado el **Parte Ágil de Novedades** para el período **{titulo_mes}**.\n\n"
+                f"He preparado el **Parte Ágil de Novedades** para el período **{titulo_mes}**{filtro_subnov_txt}.\n\n"
                 f"Agrupa las novedades por intervalos de días con sus descripciones oficiales:"
             )
         }
 
     # 6. Consolidado Mensual (consolidado_mensual) - Matriz Heatmap
     mes_val = _extract_month_name(msg) or "TODOS"
+    subnov_val = _extract_novedad_type(msg)
+
+    if mes_val != "TODOS" and not check_month_has_data(mes_val, db):
+        nov_txt = f" con novedad de {subnov_val}" if subnov_val else ""
+        return {
+            "tipo": "no_encontrado",
+            "mensaje": (
+                f"⚠️ **Aviso de Período No Disponible:**\n\n"
+                f"En la base de datos de BIMEJ 12 **no se registran reportes diarios para el mes de {mes_val}**.\n\n"
+                f"El sistema actualmente cuenta con reportes diarios cargados desde **ENERO hasta JULIO de 2026** "
+                f"(los meses posteriores aún no han sido cargados o procesados en el sistema).\n\n"
+                f"💡 Si lo desea, puedo generar el **Consolidado Mensual (Matriz Heatmap)**{nov_txt} para uno de los meses "
+                f"con información registrada (por ejemplo: **JUNIO** o **JULIO**), o para **TODO EL AÑO**."
+            )
+        }
+
     if any(k in msg for k in ["color", "colores", "visual"]):
         modo_matriz = "colores"
     elif any(k in msg for k in ["completo", "nombre", "subnovedad"]):
         modo_matriz = "completo"
     else:
         modo_matriz = "letras"
+
+    subnov_query = f"&subnovedad={quote_plus(subnov_val)}" if subnov_val else ""
+    filtro_subnov_txt = f" (Filtro: {subnov_val})" if subnov_val else ""
+    filtro_subnov_desc = f" con filtro aplicado a la novedad '{subnov_val}'" if subnov_val else ""
     titulo_mes = f"Año Completo {current_year}" if mes_val == "TODOS" else mes_val
     return {
         "tipo": "consolidado_mensual",
         "formato_solicitado": formato,
-        "titulo": f"Consolidado Mensual - {titulo_mes}",
-        "descripcion": f"Matriz integral de toda la unidad que refleja la operatividad día a día de cada integrante con codificación oficial.",
-        "url_excel": f"/api/exportar/excel?tipo=consolidado_mensual&mes={mes_val}&modo={modo_matriz}",
-        "url_pdf": f"/api/exportar/pdf?tipo=consolidado_mensual&mes={mes_val}&modo={modo_matriz}",
-        "parametros": {"mes": mes_val, "modo": modo_matriz},
+        "titulo": f"Consolidado Mensual - {titulo_mes}{filtro_subnov_txt}",
+        "descripcion": f"Matriz integral de toda la unidad que refleja la operatividad día a día de cada integrante con codificación oficial{filtro_subnov_desc}.",
+        "url_excel": f"/api/exportar/excel?tipo=consolidado_mensual&mes={mes_val}&modo={modo_matriz}{subnov_query}",
+        "url_pdf": f"/api/exportar/pdf?tipo=consolidado_mensual&mes={mes_val}&modo={modo_matriz}{subnov_query}",
+        "parametros": {"mes": mes_val, "modo": modo_matriz, "subnovedad": subnov_val},
         "mensaje": (
-            f"He preparado el **Consolidado Mensual (Matriz Heatmap)** para **{titulo_mes}**.\n\n"
+            f"He preparado el **Consolidado Mensual (Matriz Heatmap)** para **{titulo_mes}**{filtro_subnov_txt}.\n\n"
             f"Seleccione su formato de preferencia para iniciar la descarga oficial:"
         )
     }

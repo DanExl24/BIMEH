@@ -12,7 +12,10 @@ import unicodedata
 import httpx
 from typing import Dict, Any, List, Optional
 from datetime import datetime
-from app.services.query_catalog import match_catalog, match_report_request
+from app.services.query_catalog import (
+    match_catalog, match_report_request, _extract_month,
+    MESES_ES, _extract_novedad_type, check_month_has_data
+)
 
 logger = logging.getLogger(__name__)
 
@@ -419,14 +422,36 @@ def _is_refusal(text: str) -> bool:
     return any(p in t for p in REFUSAL_PHRASES)
 
 
-def _auto_synthesize(user_message: str, query_result: Dict[str, Any]) -> str:
+def _auto_synthesize(user_message: str, query_result: Dict[str, Any], db=None) -> str:
     """
     Genera un resumen militar automatico a partir de los resultados sin usar el LLM.
-    Se usa como fallback cuando el modelo se niega a responder.
+    Se usa como fallback cuando el modelo se niega a responder o cuando hay 0 registros.
     """
     total = query_result["total"]
     rows = query_result["rows"]
     cols = query_result["columns"]
+
+    # Caso 0: 0 registros
+    if total == 0:
+        mes_solicitado = _extract_month(_norm(user_message))
+        if mes_solicitado and not check_month_has_data(mes_solicitado, db):
+            nombre_mes = [k for k, v in MESES_ES.items() if v == mes_solicitado and len(k) > 3]
+            m_label = nombre_mes[0].capitalize() if nombre_mes else f"mes {mes_solicitado}"
+            return (
+                f"Se consultó la base de datos de BIMEJ 12 pero **no se encontraron registros para {m_label}**, "
+                f"debido a que el sistema actualmente cuenta con reportes diarios cargados desde **enero hasta julio de 2026** "
+                f"(no se registran partes diarios cargados para {m_label.lower()}).\n\n"
+                f"💡 Para consultar novedades de personal, puede solicitar un mes con registros disponibles como **junio** o **julio**."
+            )
+        nov_type = _extract_novedad_type(_norm(user_message))
+        if mes_solicitado and nov_type:
+            nombre_mes = [k for k, v in MESES_ES.items() if v == mes_solicitado and len(k) > 3]
+            m_label = nombre_mes[0].capitalize() if nombre_mes else f"mes {mes_solicitado}"
+            return (
+                f"Se consultó la base de datos de BIMEJ 12 para el mes de **{m_label}**, pero **no se registraron efectivos con novedad de {nov_type.lower()}** "
+                f"en dicho período (el personal se encontraba disponible o con otras novedades registradas)."
+            )
+        return "Se consultó la base de datos de BIMEJ 12 para su solicitud, pero **no se encontraron registros coincidentes**."
 
     # Caso 1: resultado de conteo (una sola fila, una sola columna numerica)
     if total == 1 and len(cols) == 1:
@@ -597,10 +622,7 @@ def process_user_query(
 
         if catalog_result is not None:
             if catalog_result["total"] == 0:
-                catalog_synthesis = (
-                    f"Se consultó la base de datos de BIMEJ 12 para su solicitud, "
-                    f"pero **no se encontraron registros coincidentes**."
-                )
+                catalog_synthesis = _auto_synthesize(user_message, catalog_result, db=db)
             else:
                 synthesis_prompt = (
                     f"Eres el Asistente Militar de BIMEJ 12.\n"
@@ -618,9 +640,9 @@ def process_user_query(
                     # Si el modelo se nego a responder, usar resumen automatico
                     if _is_refusal(catalog_synthesis):
                         logger.warning("[Sintesis] El modelo se nego a responder. Usando auto-sintesis.")
-                        catalog_synthesis = _auto_synthesize(user_message, catalog_result)
+                        catalog_synthesis = _auto_synthesize(user_message, catalog_result, db=db)
                 except Exception:
-                    catalog_synthesis = _auto_synthesize(user_message, catalog_result)
+                    catalog_synthesis = _auto_synthesize(user_message, catalog_result, db=db)
 
             # Detectar militar en foco a partir de resultados
             detected_m = catalog_active_militar
@@ -891,7 +913,7 @@ Responde ÚNICAMENTE en formato JSON válido:
 
     # Sintetizar los resultados con la IA (o reporte directo si 0 registros)
     if query_result["total"] == 0:
-        synthesis = f"Se consultó la base de datos de BIMEJ 12 para su solicitud, pero **no se encontraron registros coincidentes**."
+        synthesis = _auto_synthesize(user_message, query_result, db=db)
     else:
         synthesis_prompt = f"""
 Eres el Asistente Militar de BIMEJ 12.
@@ -910,9 +932,9 @@ Menciona los totales o el hallazgo principal sin repetir toda la tabla.
             # Si el modelo se nego a responder, usar resumen automatico
             if _is_refusal(synthesis):
                 logger.warning("[Sintesis] El modelo se nego a responder. Usando auto-sintesis.")
-                synthesis = _auto_synthesize(user_message, query_result)
+                synthesis = _auto_synthesize(user_message, query_result, db=db)
         except Exception:
-            synthesis = _auto_synthesize(user_message, query_result)
+            synthesis = _auto_synthesize(user_message, query_result, db=db)
 
     # Detectar o mantener militar en foco
     detected_militar = active_militar if is_followup else None
