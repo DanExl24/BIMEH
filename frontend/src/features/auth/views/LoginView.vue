@@ -26,30 +26,8 @@
         <span class="font-medium leading-relaxed">{{ errorMessage }}</span>
       </div>
 
-      <!-- Estado de Drive OAuth (si Drive no está autorizado tras login) -->
-      <div
-        v-if="needsDriveAuth"
-        class="bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs p-4 rounded-xl space-y-2.5"
-      >
-        <div class="flex items-center gap-2 font-bold text-amber-400">
-          <AlertCircle class="w-4 h-4 shrink-0" />
-          <span>Autorización de Google Drive Requerida</span>
-        </div>
-        <p class="text-slate-300 text-[11px] leading-relaxed">
-          Para acceder a los reportes operacionales es obligatorio vincular la cuenta autorizada de Google Drive.
-        </p>
-        <button
-          type="button"
-          @click="iniciarOAuth"
-          class="w-full py-2.5 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 rounded-xl text-xs font-bold text-amber-300 transition-all cursor-pointer flex items-center justify-center gap-2 shadow-sm active:scale-98"
-        >
-          <ExternalLink class="w-4 h-4" />
-          <span>Autorizar Google Drive Ahora</span>
-        </button>
-      </div>
-
       <!-- Nota informativa previa -->
-      <div v-if="!needsDriveAuth" class="bg-cyan-500/10 border border-cyan-500/20 text-cyan-300 text-xs p-3 rounded-xl flex items-start gap-2.5">
+      <div class="bg-cyan-500/10 border border-cyan-500/20 text-cyan-300 text-xs p-3 rounded-xl flex items-start gap-2.5">
         <Lock class="w-4 h-4 text-cyan-400 shrink-0 mt-0.5" />
         <span class="text-slate-300 text-[11px] leading-relaxed">
           Acceso restringido para personal autorizado del BIMEJ 12. Todas las operaciones quedan registradas.
@@ -111,19 +89,16 @@ import {
   Mail, 
   KeyRound, 
   AlertCircle, 
-  ExternalLink, 
   Loader2 
 } from 'lucide-vue-next'
 
 import { useAuthStore } from '../stores/authStore'
 import { authService } from '../services/auth.service'
 import { useAppStore } from '@stores/appStore'
-import { MONTHS_LIST } from '@utils/date'
 
 const correo = ref('')
 const password = ref('')
 const errorMessage = ref('')
-const needsDriveAuth = ref(false)
 
 const authStore = useAuthStore()
 const appStore = useAppStore()
@@ -131,10 +106,10 @@ const router = useRouter()
 
 const handleLogin = async () => {
   errorMessage.value = ''
-  needsDriveAuth.value = false
   try {
     const success = await authStore.login(correo.value, password.value)
     if (success) {
+      // Intentar sincronización en segundo plano (NO bloquea el login)
       try {
         const driveData = await authService.getDriveStatus()
         if (driveData.connected) {
@@ -143,45 +118,18 @@ const handleLogin = async () => {
             tipo: 'todo',
             overwrite: false
           })
-
-          router.push('/')
         } else {
-          authStore.logout()
-          needsDriveAuth.value = true
-          errorMessage.value = 'Se requiere autorización de Google Drive para ingresar al sistema.'
+          console.warn('[LOGIN] Google Drive no conectado. La sincronización automática no se ejecutará.')
         }
-      } catch {
-        authStore.logout()
-        needsDriveAuth.value = true
-        errorMessage.value = 'No se pudo verificar el estado de Google Drive en el servidor. Por favor autoriza la conexión.'
+      } catch (driveErr) {
+        console.warn('[LOGIN] No se pudo verificar estado de Google Drive:', driveErr)
       }
+
+      // Siempre navegar al sistema, independientemente del estado de Drive
+      router.push('/')
     }
   } catch (error: any) {
     errorMessage.value = error.message || 'Error en las credenciales proporcionadas.'
-  }
-}
-
-const iniciarOAuth = async () => {
-  try {
-    const base = appStore.apiBase ? appStore.apiBase.replace(/\/$/, '') : window.location.origin
-    const callbackUrl = `${base}/api/sincronizar/oauth/callback`
-    const data = await authService.getOAuthUrl(callbackUrl)
-    
-    if (data.auth_url) {
-      const electronAPI = (window as unknown as { electronAPI?: { openExternal?: (url: string) => void } }).electronAPI
-      if (electronAPI && typeof electronAPI.openExternal === 'function') {
-        electronAPI.openExternal(data.auth_url)
-      } else {
-        window.open(data.auth_url, '_blank')
-      }
-      needsDriveAuth.value = false
-      alert('Se abrió una ventana en tu navegador para autorizar Google Drive. Después de autorizar, vuelve a iniciar sesión aquí.')
-    } else {
-      throw new Error('El servidor no retornó una URL de autorización válida.')
-    }
-  } catch (err: any) {
-    console.error('Error al iniciar OAuth:', err)
-    errorMessage.value = err.message || 'No se pudo iniciar el flujo de autorización. Intenta de nuevo.'
   }
 }
 </script>

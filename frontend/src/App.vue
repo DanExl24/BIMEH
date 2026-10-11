@@ -19,6 +19,7 @@ import {
 
 import { useAppStore } from './stores/appStore'
 import { useAuthStore } from './stores/authStore'
+import { authService } from './features/auth/services/auth.service'
 
 const appStore = useAppStore()
 const authStore = useAuthStore()
@@ -32,11 +33,21 @@ onMounted(async () => {
   if (authStore.isAuthenticated) {
     const isValid = await authStore.checkMe()
     if (isValid) {
-      // Sincronización automática de toda la base de datos (descarga los días faltantes de cualquier mes)
-      appStore.startDriveSync({
-        tipo: 'todo',
-        overwrite: false
-      })
+      // Verificar que Drive esté conectado antes de intentar sincronizar
+      try {
+        const driveData = await authService.getDriveStatus()
+        if (driveData.connected) {
+          // Sincronización automática de toda la base de datos (descarga los días faltantes de cualquier mes)
+          appStore.startDriveSync({
+            tipo: 'todo',
+            overwrite: false
+          })
+        } else {
+          console.warn('[APP] Google Drive no conectado. La sincronización automática no se ejecutará.')
+        }
+      } catch (err) {
+        console.warn('[APP] No se pudo verificar estado de Google Drive:', err)
+      }
     }
   }
 })
