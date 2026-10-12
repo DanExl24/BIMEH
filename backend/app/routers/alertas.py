@@ -1,10 +1,10 @@
 import json
 from datetime import datetime, timedelta
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Tuple
 from fastapi import APIRouter, Depends, Query, HTTPException
 
 from app.database import get_db
-from app.dependencies import DISPONIBLE_STATUSES
+from app.dependencies import DISPONIBLE_STATUSES, get_report_ids_for_filter
 from app.models import (
     AlertaFatigaItem,
     AlertaSanidadItem,
@@ -30,16 +30,41 @@ def _clean_param(val, default_val=None):
         return val.default
     return val if val is not None else default_val
 
-def _get_target_date(cursor, fecha: Optional[str]) -> str:
-    """Retorna la fecha solicitada o la fecha más reciente de REPORTES."""
-    fecha_limpia = _clean_param(fecha)
-    if fecha_limpia:
-        return str(fecha_limpia)
-    cursor.execute("SELECT fecha FROM REPORTES ORDER BY fecha DESC LIMIT 1;")
+def _resolve_target_report(
+    cursor, 
+    db, 
+    mes: Optional[str] = None, 
+    dia: Optional[str] = None, 
+    fecha: Optional[str] = None
+) -> Tuple[Optional[int], str]:
+    """
+    Resuelve el ID de reporte y la fecha objetivo basándose en los filtros mes, dia y fecha.
+    Retorna (id_reporte, fecha_reporte).
+    """
+    mes = _clean_param(mes)
+    dia = _clean_param(dia)
+    fecha = _clean_param(fecha)
+
+    if fecha:
+        cursor.execute("SELECT id, fecha FROM REPORTES WHERE fecha = %s;", (str(fecha),))
+        row = cursor.fetchone()
+        if row:
+            return row[0], row[1]
+
+    if mes or dia:
+        reps = get_report_ids_for_filter(db, mes=mes, dia=dia)
+        if reps:
+            # Tomamos el último reporte del rango seleccionado
+            return reps[-1][0], reps[-1][1]
+
+    # Por defecto, el último reporte registrado en la base de datos
+    cursor.execute("SELECT id, fecha FROM REPORTES ORDER BY fecha DESC LIMIT 1;")
     row = cursor.fetchone()
     if row:
-        return row[0]
-    return datetime.now().strftime("%Y-%m-%d")
+        return row[0], row[1]
+
+    hoy = datetime.now().strftime("%Y-%m-%d")
+    return None, hoy
 
 # ====================================================================
 # 1. RADAR DE FATIGA OPERACIONAL
@@ -47,7 +72,9 @@ def _get_target_date(cursor, fecha: Optional[str]) -> str:
 @router.get("/fatiga", response_model=List[AlertaFatigaItem])
 def get_alertas_fatiga(
     umbral: int = Query(30, description="Días mínimos continuos en servicio sin descanso"),
-    fecha: Optional[str] = Query(None, description="Fecha de corte (YYYY-MM-DD)"),
+    mes: Optional[str] = Query(None, description="Mes del reporte (ENERO, FEBRERO...)"),
+    dia: Optional[str] = Query(None, description="Día del mes (01, 02...)"),
+    fecha: Optional[str] = Query(None, description="Fecha exacta (YYYY-MM-DD)"),
     db = Depends(get_db)
 ):
     """
@@ -56,9 +83,12 @@ def get_alertas_fatiga(
     """
     umbral = int(_clean_param(umbral, 30))
     cursor = db.cursor()
-    target_date = _get_target_date(cursor, fecha)
+    target_rep_id, target_date = _resolve_target_report(cursor, db, mes, dia, fecha)
 
-    # 1. Obtener los últimos 90 reportes anteriores o iguales a target_date
+    if not target_rep_id:
+        return []
+
+    # 1. Obtener hasta 90 reportes anteriores o iguales a target_date
     cursor.execute(
         "SELECT id, fecha FROM REPORTES WHERE fecha <= %s ORDER BY fecha DESC LIMIT 90;",
         (target_date,)
@@ -67,9 +97,7 @@ def get_alertas_fatiga(
     if not reportes:
         return []
 
-    ultimo_rep_id = reportes[0][0]
-
-    # 2. Personal disponible en el último reporte analizado
+    # 2. Personal disponible en el reporte evaluado
     cursor.execute("""
         SELECT rp.id_personal, p.cedula, p.nombre, sn.nombre AS estado_actual
         FROM REGISTRO_PERSONAL rp
@@ -77,7 +105,7 @@ def get_alertas_fatiga(
         JOIN SUB_NOVEDADES sn ON sn.id = rp.id_sub_novedad
         WHERE rp.id_reporte = %s AND sn.nombre IN ('AREA OPERACIONES', 'CDO UNIDAD')
         AND (p.fecha_retiro IS NULL OR p.fecha_retiro = '')
-    """, (ultimo_rep_id,))
+    """, (target_rep_id,))
     disponibles = cursor.fetchall()
     if not disponibles:
         return []
@@ -112,7 +140,6 @@ def get_alertas_fatiga(
             elif sn in disponibles_set:
                 racha += 1
             else:
-                # Novedad diferente (comisión, curso, incapacidad) interrumpe la racha continua de disponibilidad pura
                 break
 
         if racha >= umbral:
@@ -145,7 +172,9 @@ def get_alertas_fatiga(
 @router.get("/sanidad", response_model=List[AlertaSanidadItem])
 def get_alertas_sanidad(
     dias_min: int = Query(15, description="Días mínimos acumulados en novedades médicas"),
-    fecha: Optional[str] = Query(None, description="Fecha máxima de corte"),
+    mes: Optional[str] = Query(None, description="Mes del reporte (ENERO, FEBRERO...)"),
+    dia: Optional[str] = Query(None, description="Día del mes (01, 02...)"),
+    fecha: Optional[str] = Query(None, description="Fecha de corte máxima"),
     anio: Optional[int] = Query(None, description="Año específico a evaluar"),
     db = Depends(get_db)
 ):
@@ -156,7 +185,7 @@ def get_alertas_sanidad(
     dias_min = int(_clean_param(dias_min, 15))
     anio_limpio = _clean_param(anio)
     cursor = db.cursor()
-    target_date = _get_target_date(cursor, fecha)
+    target_rep_id, target_date = _resolve_target_report(cursor, db, mes, dia, fecha)
 
     filtros = [
         "(UPPER(sn.nombre) LIKE '%%INCAPACIDAD%%' OR UPPER(sn.nombre) LIKE '%%HOSPITAL%%' OR UPPER(sn.nombre) LIKE '%%LESIHMANIASIS%%')",
@@ -234,6 +263,8 @@ def _parse_date_safe(val: Optional[str]) -> Optional[datetime]:
 @router.get("/proyeccion", response_model=ProyeccionFuerzaData)
 def get_proyeccion_fuerza(
     dias: int = Query(30, description="Días hacia adelante a proyectar"),
+    mes: Optional[str] = Query(None, description="Mes base (ENERO, FEBRERO...)"),
+    dia: Optional[str] = Query(None, description="Día del mes (01, 02...)"),
     fecha: Optional[str] = Query(None, description="Fecha base de cálculo"),
     db = Depends(get_db)
 ):
@@ -243,23 +274,13 @@ def get_proyeccion_fuerza(
     """
     dias = int(_clean_param(dias, 30))
     cursor = db.cursor()
-    target_date = _get_target_date(cursor, fecha)
+    target_rep_id, target_date = _resolve_target_report(cursor, db, mes, dia, fecha)
 
-    # 1. Obtener ID del reporte base
-    cursor.execute("SELECT id FROM REPORTES WHERE fecha = %s;", (target_date,))
-    rep_row = cursor.fetchone()
-    if not rep_row:
-        # Fallback al último
-        cursor.execute("SELECT id, fecha FROM REPORTES ORDER BY fecha DESC LIMIT 1;")
-        rep_row = cursor.fetchone()
-        target_date = rep_row[1] if rep_row else target_date
+    if not target_rep_id:
+        raise HTTPException(status_code=404, detail="No se encontraron reportes para el período seleccionado")
 
-    rep_id = rep_row[0] if rep_row else None
-    if not rep_id:
-        raise HTTPException(status_code=404, detail="No se encontraron reportes en la base de datos")
-
-    # 2. Efectivo actual
-    cursor.execute("SELECT COUNT(*) FROM REGISTRO_PERSONAL WHERE id_reporte = %s;", (rep_id,))
+    # 2. Efectivo en esa fecha base
+    cursor.execute("SELECT COUNT(*) FROM REGISTRO_PERSONAL WHERE id_reporte = %s;", (target_rep_id,))
     total_efectivo = cursor.fetchone()[0] or 0
 
     cursor.execute("""
@@ -267,7 +288,7 @@ def get_proyeccion_fuerza(
         FROM REGISTRO_PERSONAL rp
         JOIN SUB_NOVEDADES sn ON sn.id = rp.id_sub_novedad
         WHERE rp.id_reporte = %s AND sn.nombre IN ('AREA OPERACIONES', 'CDO UNIDAD');
-    """, (rep_id,))
+    """, (target_rep_id,))
     disp_actual = cursor.fetchone()[0] or 0
     nov_actual = max(0, total_efectivo - disp_actual)
     pct_actual = round((disp_actual / total_efectivo * 100), 1) if total_efectivo > 0 else 0.0
@@ -283,7 +304,7 @@ def get_proyeccion_fuerza(
           AND rp.fecha_final != ''
           AND sn.nombre NOT IN ('AREA OPERACIONES', 'CDO UNIDAD')
         ORDER BY rp.fecha_final ASC;
-    """, (rep_id,))
+    """, (target_rep_id,))
     filas_movs = cursor.fetchall()
 
     base_dt = _parse_date_safe(target_date) or datetime.now()
@@ -299,7 +320,6 @@ def get_proyeccion_fuerza(
             continue
 
         delta_dias = (dt_fin - base_dt).days
-        # Consideramos movimientos futuros o que vencen muy pronto (dentro de los próximos 'dias')
         if 0 <= delta_dias <= dias:
             if delta_dias <= 7:
                 reinc_7 += 1
@@ -363,7 +383,9 @@ def get_proyeccion_fuerza(
 # ====================================================================
 @router.get("/parte-diario", response_model=ParteDiarioData)
 def get_parte_diario(
-    fecha: Optional[str] = Query(None, description="Fecha del parte diario (YYYY-MM-DD)"),
+    mes: Optional[str] = Query(None, description="Mes del parte (ENERO, FEBRERO...)"),
+    dia: Optional[str] = Query(None, description="Día del parte (01, 02...)"),
+    fecha: Optional[str] = Query(None, description="Fecha exacta (YYYY-MM-DD)"),
     db = Depends(get_db)
 ):
     """
@@ -371,24 +393,13 @@ def get_parte_diario(
     con desglose de categorías y texto listo para radiograma o mensaje militar oficial.
     """
     cursor = db.cursor()
-    target_date = _get_target_date(cursor, fecha)
+    target_rep_id, target_date = _resolve_target_report(cursor, db, mes, dia, fecha)
 
-    # 1. Obtener ID del reporte
-    cursor.execute("SELECT id FROM REPORTES WHERE fecha = %s;", (target_date,))
-    rep_row = cursor.fetchone()
-    if not rep_row:
-        cursor.execute("SELECT id, fecha FROM REPORTES ORDER BY fecha DESC LIMIT 1;")
-        rep_row = cursor.fetchone()
-        if rep_row:
-            target_date = rep_row[1]
+    if not target_rep_id:
+        raise HTTPException(status_code=404, detail="No hay reportes disponibles para el filtro seleccionado")
 
-    if not rep_row:
-        raise HTTPException(status_code=404, detail="No hay reportes disponibles para generar el parte diario")
-
-    rep_id = rep_row[0]
-
-    # 2. Conteo total y disponibles
-    cursor.execute("SELECT COUNT(*) FROM REGISTRO_PERSONAL WHERE id_reporte = %s;", (rep_id,))
+    # 1. Conteo total y disponibles
+    cursor.execute("SELECT COUNT(*) FROM REGISTRO_PERSONAL WHERE id_reporte = %s;", (target_rep_id,))
     total_efectivo = cursor.fetchone()[0] or 0
 
     cursor.execute("""
@@ -397,7 +408,7 @@ def get_parte_diario(
         JOIN SUB_NOVEDADES sn ON sn.id = rp.id_sub_novedad
         WHERE rp.id_reporte = %s
         GROUP BY sn.nombre;
-    """, (rep_id,))
+    """, (target_rep_id,))
     subnov_rows = cursor.fetchall()
     subnov_dict = {row[0]: row[1] for row in subnov_rows}
 
@@ -407,7 +418,7 @@ def get_parte_diario(
     total_novedades = max(0, total_efectivo - total_disponibles)
     pct_disp = round((total_disponibles / total_efectivo * 100), 1) if total_efectivo > 0 else 0.0
 
-    # 3. Categorización militar estándar
+    # 2. Categorización militar estándar
     cat_sanidad = (
         subnov_dict.get('INCAPACIDAD', 0) +
         subnov_dict.get('HOSPITALIZADOS', 0) +
@@ -426,9 +437,9 @@ def get_parte_diario(
     )
     cat_admin = max(0, total_novedades - (cat_sanidad + cat_descanso + cat_servicio))
 
-    # 4. Alertas resumidas de mando
-    fatiga_alertas = get_alertas_fatiga(umbral=30, fecha=target_date, db=db)
-    sanidad_alertas = get_alertas_sanidad(dias_min=15, fecha=target_date, db=db)
+    # 3. Alertas resumidas de mando para la fecha resuelta
+    fatiga_alertas = get_alertas_fatiga(umbral=30, mes=None, dia=None, fecha=target_date, db=db)
+    sanidad_alertas = get_alertas_sanidad(dias_min=15, mes=None, dia=None, fecha=target_date, db=db)
 
     top_fatiga = [
         {"nombre": f.nombre, "dias": f.dias_continuos, "alerta": f.nivel_alerta}
@@ -439,7 +450,7 @@ def get_parte_diario(
         for s in sanidad_alertas[:5]
     ]
 
-    # 5. Formato del Radiograma Castrense
+    # 4. Formato del Radiograma Castrense
     radiograma = f"""======================================================================
 REPUBLICA DE COLOMBIA - MINISTERIO DE DEFENSA NACIONAL
 COMANDO GENERAL DE LAS FUERZAS MILITARES - EJERCITO NACIONAL

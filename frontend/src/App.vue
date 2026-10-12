@@ -149,9 +149,9 @@ onMounted(async () => {
               </select>
             </div>
 
-            <!-- Month & Day Selectors on Dashboard -->
+            <!-- Month & Day Selectors on Dashboard & Mando S-1 -->
             <div 
-              v-if="$route.name === 'dashboard'" 
+              v-if="$route.name === 'dashboard' || $route.name === 'mando-s1'" 
               class="flex flex-wrap sm:flex-nowrap items-center gap-2 w-full md:w-auto"
             >
               <!-- Month dropdown -->

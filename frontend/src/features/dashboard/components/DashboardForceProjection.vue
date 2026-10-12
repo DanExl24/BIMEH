@@ -125,6 +125,8 @@ import { alertasService } from '../services/alertas.service'
 import type { ProyeccionFuerzaData } from '../types/alertas.types'
 
 const props = defineProps<{
+  month?: string
+  day?: string
   fecha?: string
 }>()
 
@@ -134,7 +136,7 @@ const proyeccion = ref<ProyeccionFuerzaData | null>(null)
 const cargarProyeccion = async () => {
   loading.value = true
   try {
-    const data = await alertasService.getProyeccion(30, props.fecha)
+    const data = await alertasService.getProyeccion(30, props.month, props.day, props.fecha)
     proyeccion.value = data
   } catch (error) {
     console.error('Error al cargar proyeccion de fuerza:', error)
@@ -148,7 +150,7 @@ onMounted(() => {
 })
 
 watch(
-  () => props.fecha,
+  () => [props.month, props.day, props.fecha],
   () => {
     cargarProyeccion()
   }

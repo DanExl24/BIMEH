@@ -111,6 +111,7 @@ import {
   LogOut,
   X,
   Shield,
+  ShieldAlert,
   Bot,
   Sparkles
 } from 'lucide-vue-next'
@@ -133,6 +134,7 @@ const handleLogout = () => {
 
 const menuItems = [
   { name: 'Dashboard General', path: '/', icon: LayoutDashboard },
+  { name: 'Mando S-1 & Alertas', path: '/mando-s1', icon: ShieldAlert },
   { name: 'Buscador de Personal', path: '/personal', icon: Users },
   { name: 'Gestión de Novedades', path: '/novedades', icon: Tag },
   { name: 'Estadísticas Históricas', path: '/estadisticas', icon: BarChart3 },

@@ -177,6 +177,8 @@ import { alertasService } from '../services/alertas.service'
 import type { AlertaFatigaItem, AlertaSanidadItem } from '../types/alertas.types'
 
 const props = defineProps<{
+  month?: string
+  day?: string
   fecha?: string
 }>()
 
@@ -192,8 +194,8 @@ const cargarDatos = async () => {
   loading.value = true
   try {
     const [fatigaData, sanidadData] = await Promise.all([
-      alertasService.getFatiga(umbralFatiga.value, props.fecha),
-      alertasService.getSanidad(diasSanidad.value, props.fecha)
+      alertasService.getFatiga(umbralFatiga.value, props.month, props.day, props.fecha),
+      alertasService.getSanidad(diasSanidad.value, props.month, props.day, props.fecha)
     ])
     fatigaList.value = fatigaData
     sanidadList.value = sanidadData
@@ -219,7 +221,7 @@ onMounted(() => {
 })
 
 watch(
-  () => props.fecha,
+  () => [props.month, props.day, props.fecha],
   () => {
     cargarDatos()
   }

@@ -2174,7 +2174,7 @@ def exportar_pdf(
 
         
     elif tipo == "parte_diario":
-        return exportar_pdf_parte_diario(fecha=fecha, db=db)
+        return exportar_pdf_parte_diario(mes=mes, dia=dia if 'dia' in locals() else None, fecha=fecha, db=db)
     else:
         raise HTTPException(status_code=400, detail="Parámetros inválidos")
         
@@ -2195,7 +2195,9 @@ def exportar_pdf(
 
 @router.get("/pdf/parte-diario")
 def exportar_pdf_parte_diario(
-    fecha: Optional[str] = Query(None, description="Fecha del parte diario (YYYY-MM-DD)"),
+    mes: Optional[str] = Query(None, description="Mes del parte diario (ENERO, FEBRERO...)"),
+    dia: Optional[str] = Query(None, description="Día del mes (01, 02...)"),
+    fecha: Optional[str] = Query(None, description="Fecha exacta del parte diario (YYYY-MM-DD)"),
     db = Depends(get_db)
 ):
     """
@@ -2204,7 +2206,7 @@ def exportar_pdf_parte_diario(
     """
     from app.routers.alertas import get_parte_diario
     
-    parte = get_parte_diario(fecha=fecha, db=db)
+    parte = get_parte_diario(mes=mes, dia=dia, fecha=fecha, db=db)
     fecha_reporte = parte.fecha
     
     pdf_buffer = io.BytesIO()

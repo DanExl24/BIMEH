@@ -48,13 +48,23 @@
           </div>
         </div>
 
-        <button 
-          @click="showBriefingModal = true"
-          class="px-4 py-2 sm:px-5 sm:py-2.5 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black rounded-xl text-xs uppercase tracking-wider transition-all flex items-center gap-2 shadow-md shadow-cyan-500/25 hover:shadow-cyan-500/40 cursor-pointer"
-        >
-          <FileText class="w-4 h-4 stroke-[2.5]" />
-          <span>El Parte de las 06:00</span>
-        </button>
+        <div class="flex items-center gap-2">
+          <router-link
+            to="/mando-s1"
+            class="px-3 py-2 bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700 text-slate-200 hover:text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5"
+          >
+            <span>Ver Centro S-1 Completo</span>
+            <ExternalLink class="w-3.5 h-3.5 text-cyan-400" />
+          </router-link>
+
+          <button 
+            @click="showBriefingModal = true"
+            class="px-4 py-2 sm:px-5 sm:py-2.5 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black rounded-xl text-xs uppercase tracking-wider transition-all flex items-center gap-2 shadow-md shadow-cyan-500/25 hover:shadow-cyan-500/40 cursor-pointer"
+          >
+            <FileText class="w-4 h-4 stroke-[2.5]" />
+            <span>El Parte de las 06:00</span>
+          </button>
+        </div>
       </div>
 
       <!-- 1. KPIs Section -->
@@ -62,8 +72,16 @@
 
       <!-- 2. Nueva Sección: Radar de Fatiga & Proyección de Fuerza -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-        <DashboardFatigueRadar :fecha="fechaEfectiva" />
-        <DashboardForceProjection :fecha="fechaEfectiva" />
+        <DashboardFatigueRadar 
+          :month="appStore.selectedDashboardMonth"
+          :day="appStore.selectedDashboardDay"
+          :fecha="fechaEfectiva" 
+        />
+        <DashboardForceProjection 
+          :month="appStore.selectedDashboardMonth"
+          :day="appStore.selectedDashboardDay"
+          :fecha="fechaEfectiva" 
+        />
       </div>
 
       <!-- 3. Charts Section -->
@@ -97,6 +115,8 @@
     <!-- Modal "El Parte de las 06:00" -->
     <CommandBriefingModal 
       v-model:is-open="showBriefingModal" 
+      :month="appStore.selectedDashboardMonth"
+      :day="appStore.selectedDashboardDay"
       :fecha="fechaEfectiva" 
     />
   </div>
@@ -104,7 +124,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
-import { Loader2, CalendarOff, RefreshCw, ShieldAlert, FileText } from 'lucide-vue-next'
+import { Loader2, CalendarOff, RefreshCw, ShieldAlert, FileText, ExternalLink } from 'lucide-vue-next'
 import { useAppStore } from '@stores/appStore'
 import { useDashboardData } from '../composables/useDashboardData'
 

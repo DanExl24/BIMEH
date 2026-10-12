@@ -258,6 +258,8 @@ import type { ParteDiarioData } from '../types/alertas.types'
 
 const props = defineProps<{
   isOpen: boolean
+  month?: string
+  day?: string
   fecha?: string
 }>()
 
@@ -272,7 +274,7 @@ const parte = ref<ParteDiarioData | null>(null)
 const copiado = ref(false)
 
 const pdfUrl = computed(() => {
-  return alertasService.descargarPdfParteDiario(parte.value?.fecha || props.fecha)
+  return alertasService.descargarPdfParteDiario(props.month, props.day, props.fecha)
 })
 
 const closeModal = () => {
@@ -283,7 +285,7 @@ const closeModal = () => {
 const cargarParteDiario = async () => {
   loading.value = true
   try {
-    const data = await alertasService.getParteDiario(props.fecha)
+    const data = await alertasService.getParteDiario(props.month, props.day, props.fecha)
     parte.value = data
   } catch (error) {
     console.error('Error al cargar parte diario:', error)
@@ -306,7 +308,7 @@ const copiarRadiograma = async () => {
 }
 
 watch(
-  () => [props.isOpen, props.fecha],
+  () => [props.isOpen, props.month, props.day, props.fecha],
   ([newOpen]) => {
     if (newOpen) {
       cargarParteDiario()

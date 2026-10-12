@@ -15,6 +15,12 @@ const routes: Array<RouteRecordRaw> = [
     meta: { requiresAuth: true, title: 'Módulo de Dashboard Operacional' }
   },
   {
+    path: '/mando-s1',
+    name: 'mando-s1',
+    component: () => import('@features/mando/views/MandoS1View.vue'),
+    meta: { requiresAuth: true, title: 'Centro de Mando S-1 & Inteligencia Preventiva' }
+  },
+  {
     path: '/personal',
     name: 'personal',
     component: () => import('@features/personal/views/PersonalView.vue'),
