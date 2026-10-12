@@ -2173,6 +2173,8 @@ def exportar_pdf(
         story.append(t)
 
         
+    elif tipo == "parte_diario":
+        return exportar_pdf_parte_diario(fecha=fecha, db=db)
     else:
         raise HTTPException(status_code=400, detail="Parámetros inválidos")
         
@@ -2189,3 +2191,251 @@ def exportar_pdf(
     response = StreamingResponse(pdf_buffer, media_type="application/pdf")
     response.headers["Content-Disposition"] = f"attachment; filename={filename}"
     return response
+
+
+@router.get("/pdf/parte-diario")
+def exportar_pdf_parte_diario(
+    fecha: Optional[str] = Query(None, description="Fecha del parte diario (YYYY-MM-DD)"),
+    db = Depends(get_db)
+):
+    """
+    Genera el Boletín Oficial en PDF del Estado de Fuerza diario militar (El Parte de las 06:00)
+    con formato institucional, tablas de disponibilidad, alertas de mando y firmas de comandancia.
+    """
+    from app.routers.alertas import get_parte_diario
+    
+    parte = get_parte_diario(fecha=fecha, db=db)
+    fecha_reporte = parte.fecha
+    
+    pdf_buffer = io.BytesIO()
+    uid = id(pdf_buffer)
+    
+    doc = SimpleDocTemplate(
+        pdf_buffer,
+        pagesize=letter,
+        leftMargin=36,
+        rightMargin=36,
+        topMargin=32,
+        bottomMargin=32
+    )
+    
+    styles = getSampleStyleSheet()
+    
+    h1_style = ParagraphStyle(
+        f'PD_H1_{uid}',
+        parent=styles['Heading1'],
+        fontName='Helvetica-Bold',
+        fontSize=12,
+        textColor=colors.HexColor('#0F172A'),
+        alignment=1,
+        spaceAfter=2
+    )
+    h2_style = ParagraphStyle(
+        f'PD_H2_{uid}',
+        parent=styles['Normal'],
+        fontName='Helvetica-Bold',
+        fontSize=9,
+        textColor=colors.HexColor('#334155'),
+        alignment=1,
+        spaceAfter=2
+    )
+    sub_style = ParagraphStyle(
+        f'PD_Sub_{uid}',
+        parent=styles['Normal'],
+        fontName='Helvetica',
+        fontSize=8,
+        textColor=colors.HexColor('#64748B'),
+        alignment=1,
+        spaceAfter=8
+    )
+    section_style = ParagraphStyle(
+        f'PD_Sec_{uid}',
+        parent=styles['Normal'],
+        fontName='Helvetica-Bold',
+        fontSize=9,
+        textColor=colors.HexColor('#0F172A'),
+        spaceBefore=6,
+        spaceAfter=3
+    )
+    cell_bold = ParagraphStyle(
+        f'PD_CB_{uid}',
+        parent=styles['Normal'],
+        fontName='Helvetica-Bold',
+        fontSize=8,
+        textColor=colors.HexColor('#0F172A')
+    )
+    cell_normal = ParagraphStyle(
+        f'PD_CN_{uid}',
+        parent=styles['Normal'],
+        fontName='Helvetica',
+        fontSize=8,
+        textColor=colors.HexColor('#1E293B')
+    )
+    cell_center = ParagraphStyle(
+        f'PD_CC_{uid}',
+        parent=styles['Normal'],
+        fontName='Helvetica-Bold',
+        fontSize=8,
+        alignment=1
+    )
+    
+    story = []
+    
+    # 1. ENCABEZADO INSTITUCIONAL
+    story.append(Paragraph("FUERZAS MILITARES DE COLOMBIA — EJÉRCITO NACIONAL", h1_style))
+    story.append(Paragraph("SEGUNDA DIVISIÓN — QUINTA BRIGADA", h2_style))
+    story.append(Paragraph("BATALLÓN DE INFANTERÍA N° 12 «GR. ALFONSO MANRIQUE REYES» — SECCIÓN PERSONAL (S-1)", h2_style))
+    story.append(Paragraph(f"<b>PARTE DIARIO DE ESTADO DE FUERZA (06:00 HORAS)</b> | FECHA: <b>{fecha_reporte}</b>", sub_style))
+    story.append(Spacer(1, 4))
+    
+    # 2. CUADRO RESUMEN DE FUERZA (KPIs)
+    kpi_data = [
+        [
+            Paragraph("<b>EFECTIVO TOTAL</b>", cell_center),
+            Paragraph("<b>DISPONIBLES</b>", cell_center),
+            Paragraph("<b>NOVEDADES</b>", cell_center),
+            Paragraph("<b>OPERATIVIDAD</b>", cell_center)
+        ],
+        [
+            Paragraph(f"<font size=12><b>{parte.total_personal}</b></font><br/><font size=6 color='#64748B'>Efectivos</font>", cell_center),
+            Paragraph(f"<font size=12 color='#047857'><b>{parte.disponibles}</b></font><br/><font size=6 color='#64748B'>Disponibles</font>", cell_center),
+            Paragraph(f"<font size=12 color='#B45309'><b>{parte.novedades}</b></font><br/><font size=6 color='#64748B'>En Novedad</font>", cell_center),
+            Paragraph(f"<font size=12 color='#1D4ED8'><b>{parte.porcentaje_disponibilidad}%</b></font><br/><font size=6 color='#64748B'>Efectividad</font>", cell_center)
+        ]
+    ]
+    kpi_table = Table(kpi_data, colWidths=[135, 135, 135, 135])
+    kpi_table.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#0F172A')),
+        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')),
+        ('BACKGROUND', (0,1), (-1,1), colors.HexColor('#F8FAFC')),
+        ('TOPPADDING', (0,0), (-1,-1), 4),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 4),
+    ]))
+    story.append(kpi_table)
+    story.append(Spacer(1, 8))
+    
+    # 3. DISPOSICIÓN OPERACIONAL Y CLASIFICACIÓN DE NOVEDADES
+    col_izq = [
+        [Paragraph("<b>I. DISPOSICIÓN OPERACIONAL</b>", cell_bold), Paragraph("<b>CANT.</b>", cell_center)],
+        [Paragraph("Área de Operaciones", cell_normal), Paragraph(str(parte.disposicion.get('area_operaciones', 0)), cell_center)],
+        [Paragraph("Comando de Unidad (CDO)", cell_normal), Paragraph(str(parte.disposicion.get('cdo_unidad', 0)), cell_center)],
+        [Paragraph("<b>TOTAL DISPONIBLES</b>", cell_bold), Paragraph(f"<b>{parte.disponibles}</b>", cell_center)]
+    ]
+    t_izq = Table(col_izq, colWidths=[185, 80])
+    t_izq.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1E293B')),
+        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+        ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')),
+        ('TOPPADDING', (0,0), (-1,-1), 3),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 3),
+        ('BACKGROUND', (0,-1), (-1,-1), colors.HexColor('#ECFDF5')),
+    ]))
+    
+    col_der = [
+        [Paragraph("<b>II. CATEGORÍAS DE NOVEDADES</b>", cell_bold), Paragraph("<b>CANT.</b>", cell_center)],
+        [Paragraph("Sanidad Militar (Incap./Hosp.)", cell_normal), Paragraph(str(parte.desglose_categorias.get('sanidad', 0)), cell_center)],
+        [Paragraph("Descanso (Permisos / Vacaciones)", cell_normal), Paragraph(str(parte.desglose_categorias.get('descanso', 0)), cell_center)],
+        [Paragraph("Servicio e Instrucción (Cursos / Com.)", cell_normal), Paragraph(str(parte.desglose_categorias.get('servicio', 0)), cell_center)],
+        [Paragraph("Administrativas / Retiros / Otras", cell_normal), Paragraph(str(parte.desglose_categorias.get('administrativas', 0)), cell_center)],
+        [Paragraph("<b>TOTAL NOVEDADES</b>", cell_bold), Paragraph(f"<b>{parte.novedades}</b>", cell_center)]
+    ]
+    t_der = Table(col_der, colWidths=[185, 80])
+    t_der.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1E293B')),
+        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+        ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')),
+        ('TOPPADDING', (0,0), (-1,-1), 3),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 3),
+        ('BACKGROUND', (0,-1), (-1,-1), colors.HexColor('#FFFBEB')),
+    ]))
+    
+    bloque_medio = Table([[t_izq, t_der]], colWidths=[268, 268])
+    bloque_medio.setStyle(TableStyle([
+        ('VALIGN', (0,0), (-1,-1), 'TOP'),
+        ('LEFTPADDING', (0,0), (-1,-1), 0),
+        ('RIGHTPADDING', (0,0), (-1,-1), 0),
+        ('TOPPADDING', (0,0), (-1,-1), 0),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 0),
+    ]))
+    story.append(bloque_medio)
+    story.append(Spacer(1, 8))
+    
+    # 4. TABLA DETALLE DE SUB-NOVEDADES
+    story.append(Paragraph("<b>III. DETALLE GENERAL DE SUB-NOVEDADES REGISTRADAS</b>", section_style))
+    subnov_data = [[
+        Paragraph("<b>NOVEDAD REGISTRADA</b>", cell_bold),
+        Paragraph("<b>CANTIDAD</b>", cell_center),
+        Paragraph("<b>% DEL TOTAL</b>", cell_center)
+    ]]
+    for item in parte.desglose_subnovedades:
+        pct_sub = round((item['cantidad'] / parte.total_personal * 100), 1) if parte.total_personal > 0 else 0
+        subnov_data.append([
+            Paragraph(item['nombre'], cell_normal),
+            Paragraph(str(item['cantidad']), cell_center),
+            Paragraph(f"{pct_sub}%", cell_center)
+        ])
+    
+    t_subnov = Table(subnov_data, colWidths=[320, 110, 110])
+    t_subnov.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#334155')),
+        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+        ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')),
+        ('TOPPADDING', (0,0), (-1,-1), 2.5),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 2.5),
+        ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#F8FAFC')])
+    ]))
+    story.append(t_subnov)
+    story.append(Spacer(1, 8))
+    
+    # 5. ALERTAS DE MANDO S-1 (FATIGA Y SANIDAD)
+    story.append(Paragraph("<b>IV. ALERTAS DE MANDO S-1 (PREVENCIÓN OPERACIONAL)</b>", section_style))
+    alertas_info = parte.alertas_resumen
+    tot_fatiga = alertas_info.get('total_fatiga_critica', 0)
+    tot_sanidad = alertas_info.get('total_sanidad_critica', 0)
+    
+    alert_box_data = [
+        [
+            Paragraph(f"<b>RADAR DE FATIGA OPERACIONAL:</b> {tot_fatiga} efectivos con ≥30 días continuos en servicio disponible.", cell_normal),
+            Paragraph(f"<b>SANIDAD MILITAR CRÍTICA:</b> {tot_sanidad} efectivos con ausentismo médico acumulado ≥15 días.", cell_normal)
+        ]
+    ]
+    t_alert = Table(alert_box_data, colWidths=[270, 270])
+    t_alert.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#FEF3C7')),
+        ('BOX', (0,0), (-1,-1), 0.8, colors.HexColor('#D97706')),
+        ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#FCD34D')),
+        ('TOPPADDING', (0,0), (-1,-1), 4),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 4),
+        ('LEFTPADDING', (0,0), (-1,-1), 6),
+        ('RIGHTPADDING', (0,0), (-1,-1), 6),
+    ]))
+    story.append(t_alert)
+    story.append(Spacer(1, 14))
+    
+    # 6. FIRMAS DE COMANDANCIA Y S-1
+    firmas_data = [
+        [
+            Paragraph("<br/><br/>________________________________________<br/><b>OFICIAL DE PERSONAL (S-1)</b><br/>BATALLÓN DE INFANTERÍA N° 12<br/>EJÉRCITO NACIONAL", cell_center),
+            Paragraph("<br/><br/>________________________________________<br/><b>COMANDANTE DE BATALLÓN</b><br/>BATALLÓN DE INFANTERÍA N° 12<br/>EJÉRCITO NACIONAL", cell_center)
+        ]
+    ]
+    t_firmas = Table(firmas_data, colWidths=[270, 270])
+    t_firmas.setStyle(TableStyle([
+        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+        ('VALIGN', (0,0), (-1,-1), 'BOTTOM'),
+        ('TOPPADDING', (0,0), (-1,-1), 0),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 0),
+    ]))
+    story.append(t_firmas)
+    
+    doc.build(story)
+    pdf_buffer.seek(0)
+    
+    filename = f"Parte_Diario_0600_BIMEJ12_{fecha_reporte}.pdf"
+    response = StreamingResponse(pdf_buffer, media_type="application/pdf")
+    response.headers["Content-Disposition"] = f"attachment; filename={filename}"
+    return response
+
