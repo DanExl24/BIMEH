@@ -1,6 +1,6 @@
-# 🏛️ Arquitectura Modular del Frontend: BIMEH (automPYdrive)
+# 🏛️ Arquitectura Modular del Frontend: BIMEH
 
-Documento oficial de arquitectura técnica, principios de diseño, organización por funcionalidades (*Feature-Driven Architecture*) y *Tree Map* exhaustivo del frontend de **BIMEH (automPYdrive)**.
+Documento oficial de arquitectura técnica, principios de diseño, organización por funcionalidades (*Feature-Driven Architecture*) y *Tree Map* exhaustivo del frontend de **BIMEH** (*Sistema de Control Operacional y Mapa de Calor del Personal*).
 
 ---
 
@@ -13,8 +13,9 @@ Este patrón resuelve las limitaciones de la arquitectura tradicional basada ún
 ```mermaid
 graph TD
     subgraph UI_Presentation [Capa de Presentación & Enrutamiento]
-        R[src/router/index.ts] --> FViews[Features Views: Login, Dashboard, Personal, etc.]
+        R[src/router/index.ts] --> FViews[Features Views: Login, Dashboard, Personal, Mando S-1, etc.]
         App[src/App.vue] --> Layout[src/components/layout: Navbar, Sidebar, Footer]
+        App --> IA_Drawer[src/features/ia/components: AIAssistantDrawer]
     end
 
     subgraph Feature_Modules [Módulos de Negocio Aislados - src/features/]
@@ -25,6 +26,9 @@ graph TD
         Sync[features/sincronizar: comp, compo, serv, types, views]
         Rep[features/reportes: comp, serv, views]
         Stats[features/estadisticas: serv, types, views]
+        Nov[features/novedades: comp, serv, types, views]
+        IA[features/ia: comp, serv, types]
+        Mando[features/mando: views]
     end
 
     subgraph Shared_Kernel [Capas Compartidas Transversales]
@@ -50,14 +54,24 @@ graph TD
 ## 2. Explicación de Carpetas y Decisiones de Diseño
 
 ### 2.1. `src/features/<modulo>/` (Módulos de Dominio)
-* **Propósito:** Agrupa todo el código relacionado con un caso de uso o dominio de negocio específico (`auth`, `dashboard`, `personal`, `cronologia`, `sincronizar`, `reportes`, `estadisticas`).
+* **Propósito:** Agrupa todo el código relacionado con un caso de uso o dominio de negocio específico:
+  - `auth`: Autenticación, sesión JWT y vinculación de Google Drive.
+  - `dashboard`: Panel principal de mando diario, KPIs, radar de fatiga, proyección y transiciones.
+  - `personal`: Buscador predictivo, expedientes individuales, rachas y mapa de calor de integrantes.
+  - `cronologia`: Calendario mensual de actividad, bitácora diaria y matriz de calor de la unidad.
+  - `sincronizar`: Ingesta por arrastre de archivos (Excel/JSON) y sincronización con Google Drive.
+  - `reportes`: Centro de generación y descarga de informes multi-formato (Excel, PDF, CSV).
+  - `estadisticas`: Rankings globales de novedades, miembros más recurrentes y análisis gráfico.
+  - `novedades`: Búsqueda detallada de personal por tipo de novedad y fechas.
+  - `ia`: Asistente Copilot inteligente con Google Gemini y Ollama, catálogo de SQL y apreciación.
+  - `mando`: Centro de Mando S-1 & Inteligencia Preventiva (Radar de Fatiga, Sanidad y Proyección de Fuerza).
 * **Sub-estructura por Feature:**
-  - `components/`: Componentes de presentación exclusivos del módulo (ej. `DashboardKpis.vue`, `PersonalTimeline.vue`).
+  - `components/`: Componentes de presentación exclusivos del módulo (ej. `DashboardKpis.vue`, `AIAssistantDrawer.vue`).
   - `composables/`: Lógica reactiva de orquestación propia del módulo (ej. `useDashboardData.ts`, `usePersonalProfile.ts`).
-  - `services/`: Peticiones HTTP especializadas al backend (ej. `dashboard.service.ts`, `personal.service.ts`).
+  - `services/`: Peticiones HTTP especializadas al backend (ej. `dashboard.service.ts`, `ia.service.ts`, `alertas.service.ts`).
   - `stores/`: Estado local del módulo si lo requiere (ej. `authStore.ts`).
-  - `types/`: Interfaces y tipos de datos exclusivos del dominio de la feature (ej. `dashboard.types.ts`, `personal.types.ts`).
-  - `views/`: Vista principal o páginas que se montan en el Router (ej. `DashboardView.vue`, `PersonalDetalleView.vue`).
+  - `types/`: Interfaces y tipos de datos exclusivos del dominio de la feature (ej. `dashboard.types.ts`, `ia.types.ts`, `alertas.types.ts`).
+  - `views/`: Vista principal o páginas que se montan en el Router (ej. `DashboardView.vue`, `MandoS1View.vue`).
 * **¿Por qué es una buena práctica?**
   - **Alta Cohesión:** Modificar una vista o sus contratos de datos se hace en un único directorio sin tener que saltar entre carpetas en extremos opuestos del proyecto.
   - **Bajo Acoplamiento (*Isolation*):** Las features son autónomas y **nunca deben importarse directamente entre sí**.
@@ -114,12 +128,12 @@ graph TD
 
 ## 4. Tree Map Exhaustivo del Frontend
 
-A continuación se detalla la ruta de cada archivo dentro de [`frontend/src/`](file:///c:/Users/alejo/Downloads/automPYdrive/frontend/src), su responsabilidad y enlace directo:
+A continuación se detalla la ruta de cada archivo dentro de [`frontend/src/`](file:///c:/Users/alejo/Downloads/proyectos-dev/BIMEH/frontend/src), su responsabilidad y enlace directo:
 
 ```text
 frontend/src/
 │
-├── 📄 App.vue                           # Componente raíz con layout dinámico (Auth vs Dashboard)
+├── 📄 App.vue                           # Componente raíz con layout dinámico y Drawer global de IA
 ├── 📄 main.ts                          # Punto de entrada de la aplicación Vue 3 y montaje de Pinia/Router
 │
 ├── 📂 assets/
@@ -127,8 +141,8 @@ frontend/src/
 │
 ├── 📂 components/                       # COMPONENTES COMPARTIDOS
 │   ├── 📂 layout/
-│   │   ├── 📄 Navbar.vue               # Barra superior con selectores de mes/día, estado Drive y usuario
-│   │   ├── 📄 Sidebar.vue              # Menú lateral táctico con navegación e indicadores de versión
+│   │   ├── 📄 Navbar.vue               # Barra superior con selectores de mes/día, estado Drive, IA y usuario
+│   │   ├── 📄 Sidebar.vue              # Menú lateral táctico con navegación (/mando-s1, /dashboard, etc.)
 │   │   └── 📄 Footer.vue               # Pie de página con créditos, estado de red y atajos
 │   └── 📂 modals/
 │       ├── 📄 ExportModal.vue          # Modal de exportación rápida de reportes por mes y filtros
@@ -154,6 +168,9 @@ frontend/src/
 │   ├── 📂 dashboard/                   # DOMINIO: Dashboard Operacional
 │   │   ├── 📂 components/
 │   │   │   ├── 📄 DashboardKpis.vue    # Tarjetas KPI de Efectivo Total, Disponibles, Novedades e Índice
+│   │   │   ├── 📄 DashboardFatigueRadar.vue # Radar visual de fatiga operacional continua
+│   │   │   ├── 📄 DashboardForceProjection.vue # Proyección predictiva de fuerza (7, 15 y 30 días)
+│   │   │   ├── 📄 CommandBriefingModal.vue # Modal interactivo de "El Parte de las 06:00" y Radiograma
 │   │   │   ├── 📄 DashboardEvolutionChart.vue # Gráfico de evolución temporal de disponibilidad
 │   │   │   ├── 📄 DashboardNovedadesChart.vue # Gráfico de barras de novedades más frecuentes
 │   │   │   ├── 📄 DashboardDistribucionChart.vue # Gráfico de dona con distribución de personal por estado
@@ -161,11 +178,25 @@ frontend/src/
 │   │   ├── 📂 composables/
 │   │   │   └── 📄 useDashboardData.ts  # Carga concurrente de KPIs y transiciones
 │   │   ├── 📂 services/
-│   │   │   └── 📄 dashboard.service.ts # Endpoints /api/dashboard/kpis, /cambios, /evolucion, /distribucion
+│   │   │   ├── 📄 dashboard.service.ts # Endpoints /api/dashboard/kpis, /cambios, /evolucion, /distribucion
+│   │   │   └── 📄 alertas.service.ts   # Endpoints /api/alertas/fatiga, /sanidad, /proyeccion, /parte-diario
 │   │   ├── 📂 types/
-│   │   │   └── 📄 dashboard.types.ts   # Interfaces: KPIData, CambioEstado, CambiosResponse, EvolucionItem, etc.
+│   │   │   ├── 📄 dashboard.types.ts   # Interfaces: KPIData, CambioEstado, CambiosResponse, EvolucionItem, etc.
+│   │   │   └── 📄 alertas.types.ts     # Interfaces: AlertaFatigaItem, AlertaSanidadItem, ParteDiarioData, etc.
 │   │   └── 📂 views/
 │   │       └── 📄 DashboardView.vue    # Vista principal orquestadora del dashboard
+│   │
+│   ├── 📂 mando/                       # DOMINIO: Centro de Mando S-1 & Inteligencia Preventiva
+│   │   └── 📂 views/
+│   │       └── 📄 MandoS1View.vue      # Vista centralizada de comando táctico (/mando-s1)
+│   │
+│   ├── 📂 ia/                          # DOMINIO: Asistente IA Militar & Copilot
+│   │   ├── 📂 components/
+│   │   │   └── 📄 AIAssistantDrawer.vue# Panel lateral interactivo con chat, sugerencias y selector de modelo
+│   │   ├── 📂 services/
+│   │   │   └── 📄 ia.service.ts        # Endpoints /api/ia/status, /chat, /apreciacion, /config
+│   │   └── 📂 types/
+│   │       └── 📄 ia.types.ts          # Interfaces: IAStatusResponse, IAChatResponse, ActiveMilitar, etc.
 │   │
 │   ├── 📂 personal/                    # DOMINIO: Gestión y Expedientes de Personal
 │   │   ├── 📂 components/
@@ -232,6 +263,16 @@ frontend/src/
 │   │   └── 📂 views/
 │   │       └── 📄 ReportesView.vue     # Panel de generación de informes agrupados por categorías
 │   │
+│   ├── 📂 novedades/                   # DOMINIO: Búsqueda y Gestión de Novedades
+│   │   ├── 📂 components/
+│   │   │   └── 📄 NovedadesSearchBar.vue # Buscador reactivo por tipo de novedad
+│   │   ├── 📂 services/
+│   │   │   └── 📄 novedades.service.ts # Endpoints de búsqueda por novedad
+│   │   ├── 📂 types/
+│   │   │   └── 📄 novedades.types.ts   # Interfaces del módulo de novedades
+│   │   └── 📂 views/
+│   │       └── 📄 NovedadesView.vue    # Vista principal de novedades
+│   │
 │   └── 📂 estadisticas/                # DOMINIO: Análisis y Rankings
 │       ├── 📂 services/
 │       │   └── 📄 estadisticas.service.ts # Endpoint /api/stats/ranking
@@ -273,5 +314,5 @@ Cuando necesites agregar una nueva pantalla o funcionalidad al frontend:
    - Si es un dominio de negocio nuevo (ej. `mantenimiento` o `inventario`), crea la carpeta `src/features/inventario/` con sus subcarpetas `components/`, `services/`, `types/`, `views/`.
 2. **Definir el servicio de API:** En `src/features/<modulo>/services/<modulo>.service.ts`, importando el cliente base `@services/http`.
 3. **Definir la vista:** En `src/features/<modulo>/views/<Modulo>View.vue`.
-4. **Registrar la ruta en el Router:** En [`src/router/index.ts`](file:///c:/Users/alejo/Downloads/automPYdrive/frontend/src/router/index.ts) usando carga perezosa (`component: () => import('@features/<modulo>/views/<Modulo>View.vue')`).
+4. **Registrar la ruta en el Router:** En [`src/router/index.ts`](file:///c:/Users/alejo/Downloads/proyectos-dev/BIMEH/frontend/src/router/index.ts) usando carga perezosa (`component: () => import('@features/<modulo>/views/<Modulo>View.vue')`).
 5. **Validar la compilación:** Ejecutar `npm run build` en `frontend/` para verificar cero errores de TypeScript y Vite.
