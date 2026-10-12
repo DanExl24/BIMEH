@@ -3,19 +3,55 @@ import type {
   IAStatusResponse,
   IAChatResponse,
   IAApreciacionResponse,
-  ActiveMilitar
+  ActiveMilitar,
+  IASesion,
+  IAMensajePersistente,
+  ChatContext
 } from '../types/ia.types'
 
 export const iaService = {
   /**
-   * Consulta el estado de conectividad con Ollama en el backend
+   * Consulta el estado de conectividad con Gemini / Ollama en el backend
    */
   obtenerEstado: async (): Promise<IAStatusResponse> => {
     return http.get<IAStatusResponse>('/api/ia/status')
   },
 
   /**
-   * Envía una consulta en lenguaje natural al Asistente IA junto con historial previo y militar en contexto
+   * Lista las sesiones de chat persistentes
+   */
+  obtenerSesiones: async (): Promise<IASesion[]> => {
+    return http.get<IASesion[]>('/api/ia/sesiones')
+  },
+
+  /**
+   * Crea una nueva sesión vacía de conversación
+   */
+  crearSesion: async (titulo: string = 'Nueva conversación'): Promise<IASesion> => {
+    return http.post<IASesion>('/api/ia/sesiones', { titulo })
+  },
+
+  /**
+   * Obtiene todos los mensajes de una sesión existente
+   */
+  obtenerMensajesSesion: async (
+    sessionId: number
+  ): Promise<{ id: number; titulo: string; creado_en: string; mensajes: IAMensajePersistente[] }> => {
+    return http.get<{ id: number; titulo: string; creado_en: string; mensajes: IAMensajePersistente[] }>(
+      `/api/ia/sesiones/${sessionId}`
+    )
+  },
+
+  /**
+   * Elimina una sesión de chat y sus mensajes
+   */
+  eliminarSesion: async (sessionId: number): Promise<{ status: string; message: string }> => {
+    return http.delete<{ status: string; message: string }>(`/api/ia/sesiones/${sessionId}`)
+  },
+
+  /**
+   * Envía una consulta en lenguaje natural al Asistente IA junto con historial previo,
+   * contexto de pantalla, militar activo e id de sesión.
    */
   enviarMensaje: async (
     message: string,
@@ -23,7 +59,9 @@ export const iaService = {
     activeMilitar?: ActiveMilitar | null,
     signal?: AbortSignal,
     model?: string,
-    mode: 'chat' | 'report' | string = 'chat'
+    mode: 'chat' | 'report' | string = 'chat',
+    sessionId?: number | null,
+    context?: ChatContext
   ): Promise<IAChatResponse> => {
     return http.post<IAChatResponse>(
       '/api/ia/chat',
@@ -32,7 +70,9 @@ export const iaService = {
         history,
         active_militar: activeMilitar,
         model,
-        mode
+        mode,
+        session_id: sessionId,
+        context
       },
       { signal }
     )

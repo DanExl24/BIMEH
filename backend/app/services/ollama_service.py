@@ -552,7 +552,8 @@ def process_user_query(
     history: Optional[List[Dict[str, Any]]] = None,
     active_militar: Optional[Dict[str, Any]] = None,
     model: Optional[str] = None,
-    mode: str = "chat"
+    mode: str = "chat",
+    context: Optional[Dict[str, Any]] = None
 ) -> Dict[str, Any]:
     """
     Procesa un mensaje en lenguaje natural:

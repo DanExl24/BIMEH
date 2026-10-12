@@ -537,11 +537,32 @@ def should_apply_militar_context(user_message, active_militar):
     return any(k in msg for k in followup_kw)
 
 
-def process_user_query(user_message, db, history=None, active_militar=None, model=None, mode="chat"):
+def process_user_query(user_message, db, history=None, active_militar=None, model=None, mode="chat", context=None):
     active_model = model or os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite")
     model_label = f"gemini ({active_model})"
     now = datetime.now()
     force_report = (mode == "report")
+
+    # Inyectar militar y periodo desde context si no vinieron explícitos
+    if not active_militar and context and context.get("active_militar"):
+        active_militar = context.get("active_militar")
+
+    ctx_period = (context.get("active_period") or {}) if context else {}
+
+    # Contexto visual de la pantalla del frontend
+    screen_ctx = ""
+    if context:
+        v_name = context.get("current_view") or "Vista General"
+        mes_f = ctx_period.get("mes") or "TODOS"
+        dia_f = ctx_period.get("dia") or "TODOS"
+        fecha_f = ctx_period.get("fecha") or "Último reporte disponible"
+        screen_ctx = (
+            f"\nCONTEXTO VISUAL DE LA PANTALLA DEL COMANDANTE:\n"
+            f"- Módulo o pantalla activa: {v_name}\n"
+            f"- Período activo en pantalla: Mes={mes_f}, Día={dia_f}, Fecha={fecha_f}\n"
+            f"- Directiva: Si el usuario formula preguntas relativas o de seguimiento (ej: '¿quién de ellos?', '¿cuál es el caso más crítico?', '¿y en este mes?', '¿cuántos hay?'), "
+            f"interpreta la consulta vinculada directamente con la vista '{v_name}' y el período '{mes_f}/{dia_f}'.\n"
+        )
 
     # 0. Solicitud de Reporte Oficial (Excel / PDF / CSV) o Modo Reportes Activo
     report_match = match_report_request(
@@ -562,7 +583,8 @@ def process_user_query(user_message, db, history=None, active_militar=None, mode
                 "rows": [],
                 "total_records": 0,
                 "model": f"{model_label} (reporte)",
-                "active_militar": active_militar
+                "active_militar": active_militar,
+                "detected_entities": {"militar": active_militar, "period": ctx_period}
             }
         logger.info(f"[Modo Reportes] Generando enlace para: {report_match['titulo']}")
         updated_militar = report_match.get("active_militar") or active_militar
@@ -575,7 +597,8 @@ def process_user_query(user_message, db, history=None, active_militar=None, mode
             "rows": [],
             "total_records": 0,
             "model": f"{model_label} (reporte)",
-            "active_militar": updated_militar
+            "active_militar": updated_militar,
+            "detected_entities": {"militar": updated_militar, "period": ctx_period}
         }
 
     # 1. Respuestas rapidas sin IA
@@ -595,7 +618,8 @@ def process_user_query(user_message, db, history=None, active_militar=None, mode
             )
         return {"type": "conversation", "answer": fast_reply, "sql": None,
                 "columns": [], "rows": [], "total_records": 0,
-                "model": model_label, "active_militar": active_militar}
+                "model": model_label, "active_militar": active_militar,
+                "detected_entities": {"militar": active_militar, "period": ctx_period}}
 
     # 2. Fast-path catalogo
     is_followup_pre = should_apply_militar_context(user_message, active_militar)
@@ -624,7 +648,8 @@ def process_user_query(user_message, db, history=None, active_militar=None, mode
             return {"type": "data", "answer": synth, "sql": catalog_sql,
                     "columns": cat_result["columns"], "rows": cat_result["rows"],
                     "total_records": cat_result["total"],
-                    "model": f"{model_label} (catalogo)", "active_militar": detected_m}
+                    "model": f"{model_label} (catalogo)", "active_militar": detected_m,
+                    "detected_entities": {"militar": detected_m, "period": ctx_period}}
 
     # 3. Slow-path: Gemini genera SQL
     is_followup = should_apply_militar_context(user_message, active_militar)
@@ -649,11 +674,11 @@ def process_user_query(user_message, db, history=None, active_militar=None, mode
 
     fecha_hoy = now.strftime("%Y-%m-%d")
     sql_prompt = (
-        f"{DATABASE_SCHEMA_CONTEXT}\n{militar_ctx}\n"
+        f"{DATABASE_SCHEMA_CONTEXT}\n{militar_ctx}\n{screen_ctx}\n"
         f"FECHA ACTUAL: {fecha_hoy}  AÑO ACTUAL: {now.year}\n\n"
         f"{history_ctx}"
         f"SOLICITUD ACTUAL DEL USUARIO: {user_message}\n\n"
-        f"INSTRUCCIÓN: Analiza la solicitud en el contexto del historial reciente.\n"
+        f"INSTRUCCIÓN: Analiza la solicitud en el contexto del historial reciente y la vista en pantalla.\n"
         f"- Si requiere consultar datos o registros de la BD, responde ÚNICAMENTE con JSON:\n"
         f'{{\"type\": \"sql\", \"sql\": \"<SELECT ...>\"}}\n'
         f"- Si es una pregunta conversacional, aclaración, duda sobre reportes/capacidades, o una consulta que debe ser rehusada por estar fuera del dominio de BIMEH, responde con JSON:\n"
@@ -671,14 +696,16 @@ def process_user_query(user_message, db, history=None, active_militar=None, mode
     if parsed.get("type") == "conversation":
         return {"type": "conversation", "answer": parsed.get("answer", raw),
                 "sql": None, "columns": [], "rows": [], "total_records": 0,
-                "model": model_label, "active_militar": active_militar}
+                "model": model_label, "active_militar": active_militar,
+                "detected_entities": {"militar": active_militar, "period": ctx_period}}
 
     sql = parsed.get("sql", "").strip()
     if not sql or not is_sql_safe(sql):
         answer_text = parsed.get("answer") or "No pude generar una consulta segura para esa solicitud."
         return {"type": "conversation", "answer": answer_text,
                 "sql": None, "columns": [], "rows": [], "total_records": 0,
-                "model": model_label, "active_militar": active_militar}
+                "model": model_label, "active_militar": active_militar,
+                "detected_entities": {"militar": active_militar, "period": ctx_period}}
 
     # Ejecutar con auto-correccion
     query_result = None
@@ -706,7 +733,8 @@ def process_user_query(user_message, db, history=None, active_militar=None, mode
     if query_result is None:
         return {"type": "error", "answer": f"Error ejecutando consulta: {last_error}",
                 "sql": validated_sql, "columns": [], "rows": [], "total_records": 0,
-                "model": model_label, "active_militar": active_militar}
+                "model": model_label, "active_militar": active_militar,
+                "detected_entities": {"militar": active_militar, "period": ctx_period}}
 
     # Sintesis
     if query_result["total"] == 0 or query_result["total"] <= 5:
@@ -735,7 +763,8 @@ def process_user_query(user_message, db, history=None, active_militar=None, mode
     return {"type": "data", "answer": synthesis, "sql": validated_sql,
             "columns": query_result["columns"], "rows": query_result["rows"],
             "total_records": query_result["total"], "model": model_label,
-            "active_militar": detected_m}
+            "active_militar": detected_m,
+            "detected_entities": {"militar": detected_m, "period": ctx_period}}
 
 
 def generate_apreciacion(db, model=None):

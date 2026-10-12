@@ -132,3 +132,56 @@ En la cabecera del panel del Asistente IA se dispone de un selector desplegable 
 - **Endpoints relacionados**: `POST /api/ia/config`, `POST /api/ia/chat`
 - **Componentes frontend relacionados**: `frontend/src/features/ia/components/AIAssistantDrawer.vue`, `frontend/src/features/ia/services/ia.service.ts`
 - **Controllers/Services relacionados**: `backend/app/routers/ia.py` (`update_ia_config`)
+
+---
+
+# HU-IA-006
+
+## Historia
+**Como** Comandante de Batallón u Oficial S-1  
+**Quiero** que el Asistente IA reconozca automáticamente la pantalla y el período de fechas que estoy visualizando  
+**Para** formular preguntas contextuales directas (*"¿quién de los que veo aquí está más fatigado?"*, *"¿cuántas bajas hubo en este mes?"*) sin tener que escribir nuevamente nombres de vistas ni meses.
+
+## Descripción
+Al abrir el Asistente IA, el frontend empaqueta automáticamente el contexto de navegación en el objeto `context` (`current_view`, `current_route`, `selected_month`, `selected_day`), extraído de la ruta activa y del almacén de fechas (`dateStore`). El backend inyecta estos parámetros en el prompt del sistema y evalúa los catálogos y consultas SQL delimitando automáticamente el filtro temporal y el foco operativo. Adicionalmente, el frontend muestra una barra superior con la indicación en tiempo real del contexto observado.
+
+## Criterios de Aceptación
+- El drawer debe mostrar en tiempo real la vista activa y el mes/día filtrado.
+- El objeto `context` debe adjuntarse en cada payload enviado a `POST /api/ia/chat`.
+- El modelo debe interpretar preguntas relativas referidas al mes filtrado sin exigir que el usuario lo mencione explícitamente.
+- Al navegar entre vistas (ej. de Dashboard a Mando S-1 o Personal), el contexto del drawer debe actualizarse automáticamente.
+
+## Metadata
+- **Prioridad**: Alta
+- **Roles involucrados**: `ADMINISTRATIVO`, `CONSULTA`
+- **Reglas de negocio relacionadas**: [RN-IA-003](file:///c:/Users/alejo/Downloads/proyectos-dev/BIMEH/documentacion/modules/ia/reglas_negocio.md#rn-ia-003), [RN-IA-006](file:///c:/Users/alejo/Downloads/proyectos-dev/BIMEH/documentacion/modules/ia/reglas_negocio.md#rn-ia-006)
+- **Endpoints relacionados**: `POST /api/ia/chat`
+- **Componentes frontend relacionados**: `frontend/src/features/ia/components/AIAssistantDrawer.vue`, `frontend/src/features/ia/services/ia.service.ts`, `frontend/src/stores/dateStore.ts`
+- **Controllers/Services relacionados**: `backend/app/routers/ia.py`, `backend/app/services/gemini_service.py`
+
+---
+
+# HU-IA-007
+
+## Historia
+**Como** Oficial de Personal de la Sección S-1  
+**Quiero** gestionar múltiples hilos de conversación guardados y recuperar mis chats al recargar la página  
+**Para** mantener un registro de consultas analíticas previas, comparar apreciaciones y retomar sesiones de trabajo sin perder el hilo histórico.
+
+## Descripción
+El sistema persiste los hilos de conversación en la base de datos relacional PostgreSQL mediante las tablas `ia_sesiones` e `ia_mensajes`. En el Drawer del Asistente IA, el usuario dispone de botones para crear una nueva conversación (`+`), ver el historial de sesiones guardadas y eliminar hilos antiguos. Al recargar el navegador, la aplicación recupera la última sesión activa desde `localStorage` y carga sus mensajes históricos mediante `GET /api/ia/sesiones/{session_id}`.
+
+## Criterios de Aceptación
+- Al iniciar un nuevo chat, la sesión debe crearse y titularse automáticamente con base en la primera pregunta formulada.
+- Todos los mensajes emitidos por el usuario y respondidos por el asistente deben persistirse de forma atómica en PostgreSQL.
+- El panel de historial debe listar las sesiones ordenadas por fecha de actualización, mostrando título, fecha y cantidad de mensajes.
+- Debe ser posible cambiar de hilo en cualquier momento, cargando los mensajes correspondientes.
+- La eliminación de una sesión debe remover en cascada los mensajes asociados tanto en base de datos como en la interfaz.
+
+## Metadata
+- **Prioridad**: Alta
+- **Roles involucrados**: `ADMINISTRATIVO`, `CONSULTA`
+- **Reglas de negocio relacionadas**: [RN-IA-007](file:///c:/Users/alejo/Downloads/proyectos-dev/BIMEH/documentacion/modules/ia/reglas_negocio.md#rn-ia-007)
+- **Endpoints relacionados**: `GET /api/ia/sesiones`, `POST /api/ia/sesiones`, `GET /api/ia/sesiones/{session_id}`, `DELETE /api/ia/sesiones/{session_id}`, `POST /api/ia/chat`
+- **Componentes frontend relacionados**: `frontend/src/features/ia/components/AIAssistantDrawer.vue`, `frontend/src/features/ia/services/ia.service.ts`
+- **Controllers/Services relacionados**: `backend/app/routers/ia.py`, `backend/app/database.py`

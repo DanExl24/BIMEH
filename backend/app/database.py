@@ -303,9 +303,39 @@ def asegurar_optimizaciones_db():
             except Exception:
                 raw_conn.rollback()
 
+        # 4. Tablas para Memoria y Sesiones del Asistente de IA
+        tablas_ia = [
+            """
+            CREATE TABLE IF NOT EXISTS IA_SESIONES (
+                id SERIAL PRIMARY KEY,
+                titulo VARCHAR(255) NOT NULL DEFAULT 'Nueva consulta',
+                creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                actualizado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS IA_MENSAJES (
+                id SERIAL PRIMARY KEY,
+                id_sesion INT NOT NULL REFERENCES IA_SESIONES(id) ON DELETE CASCADE,
+                rol VARCHAR(50) NOT NULL,
+                contenido TEXT NOT NULL,
+                metadatos JSONB DEFAULT '{}'::jsonb,
+                creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+            """,
+            "CREATE INDEX IF NOT EXISTS idx_ia_mensajes_sesion ON IA_MENSAJES(id_sesion);",
+            "CREATE INDEX IF NOT EXISTS idx_ia_sesiones_actualizado ON IA_SESIONES(actualizado_en DESC);"
+        ]
+        for t_sql in tablas_ia:
+            try:
+                cursor.execute(t_sql)
+                raw_conn.commit()
+            except Exception:
+                raw_conn.rollback()
+
         cursor.close()
         raw_conn.close()
-        print("[DB-OPT] Indices y vistas optimizadas verificados correctamente en PostgreSQL.")
+        print("[DB-OPT] Indices, vistas y tablas de IA verificados correctamente en PostgreSQL.")
     except Exception as e:
         print(f"[DB-OPT] Aviso: no se pudieron aplicar optimizaciones automaticas de DB: {e}")
 

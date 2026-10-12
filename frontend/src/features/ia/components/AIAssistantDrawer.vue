@@ -51,10 +51,36 @@
         </div>
 
         <div class="flex items-center gap-1.5">
+          <!-- Botón Nueva Conversación -->
+          <button
+            type="button"
+            @click="crearNuevaSesion"
+            class="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-500/30 text-cyan-300 text-xs font-bold transition-all cursor-pointer shadow-sm"
+            title="Iniciar nueva conversación limpia"
+          >
+            <Plus class="w-3.5 h-3.5 stroke-[2.5]" />
+            <span class="hidden sm:inline">Nueva</span>
+          </button>
+
+          <!-- Botón Historial de Sesiones -->
+          <button
+            type="button"
+            @click="toggleHistorialSesiones"
+            class="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-slate-400 hover:text-slate-100 hover:bg-slate-800 transition-colors cursor-pointer border border-transparent hover:border-darkBorder text-xs font-medium"
+            :class="mostrarHistorialSesiones ? 'text-cyan-300 bg-cyan-500/15 border-cyan-500/30' : ''"
+            title="Ver conversaciones anteriores"
+          >
+            <History class="w-3.5 h-3.5" />
+            <span class="hidden sm:inline">Historial</span>
+            <span v-if="sesiones.length > 0" class="text-[9px] font-bold px-1 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
+              {{ sesiones.length }}
+            </span>
+          </button>
+
           <!-- Botón Info Gemini -->
           <button
             type="button"
-            @click="mostrarConfig = !mostrarConfig"
+            @click="mostrarConfig = !mostrarConfig; mostrarHistorialSesiones = false"
             class="p-2 rounded-xl text-slate-400 hover:text-blue-300 hover:bg-slate-800 transition-colors cursor-pointer"
             :class="mostrarConfig ? 'text-blue-400 bg-blue-500/10 border border-blue-500/30' : ''"
             title="Ver información del modelo Gemini activo"
@@ -83,6 +109,62 @@
           >
             <X class="w-5 h-5" />
           </button>
+        </div>
+      </div>
+
+      <!-- Panel de Historial de Conversaciones Guardadas -->
+      <div
+        v-if="mostrarHistorialSesiones"
+        class="bg-slate-950 border-b border-darkBorder px-4 py-3 space-y-2 text-xs shrink-0 max-h-[50vh] overflow-y-auto scrollbar-thin animate-in fade-in duration-200"
+      >
+        <div class="flex items-center justify-between text-slate-300 font-bold pb-2 border-b border-darkBorder/60">
+          <div class="flex items-center gap-1.5 text-cyan-400">
+            <History class="w-4 h-4 text-cyan-400" />
+            <span class="font-bold text-xs uppercase tracking-wide">Conversaciones Guardadas</span>
+          </div>
+          <button @click="mostrarHistorialSesiones = false" class="text-slate-500 hover:text-slate-300 p-0.5 cursor-pointer" title="Cerrar panel">
+            <X class="w-3.5 h-3.5" />
+          </button>
+        </div>
+
+        <div v-if="isLoadingSesiones" class="py-4 text-center text-slate-500 flex items-center justify-center gap-2">
+          <Loader2 class="w-4 h-4 animate-spin text-cyan-400" />
+          <span>Cargando conversaciones...</span>
+        </div>
+
+        <div v-else-if="sesiones.length === 0" class="py-4 text-center text-slate-500">
+          No hay conversaciones previas guardadas.
+        </div>
+
+        <div v-else class="space-y-1.5">
+          <div
+            v-for="s in sesiones"
+            :key="s.id"
+            @click="seleccionarSesion(s)"
+            class="p-2.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-2 text-left"
+            :class="sesionActivaId === s.id
+              ? 'bg-cyan-500/10 border-cyan-500/40 text-cyan-200'
+              : 'bg-slate-900/80 border-darkBorder/60 hover:bg-slate-800/90 text-slate-300 hover:border-slate-700'"
+          >
+            <div class="flex items-start gap-2.5 truncate">
+              <MessageSquare class="w-3.5 h-3.5 text-cyan-400 mt-0.5 shrink-0" />
+              <div class="truncate">
+                <p class="font-bold text-xs truncate">{{ s.titulo }}</p>
+                <p class="text-[10px] text-slate-500 font-mono mt-0.5">
+                  {{ s.actualizado_en || s.creado_en }} · {{ s.total_mensajes }} msgs
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              @click.stop="eliminarSesion(s.id, $event)"
+              class="p-1.5 text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors shrink-0"
+              title="Eliminar conversación"
+            >
+              <Trash2 class="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -257,6 +339,21 @@
           <ExternalLink class="w-3.5 h-3.5 text-cyan-400" />
           <span class="hidden sm:inline">Centro de Reportes</span>
         </button>
+      </div>
+
+      <!-- Barra de Contexto Visual en Pantalla (Context Awareness) -->
+      <div class="px-4 py-1.5 bg-slate-950/90 border-b border-darkBorder/40 flex items-center justify-between gap-2 text-[11px] text-slate-400 shrink-0">
+        <div class="flex items-center gap-1.5 truncate">
+          <Eye class="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+          <span class="text-slate-500 font-medium">Observando:</span>
+          <span class="text-slate-200 font-bold truncate">{{ nombreVistaActual }}</span>
+          <span v-if="dateStore.mesSeleccionado" class="text-cyan-300 font-mono text-[10px] bg-cyan-950/60 px-1.5 py-0.5 rounded border border-cyan-800/40">
+            {{ dateStore.mesSeleccionado }}{{ dateStore.diaSeleccionado ? ` · Día ${dateStore.diaSeleccionado}` : '' }}
+          </span>
+        </div>
+        <span v-if="sesionActivaTitulo" class="text-slate-500 text-[10px] font-mono shrink-0 truncate max-w-[140px]" :title="sesionActivaTitulo">
+          #{{ sesionActivaId }}: {{ sesionActivaTitulo }}
+        </span>
       </div>
 
       <!-- 2. Área de Mensajes del Chat (Scrollable) -->
@@ -875,7 +972,8 @@
 
 <script setup lang="ts">
 import { ref, watch, nextTick, onMounted, onUnmounted, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
+import { useDateStore } from '@stores/dateStore'
 import { useReportDownloadStore } from '@stores/reportDownloadStore'
 import {
   Bot,
@@ -902,10 +1000,24 @@ import {
   ExternalLink,
   Layers,
   UserCheck,
-  Calendar
+  Calendar,
+  Plus,
+  History,
+  Trash2,
+  Eye,
+  MessageSquarePlus
 } from 'lucide-vue-next'
 
-import type { IAStatusResponse, IAChatMessage, ActiveMilitar, IAModelInfo, IAReportInfo } from '../types/ia.types'
+import type {
+  IAStatusResponse,
+  IAChatMessage,
+  ActiveMilitar,
+  IAModelInfo,
+  IAReportInfo,
+  IASesion,
+  IAMensajePersistente,
+  ChatContext
+} from '../types/ia.types'
 import { iaService } from '../services/ia.service'
 import { marked } from 'marked'
 
@@ -930,6 +1042,125 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'close'): void
 }>()
+
+const route = useRoute()
+const dateStore = useDateStore()
+
+// Context Awareness: Nombre amigable de la vista que el usuario tiene abierta
+const nombreVistaActual = computed(() => {
+  const path = route.path
+  if (path === '/' || path === '/dashboard') return 'Dashboard Operacional'
+  if (path === '/mando-s1') return 'Centro de Mando S-1 & Inteligencia Preventiva'
+  if (path === '/personal') return 'Directorio de Personal'
+  if (path.startsWith('/personal/')) return 'Expediente Militar Individual'
+  if (path === '/cronologia') return 'Cronología y Bitácora Diaria'
+  if (path === '/estadisticas') return 'Estadísticas y Tendencias'
+  if (path === '/novedades') return 'Consulta de Novedades'
+  if (path === '/reportes') return 'Centro de Reportes'
+  if (path === '/sincronizar') return 'Sincronización de Datos'
+  return path
+})
+
+// Objeto de contexto reactivo que se envía al backend
+const chatContextActual = computed<ChatContext>(() => ({
+  current_view: `${nombreVistaActual.value} (${route.path})`,
+  active_period: {
+    mes: dateStore.mesSeleccionado || 'TODOS',
+    dia: dateStore.diaSeleccionado || null,
+    fecha: (dateStore as any).fechaSeleccionada || null
+  },
+  active_militar: activeMilitar.value
+}))
+
+// Estado de Sesiones de Chat Persistentes en Base de Datos
+const sesiones = ref<IASesion[]>([])
+const sesionActivaId = ref<number | null>(
+  Number(localStorage.getItem('bimej12_ai_session_id')) || null
+)
+const sesionActivaTitulo = ref<string>('')
+const mostrarHistorialSesiones = ref(false)
+const isLoadingSesiones = ref(false)
+
+const toggleHistorialSesiones = () => {
+  mostrarHistorialSesiones.value = !mostrarHistorialSesiones.value
+  if (mostrarHistorialSesiones.value) {
+    mostrarConfig.value = false
+    cargarListaSesiones()
+  }
+}
+
+const cargarListaSesiones = async () => {
+  try {
+    isLoadingSesiones.value = true
+    const lista = await iaService.obtenerSesiones()
+    sesiones.value = lista
+    if (sesionActivaId.value) {
+      const actual = lista.find(s => s.id === sesionActivaId.value)
+      if (actual) {
+        sesionActivaTitulo.value = actual.titulo
+      }
+    }
+  } catch (err) {
+    console.error('Error cargando lista de sesiones:', err)
+  } finally {
+    isLoadingSesiones.value = false
+  }
+}
+
+const crearNuevaSesion = () => {
+  mensajes.value = []
+  activeMilitar.value = null
+  sesionActivaId.value = null
+  sesionActivaTitulo.value = ''
+  localStorage.removeItem('bimej12_ai_session_id')
+  mostrarHistorialSesiones.value = false
+  nextTick(() => {
+    inputRef.value?.focus()
+  })
+}
+
+const seleccionarSesion = async (s: IASesion) => {
+  sesionActivaId.value = s.id
+  sesionActivaTitulo.value = s.titulo
+  localStorage.setItem('bimej12_ai_session_id', String(s.id))
+  mostrarHistorialSesiones.value = false
+
+  try {
+    isLoadingSesiones.value = true
+    const data = await iaService.obtenerMensajesSesion(s.id)
+    mensajes.value = data.mensajes.map(m => ({
+      id: String(m.id),
+      sender: m.rol === 'user' ? 'user' : 'assistant',
+      text: m.contenido,
+      type: m.metadatos?.type || 'conversation',
+      sql: m.metadatos?.sql || null,
+      columns: m.metadatos?.columns || [],
+      rows: m.metadatos?.rows || [],
+      total_records: m.metadatos?.total_records || 0,
+      elapsed_seconds: m.metadatos?.elapsed_seconds,
+      timestamp: m.creado_en ? new Date(m.creado_en).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
+      isError: m.metadatos?.type === 'error'
+    }))
+    scrollAlFondo()
+  } catch (err) {
+    console.error('Error cargando mensajes de la sesión:', err)
+  } finally {
+    isLoadingSesiones.value = false
+  }
+}
+
+const eliminarSesion = async (id: number, event: Event) => {
+  event.stopPropagation()
+  try {
+    await iaService.eliminarSesion(id)
+    sesiones.value = sesiones.value.filter(s => s.id !== id)
+    if (sesionActivaId.value === id) {
+      crearNuevaSesion()
+    }
+  } catch (err) {
+    console.error('Error eliminando sesión:', err)
+  }
+}
 
 const status = ref<IAStatusResponse | null>(null)
 const isLoadingStatus = ref(false)
@@ -1335,10 +1566,19 @@ const enviarMensaje = async (customQuery?: string) => {
       activeMilitar.value,
       abortController.value.signal,
       modeloActivo.value,
-      modoAsistente.value
+      modoAsistente.value,
+      sesionActivaId.value,
+      chatContextActual.value
     )
+    if (res.session_id) {
+      sesionActivaId.value = res.session_id
+      localStorage.setItem('bimej12_ai_session_id', String(res.session_id))
+      cargarListaSesiones()
+    }
     if (res.active_militar !== undefined) {
       activeMilitar.value = res.active_militar
+    } else if (res.detected_entities?.militar) {
+      activeMilitar.value = res.detected_entities.militar
     }
     const assistantMsg: IAChatMessage = {
       id: String(Date.now() + 1),
@@ -1426,8 +1666,7 @@ const generarApreciacionDirecta = async () => {
 }
 
 const limpiarChat = () => {
-  mensajes.value = []
-  activeMilitar.value = null
+  crearNuevaSesion()
 }
 
 const cerrar = () => {
@@ -1437,11 +1676,41 @@ const cerrar = () => {
   emit('close')
 }
 
+const restaurarSesionGuardada = async () => {
+  if (sesionActivaId.value && mensajes.value.length === 0) {
+    try {
+      const data = await iaService.obtenerMensajesSesion(sesionActivaId.value)
+      if (data && data.mensajes && data.mensajes.length > 0) {
+        sesionActivaTitulo.value = data.titulo
+        mensajes.value = data.mensajes.map(m => ({
+          id: String(m.id),
+          sender: m.rol === 'user' ? 'user' : 'assistant',
+          text: m.contenido,
+          type: m.metadatos?.type || 'conversation',
+          sql: m.metadatos?.sql || null,
+          columns: m.metadatos?.columns || [],
+          rows: m.metadatos?.rows || [],
+          total_records: m.metadatos?.total_records || 0,
+          elapsed_seconds: m.metadatos?.elapsed_seconds,
+          timestamp: m.creado_en ? new Date(m.creado_en).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
+          isError: m.metadatos?.type === 'error'
+        }))
+        scrollAlFondo()
+      }
+    } catch {
+      sesionActivaId.value = null
+      localStorage.removeItem('bimej12_ai_session_id')
+    }
+  }
+}
+
 watch(
   () => props.isOpen,
   (open) => {
     if (open) {
       verificarEstado()
+      cargarListaSesiones()
+      restaurarSesionGuardada()
       nextTick(() => {
         inputRef.value?.focus()
       })
@@ -1451,6 +1720,8 @@ watch(
 
 onMounted(() => {
   verificarEstado()
+  cargarListaSesiones()
+  restaurarSesionGuardada()
 })
 
 onUnmounted(() => {

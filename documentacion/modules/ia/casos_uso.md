@@ -17,12 +17,13 @@
 1. El usuario hace clic en el botón flotante del Asistente IA en el Navbar o presiona el atajo de apertura del Drawer lateral (`AIAssistantDrawer.vue`).
 2. El componente frontend ejecuta `iaService.obtenerEstado()` (`GET /api/ia/status`) para verificar disponibilidad, backend activo y modelos disponibles.
 3. El usuario formula una consulta en lenguaje natural (ej. *"¿Cuántos soldados están disponibles en el área de operaciones?"*, *"¿Qué personal tiene más de 30 días sin descanso?"* o selecciona una sugerencia rápida).
-4. El frontend envía la solicitud `POST /api/ia/chat` con el payload `ChatMessageRequest` conteniendo `message`, `history`, `active_militar` (si se está inspeccionando un efectivo) y `mode='chat'`.
-5. El backend valida el backend activo (`get_ai_backend()`) y aplica los guardrails conversacionales y de dominio militar.
-6. El servicio evalúa la intención contra el catálogo de consultas parametrizadas (`query_catalog.py`). Si coincide con un patrón determinista, genera el SQL optimizado; de lo contrario, Gemini sintetiza la consulta SQL a partir del esquema.
+4. El frontend envía la solicitud `POST /api/ia/chat` con el payload `ChatMessageRequest` conteniendo `message`, `history`, `session_id` (opcional), `context` (vista actual y fechas filtradas), `active_militar` (si se está inspeccionando un efectivo) y `mode='chat'`.
+5. El backend vincula la interacción con la sesión activa (o crea una nueva automáticamente si no se envía `session_id`), valida el backend activo (`get_ai_backend()`) y aplica los guardrails conversacionales y de dominio militar.
+6. El servicio evalúa la intención contra el catálogo de consultas parametrizadas (`query_catalog.py`) considerando el contexto de pantalla y el período temporal activo. Si coincide con un patrón determinista, genera el SQL optimizado; de lo contrario, Gemini sintetiza la consulta SQL a partir del esquema.
 7. Se ejecuta la consulta SQL de manera segura en modo solo lectura sobre la base de datos.
 8. El modelo sintetiza la respuesta militar en lenguaje natural con estilo castrense, citando cifras exactas y justificaciones.
-9. El frontend renderiza la respuesta en el chat con formato Markdown, resaltado de datos clave y metadatos de ejecución (tiempo de respuesta en segundos y modelo utilizado).
+9. El backend persiste atómicamente los mensajes del usuario y del asistente en la tabla `ia_mensajes`.
+10. El frontend renderiza la respuesta en el chat con formato Markdown, resaltado de datos clave y metadatos de ejecución (tiempo de respuesta en segundos y modelo utilizado).
 
 ### Flujos Alternativos
 - **A1: Servicio de IA no disponible (offline o sin API Key)**: El backend retorna código HTTP 503 o 500. El frontend muestra una alerta de advertencia indicando la falla y permitiendo reintentar o cambiar a Ollama/Gemini.
@@ -117,3 +118,54 @@
 4. El backend actualiza las variables de entorno en memoria (`GEMINI_MODEL` y `OLLAMA_MODEL`) sin reiniciar el proceso del servidor.
 5. El backend confirma el cambio respondiendo con el nuevo estado (`get_ia_status()`).
 6. Las subsecuentes solicitudes de chat y apreciación utilizan de inmediato el motor seleccionado.
+
+---
+
+## CU-IA-006: Context Awareness Dinámico de Pantalla y Filtros Temporales
+
+### Actores
+- **Principal**: Oficial S-1 / Comandante de Batallón.
+- **Secundario**: Servidor Backend BIMEH (`gemini_service.py`), Pinia Store (`dateStore`).
+
+### Precondiciones
+1. El usuario está navegando en cualquier vista de BIMEH (Dashboard, Novedades, Personal, Mando S-1, Reportes, etc.).
+2. El selector global de fechas puede tener seleccionado un mes o día específico.
+
+### Flujo Principal
+1. El usuario abre el Asistente IA. El componente `AIAssistantDrawer.vue` observa reactivamente `route.path` y el estado de `dateStore` (`mesSeleccionado`, `diaSeleccionado`).
+2. La interfaz muestra en la parte superior del drawer una barra de contexto táctico: `Observando: [Nombre de la Vista] · [Mes / Día filtrado]`.
+3. Al formular una pregunta (ej. *"¿Quién de los que veo aquí está en situación más crítica?"* o *"¿Cuántos salieron de permiso?"*), el frontend empaqueta automáticamente el objeto `context`:
+   ```json
+   {
+     "current_view": "Mando S-1 (Operatividad y Fatiga)",
+     "current_route": "/mando-s1",
+     "selected_month": "MAYO",
+     "selected_day": null
+   }
+   ```
+4. El backend inyecta este bloque directamente en las directivas prioritarias del System Prompt militar:
+   - Conciencia de pantalla actual y foco del usuario.
+   - Período temporal activo para delimitar implícitamente cláusulas `WHERE fecha...`.
+5. El modelo interpreta las referencias deícticas y pronombres sin que el usuario deba repetir manualmente el nombre de la vista ni el mes.
+6. La respuesta identifica al sujeto u objetivo con exactitud contextual.
+
+---
+
+## CU-IA-007: Gestión de Sesiones Persistentes e Historial de Conversación
+
+### Actores
+- **Principal**: Oficial S-1 / Ayudante de Comando / Analista.
+- **Secundario**: Servidor Backend BIMEH (`routers/ia.py`), Base de Datos PostgreSQL (`ia_sesiones`, `ia_mensajes`).
+
+### Precondiciones
+1. La base de datos relacional PostgreSQL tiene aplicadas las tablas `ia_sesiones` e `ia_mensajes`.
+2. El usuario interactúa con el chat de IA.
+
+### Flujo Principal
+1. Al abrir el drawer, el sistema consulta `GET /api/ia/sesiones` y carga las sesiones activas, ordenadas por última actualización.
+2. Si existe un `session_id` almacenado en `localStorage`, el frontend ejecuta `GET /api/ia/sesiones/{session_id}` y restaura instantáneamente los mensajes del hilo.
+3. Si el usuario pulsa el botón **Nueva (+)**, se invoca `POST /api/ia/sesiones` creando un nuevo hilo limpio y actualizando el `session_id` activo.
+4. Con el primer mensaje del usuario en un nuevo hilo, el backend autotitula inteligentemente la sesión basándose en la intención o los primeros 60 caracteres de la consulta.
+5. El usuario puede pulsar el botón **Historial** para desplegar la lista de conversaciones guardadas, con su título, fecha y cantidad de mensajes.
+6. Al seleccionar un hilo de la lista, el chat cambia al contexto de esa conversación previa.
+7. Al pulsar el botón de papelera sobre una sesión, el frontend llama a `DELETE /api/ia/sesiones/{session_id}`, eliminando en cascada la sesión y sus mensajes de PostgreSQL.

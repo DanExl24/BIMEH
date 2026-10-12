@@ -71,3 +71,38 @@
 - **Archivos donde se implementa**: [`backend/app/routers/ia.py`](file:///c:/Users/alejo/Downloads/proyectos-dev/BIMEH/backend/app/routers/ia.py) (Líneas 20–30, 76–86), [`backend/app/services/ollama_service.py`](file:///c:/Users/alejo/Downloads/proyectos-dev/BIMEH/backend/app/services/ollama_service.py).
 - **Endpoints relacionados**: `GET /api/ia/status`, `POST /api/ia/config`
 - **Historias de usuario relacionadas**: [HU-IA-004](file:///c:/Users/alejo/Downloads/proyectos-dev/BIMEH/documentacion/modules/ia/historias_usuario.md#hu-ia-004), [HU-IA-005](file:///c:/Users/alejo/Downloads/proyectos-dev/BIMEH/documentacion/modules/ia/historias_usuario.md#hu-ia-005)
+
+---
+
+## 🧭 6. Conciencia de Contexto Visual y Filtro Temporal (Context Awareness)
+
+### RN-IA-006
+- **Identificador**: `RN-IA-006`
+- **Descripción**: El frontend debe capturar reactivamente la pantalla activa (`current_view`, `current_route`) y el período temporal seleccionado en el panel de control (`selected_month`, `selected_day`), adjuntándolos como metadatos de contexto en toda interacción con el asistente. El backend debe incorporar este contexto en el System Prompt y en la evaluación de intenciones:
+  1. Si la consulta del usuario formula preguntas relativas al tiempo (ej. *"¿cuántas novedades hubo?"*, *"¿quién salió a permiso?"*) sin explicitar un mes o rango, el sistema debe asumir y aplicar automáticamente el filtro del período activo en pantalla.
+  2. Si la consulta formula preguntas referidas al conjunto de datos visible (ej. *"¿quién de los mostrados tiene más riesgo?"*), el modelo debe contextualizar su respuesta conforme a la vista actual (ej. Mando S-1, Novedades o Personal).
+- **Motivo**: Eliminar la fricción cognitiva y evitar la redundancia al obligar al usuario a reiterar la pantalla o el mes en el que se encuentra trabajando.
+- **Módulos afectados**: `ia`, `dashboard`, `novedades`, `personal`, `mando`.
+- **Archivos donde se implementa**: [`frontend/src/features/ia/components/AIAssistantDrawer.vue`](file:///c:/Users/alejo/Downloads/proyectos-dev/BIMEH/frontend/src/features/ia/components/AIAssistantDrawer.vue), [`backend/app/services/gemini_service.py`](file:///c:/Users/alejo/Downloads/proyectos-dev/BIMEH/backend/app/services/gemini_service.py), [`backend/app/routers/ia.py`](file:///c:/Users/alejo/Downloads/proyectos-dev/BIMEH/backend/app/routers/ia.py).
+- **Endpoints relacionados**: `POST /api/ia/chat`
+- **Historias de usuario relacionadas**: [HU-IA-006](file:///c:/Users/alejo/Downloads/proyectos-dev/BIMEH/documentacion/modules/ia/historias_usuario.md#hu-ia-006)
+
+---
+
+## 💾 7. Persistencia, Integridad Referencial y Ciclo de Vida de Sesiones de Chat
+
+### RN-IA-007
+- **Identificador**: `RN-IA-007`
+- **Descripción**: Las conversaciones del Asistente IA deben persistirse de forma relacional en PostgreSQL bajo las siguientes condiciones:
+  1. Cada sesión (`ia_sesiones`) posee un identificador único entero, título descriptivo, marca de tiempo de creación y última actualización.
+  2. Todo mensaje enviado por el usuario o respondido por el modelo se almacena atómicamente en `ia_mensajes`, vinculado a `session_id` con clave foránea en cascada (`ON DELETE CASCADE`).
+  3. Si una consulta entrante carece de `session_id`, el backend debe generar automáticamente una nueva sesión.
+  4. El primer mensaje del usuario en una sesión nueva autotitula inteligentemente el hilo utilizando la intención o los primeros 60 caracteres de la consulta.
+  5. La eliminación de una sesión debe remover de manera definitiva e inmediata todos los mensajes vinculados para prevenir registros huérfanos.
+  6. El identificador de la última sesión activa debe preservarse en el almacenamiento local del cliente (`localStorage.bimej12_ai_session_id`), recuperándose automáticamente al recargar la aplicación SPA.
+- **Motivo**: Permitir trazabilidad de consultas de mando, auditoría de respuestas analíticas y continuidad de trabajo en sesiones prolongadas.
+- **Módulos afectados**: `ia`.
+- **Archivos donde se implementa**: [`backend/app/database.py`](file:///c:/Users/alejo/Downloads/proyectos-dev/BIMEH/backend/app/database.py) (DDL de `ia_sesiones` e `ia_mensajes`), [`backend/app/routers/ia.py`](file:///c:/Users/alejo/Downloads/proyectos-dev/BIMEH/backend/app/routers/ia.py), [`frontend/src/features/ia/services/ia.service.ts`](file:///c:/Users/alejo/Downloads/proyectos-dev/BIMEH/frontend/src/features/ia/services/ia.service.ts), [`frontend/src/features/ia/components/AIAssistantDrawer.vue`](file:///c:/Users/alejo/Downloads/proyectos-dev/BIMEH/frontend/src/features/ia/components/AIAssistantDrawer.vue).
+- **Endpoints relacionados**: `GET /api/ia/sesiones`, `POST /api/ia/sesiones`, `GET /api/ia/sesiones/{session_id}`, `DELETE /api/ia/sesiones/{session_id}`, `POST /api/ia/chat`
+- **Historias de usuario relacionadas**: [HU-IA-007](file:///c:/Users/alejo/Downloads/proyectos-dev/BIMEH/documentacion/modules/ia/historias_usuario.md#hu-ia-007)
+

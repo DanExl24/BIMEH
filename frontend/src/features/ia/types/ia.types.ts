@@ -76,6 +76,32 @@ export interface ActiveMilitar {
   nombre: string
 }
 
+export interface ChatContext {
+  current_view?: string
+  active_period?: {
+    mes?: string | null
+    dia?: string | null
+    fecha?: string | null
+  }
+  active_militar?: ActiveMilitar | null
+}
+
+export interface IASesion {
+  id: number
+  titulo: string
+  creado_en: string
+  actualizado_en?: string
+  total_mensajes: number
+}
+
+export interface IAMensajePersistente {
+  id: number
+  rol: 'user' | 'assistant'
+  contenido: string
+  metadatos: Record<string, any>
+  creado_en: string
+}
+
 export interface IAChatResponse {
   status: 'success' | 'error'
   type: 'conversation' | 'data' | 'report' | 'error'
@@ -88,6 +114,11 @@ export interface IAChatResponse {
   model: string
   elapsed_seconds?: number
   active_militar?: ActiveMilitar | null
+  session_id?: number
+  detected_entities?: {
+    militar?: ActiveMilitar | null
+    period?: Record<string, any>
+  }
 }
 
 export interface IAApreciacionKpis {
