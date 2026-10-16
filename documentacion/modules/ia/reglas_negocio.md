@@ -106,3 +106,43 @@
 - **Endpoints relacionados**: `GET /api/ia/sesiones`, `POST /api/ia/sesiones`, `GET /api/ia/sesiones/{session_id}`, `DELETE /api/ia/sesiones/{session_id}`, `POST /api/ia/chat`
 - **Historias de usuario relacionadas**: [HU-IA-007](file:///c:/Users/alejo/Downloads/proyectos-dev/BIMEH/documentacion/modules/ia/historias_usuario.md#hu-ia-007)
 
+---
+
+## 📊 8. Previsualización Multiformato y Exportación Sin Límite de Registros
+
+### RN-IA-008
+- **Identificador**: `RN-IA-008`
+- **Descripción**: La presentación y exportación de datos tabulares generados por el Asistente IA debe cumplir con una arquitectura de dos niveles:
+  1. **Nivel 1 (Chat ágil)**: En el cuerpo del Drawer se muestra un resumen o los primeros 10 registros para no sobrecargar el scroll de la conversación ni degradar el rendimiento gráfico.
+  2. **Nivel 2 (Inspección en Modal Completo)**: Cuando la consulta genera resultados, se habilita el botón "Ver a detalle", que despliega `QueryResultDetailModal.vue` en el centro de la pantalla sin cortes ni límite de filas.
+  3. **Previsualización Dinámica Multiformato**: El modal debe permitir al usuario alternar en tiempo real entre cuatro vistas antes de exportar:
+     - *Tabla de Consulta*: Datos tabulares originales con badges y buscador reactivo.
+     - *Matriz Heatmap*: Proyección día a día del mes (1 a 31) con celdas interactivas (`D`, `CDO`, `PER`, `INC`, `VAC`, `R`), columna fija de integrante y tooltips con fecha y novedad.
+     - *Parte Ágil*: Algoritmo de agregación que consolida días consecutivos de la misma novedad en intervalos continuos (`startDay-endDay (NOVEDAD)`), junto con desglose por categoría.
+     - *Estadística de Totales*: 4 KPIs gerenciales, distribución porcentual y barras de progreso animadas en gradiente.
+  4. **Exportación Consistente**: Los botones de descarga superior (`Excel` y `PDF`) deben generar el archivo correspondiente a la pestaña visualizada, invocando `POST /api/ia/exportar-tabla` para la tabla pura o los endpoints oficiales `/api/exportar/` para formatos castrenses consolidados.
+  5. **No redundancia de controles**: El pie del modal debe mantenerse libre de botones de descarga redundantes, conservando únicamente el contador de registros y el botón de cierre.
+- **Motivo**: Brindar al mando militar la capacidad de auditar visualmente cómo quedará estructurado su informe antes de descargarlo o imprimirlo, agilizando la toma de decisiones.
+- **Módulos afectados**: `ia`, `reportes`.
+- **Archivos donde se implementa**: [`frontend/src/features/ia/components/QueryResultDetailModal.vue`](file:///c:/Users/alejo/Downloads/proyectos-dev/BIMEH/frontend/src/features/ia/components/QueryResultDetailModal.vue), [`backend/app/routers/ia.py`](file:///c:/Users/alejo/Downloads/proyectos-dev/BIMEH/backend/app/routers/ia.py) (endpoint `/exportar-tabla`), [`frontend/src/features/ia/services/ia.service.ts`](file:///c:/Users/alejo/Downloads/proyectos-dev/BIMEH/frontend/src/features/ia/services/ia.service.ts).
+- **Endpoints relacionados**: `POST /api/ia/exportar-tabla`, `GET /api/exportar/excel`, `GET /api/exportar/pdf`
+- **Historias de usuario relacionadas**: [HU-IA-008](file:///c:/Users/alejo/Downloads/proyectos-dev/BIMEH/documentacion/modules/ia/historias_usuario.md#hu-ia-008)
+
+---
+
+## 🕒 9. Tratamiento Inteligente de Expresiones Temporales Relativas
+
+### RN-IA-009
+- **Identificador**: `RN-IA-009`
+- **Descripción**: El procesador de lenguaje natural (`date_extractor.py`), los skills deterministas (`NovedadesSkill`) y las directivas de System Prompt para Text-to-SQL deben acotar con rigor militar cualquier expresión temporal relativa:
+  1. Expresiones como `"este mes"`, `"en este mes"`, `"mes actual"`, `"mes en curso"` o `"presente mes"` deben mapearse de forma obligatoria e inmediata a `datetime.now().month` y año actual (ej. `2026-10-%`).
+  2. NUNCA se debe devolver una consulta anual acumulada (sin cláusula `fecha_reporte LIKE ...`) ante una solicitud de novedad relativa a un mes.
+  3. Se prohíbe incluir en la respuesta a personal cuya novedad haya expirado en meses anteriores (por ejemplo, incapacidades médicas finalizadas en meses pasados) cuando el usuario pregunta por el estado de novedad en el mes actual.
+  4. La fecha y mes corriente del sistema deben estar permanentemente inyectados en el System Prompt para guiar cualquier modelo generativo (Gemini u Ollama).
+- **Motivo**: Prevenir desinformación al comando del batallón, garantizando que una consulta sobre afectación mensual refleje con absoluta exactitud únicamente a los efectivos con novedad vigente durante el período consultado.
+- **Módulos afectados**: `ia`, `novedades`.
+- **Archivos donde se implementa**: [`backend/app/ia/nlp/date_extractor.py`](file:///c:/Users/alejo/Downloads/proyectos-dev/BIMEH/backend/app/ia/nlp/date_extractor.py), [`backend/app/ia/skills/base.py`](file:///c:/Users/alejo/Downloads/proyectos-dev/BIMEH/backend/app/ia/skills/base.py), [`backend/app/ia/prompts/system_prompts.py`](file:///c:/Users/alejo/Downloads/proyectos-dev/BIMEH/backend/app/ia/prompts/system_prompts.py), [`backend/app/ia/skills/novedades_skill.py`](file:///c:/Users/alejo/Downloads/proyectos-dev/BIMEH/backend/app/ia/skills/novedades_skill.py).
+- **Endpoints relacionados**: `POST /api/ia/chat`
+- **Historias de usuario relacionadas**: [HU-IA-001](file:///c:/Users/alejo/Downloads/proyectos-dev/BIMEH/documentacion/modules/ia/historias_usuario.md#hu-ia-001), [HU-IA-006](file:///c:/Users/alejo/Downloads/proyectos-dev/BIMEH/documentacion/modules/ia/historias_usuario.md#hu-ia-006)
+
+

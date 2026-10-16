@@ -169,3 +169,35 @@
 5. El usuario puede pulsar el botón **Historial** para desplegar la lista de conversaciones guardadas, con su título, fecha y cantidad de mensajes.
 6. Al seleccionar un hilo de la lista, el chat cambia al contexto de esa conversación previa.
 7. Al pulsar el botón de papelera sobre una sesión, el frontend llama a `DELETE /api/ia/sesiones/{session_id}`, eliminando en cascada la sesión y sus mensajes de PostgreSQL.
+
+---
+
+## CU-IA-008: Inspección Detallada, Previsualización Multiformato y Exportación Oficial de Consultas de Personal
+
+### Actores
+- **Principal**: Comandante de Batallón / Oficial S-1 / Suboficial de Personal.
+- **Secundario**: Servidor Backend BIMEH (`routers/ia.py`, `routers/exportar.py`), Motor de Exportación ReportLab / OpenPyXL, Componente `QueryResultDetailModal.vue`.
+
+### Precondiciones
+1. El usuario ejecutó una consulta analítica en el Asistente IA que generó un conjunto de datos tabular (ej. *"¿Quiénes están con incapacidad en este mes?"*, *"Militares de permiso en octubre"*).
+2. El resultado contiene registros visibles en el chat.
+
+### Flujo Principal
+1. El Asistente IA renderiza una previsualización compacta de los primeros 10 registros en el Drawer para mantener la agilidad del chat.
+2. Si la consulta supera los 10 registros (o el usuario desea un análisis exhaustivo), el sistema presenta el botón interactivo **"Ver a detalle [N registros]"**.
+3. Al hacer clic, se abre en pantalla completa el componente `QueryResultDetailModal.vue` mostrando la totalidad de los registros sin recortes ni paginación forzada.
+4. En la barra superior del modal, el usuario dispone de 4 pestañas para previsualizar el reporte en los diferentes formatos doctrinales antes de descargarlo:
+   - **Tabla de Consulta**: Desglose íntegro con columnas originales de la base de datos, badges de color por tipo de novedad y ordenamiento numérico.
+   - **Matriz Heatmap**: Matriz de calendario día a día (días 1 al 31 del mes en curso) con fila congelada del militar (`Nombre`, `Cédula`) y celdas interactivas con estados (`D` Disponible, `CDO`, `PER`, `INC`, `VAC`, `R` Retirado) y tooltips informativos al pasar el cursor.
+   - **Parte Ágil**: Extracto nominal ejecutivo con consolidación automática de días consecutivos en intervalos continuos (ej. `01-04 (CDO UNIDAD)`, `05-06 (PERMISO)`) y tarjetas de resumen agrupadas por tipo de novedad.
+   - **Estadística de Totales**: Panel gerencial con 4 tarjetas KPI (Días Totales, Efectivos Afectados, Categorías Activas y Novedad Predominante) y tabla analítica con porcentajes relativos y barras de distribución gráfica animadas.
+5. El usuario puede utilizar el buscador integrado para filtrar en tiempo real en cualquiera de las cuatro vistas, o presionar **"Copiar"** para obtener los datos tabulares en formato TSV listos para pegar en Excel o Google Sheets.
+6. En la esquina superior derecha, el usuario presiona **`Excel (.xlsx)`** o **`PDF (.pdf)`**.
+7. El sistema despacha la solicitud correspondiente según la pestaña activa:
+   - Si está en *Tabla de Consulta*: invoca `POST /api/ia/exportar-tabla`, generando un documento con membrete militar formal y la relación exacta de filas y columnas.
+   - Si está en *Matriz Heatmap*, *Parte Ágil* o *Estadística*: invoca el endpoint oficial del generador de reportes institucional (`/api/exportar/excel` o `/api/exportar/pdf`), contextualizando automáticamente si la consulta atañe a un único militar o a la unidad completa.
+8. El navegador descarga el archivo oficial compilado y el usuario puede cerrar el modal con el botón `Cerrar` o la tecla `Escape`.
+
+### Flujos Alternativos
+- **A1: Consulta con un único militar involucrado**: El modal detecta automáticamente que todas las filas pertenecen a una misma cédula y proyecta el Heatmap y Parte Ágil individual del militar sin requerir selección previa en la barra lateral.
+- **A2: Fallo temporal en la generación del documento**: Si el backend experimenta un timeout o error de compilación del PDF, el sistema notifica al usuario con un banner de error sin bloquear la visualización en pantalla y permite reintentar la descarga.

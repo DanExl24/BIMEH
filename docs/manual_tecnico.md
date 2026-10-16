@@ -42,17 +42,17 @@ BIMEH está diseñado bajo un modelo de arquitectura desacoplada de dos capas pr
 ```
 
 ### Tecnologías Utilizadas
-* **Backend**: Python 3.12, FastAPI, Uvicorn, psycopg2.
+* **Backend**: Python 3.12, FastAPI, Uvicorn, psycopg2, LangChain, Google Gemini API / OpenAI API.
 * **Frontend**: Vue 3 (Composition API), Vite, TypeScript, Tailwind CSS, Pinia, Vue Router, ECharts.
 * **Almacenamiento**: PostgreSQL 15.
-* **Librerías de Reportes**: ReportLab (generación nativa de PDFs) y OpenPyXL (manipulación de archivos Excel).
+* **Librerías de Reportes**: ReportLab (generación nativa de PDFs) y OpenPyXL (manipulación y estilizado de archivos Excel).
 
 ---
 
 ## 3. Arquitectura del Sistema y Flujo de Datos
 
-1. **Capa Cliente (Frontend)**: Construido como una aplicación de página única (SPA). Consume la API mediante llamadas asíncronas y renderiza dashboards visuales.
-2. **Capa Servidor (Backend)**: Expone endpoints RESTful. Se encarga de procesar la lógica de negocio, calcular las agregaciones y generar dinámicamente los archivos CSV, Excel y PDF.
+1. **Capa Cliente (Frontend)**: Construido como una aplicación de página única (SPA) bajo Feature-Driven Architecture. Incorpora el módulo conversacional de IA (`features/ia`) con previsualizador multiformato interactivo.
+2. **Capa Servidor (Backend)**: Expone endpoints RESTful. Se encarga de procesar la lógica de negocio, calcular las agregaciones, orquestar habilidades del agente IA (`ia/skills/`) y generar dinámicamente los archivos CSV, Excel y PDF.
 3. **Capa de Persistencia (Base de Datos)**: Base de datos relacional para indexar eficientemente los reportes diarios e integrantes.
 
 ---
@@ -80,13 +80,19 @@ app/
 ├── dependencies.py    # Dependencias comunes de FastAPI (inyección de sesiones de DB).
 ├── models.py          # Definiciones de modelos y clases de datos de Python.
 │
+├── ia/                # Subsistema de Agentes y Habilidades de IA:
+│   ├── agent.py       # Orquestador del agente conversacional.
+│   ├── skills/        # Habilidades especializadas (militar, apreciacion, reportes).
+│   └── utils/         # Extractor y normalizador de fechas relativas (date_extractor.py).
+│
 └── routers/           # Enrutadores modulares de la API REST:
     ├── dashboard.py   # Consultas de estado de fuerza diario y novedades del Dashboard.
     ├── personal.py    # Rutas para perfiles, buscador e historiales individuales.
     ├── stats.py       # Cálculos agregados e índices acumulados históricos.
     ├── alertas.py     # Alertas operacionales diarias.
     ├── exportar.py    # Lógica de renderizado y exportación de archivos (Excel, CSV, PDF).
-    └── sincronizar.py # Carga, validación de columnas y sobreescritura de reportes Excel/JSON.
+    ├── sincronizar.py # Carga, validación de columnas y sobreescritura de reportes Excel/JSON.
+    └── ia.py          # Endpoints del Asistente IA, historial y exportación multiformato directa.
 ```
 
 ### Frontend
@@ -100,13 +106,21 @@ frontend/
 │
 └── src/
     ├── main.ts        # Punto de inicio del cliente TypeScript.
-    ├── App.vue        # Componente raíz de la interfaz.
+    ├── App.vue        # Componente raíz de la interfaz con drawer de IA global.
     │
     ├── assets/        # Estilos CSS globales de Tailwind.
     ├── router/        # Definición de rutas de navegación (Vue Router).
     ├── stores/        # Almacén de estados globales (Pinia - appStore.ts).
     ├── types/         # Interfaces de datos compartidas (TypeScript - index.ts).
     ├── services/      # Cliente centralizado de comunicación con la API (api.ts).
+    │
+    ├── features/      # Módulos basados en dominio:
+    │   └── ia/        # Dominio Asistente Virtual:
+    │       ├── components/
+    │       │   ├── AIAssistantDrawer.vue
+    │       │   └── QueryResultDetailModal.vue   # Modal de inspección y previsualización multiformato
+    │       ├── services/ia.service.ts
+    │       └── types/ia.types.ts
     │
     └── views/         # Componentes Single File (SFC) de vistas principales:
         ├── DashboardView.vue

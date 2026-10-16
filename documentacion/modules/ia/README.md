@@ -46,9 +46,10 @@ El módulo cuenta con una arquitectura de backend híbrida que soporta tanto mod
   - `v_conteo_novedades`: Métricas agrupadas por tipo de novedad y personal afectado.
 
 ### Frontend (`src/features/ia/`)
-- **Componente Drawer Flotante**: `frontend/src/features/ia/components/AIAssistantDrawer.vue` (Panel lateral deslizable con barra de Context Awareness en tiempo real, selector de hilos guardados, botón de nueva conversación, historial reactivo, formateo de tablas SQL y copia de respuestas).
-- **Servicio de Feature**: `frontend/src/features/ia/services/ia.service.ts` (Cliente HTTP para chat, gestión de sesiones persistentes, estado de salud y apreciación).
-- **Tipos de Feature**: `frontend/src/features/ia/types/ia.types.ts` (Modelos TypeScript para mensajes, contexto militar, sesiones, estado de IA y tablas).
+- **Componente Drawer Flotante**: `frontend/src/features/ia/components/AIAssistantDrawer.vue` (Panel lateral deslizable con barra de Context Awareness en tiempo real, selector de hilos guardados, botón de nueva conversación, historial reactivo, formateo de tablas SQL preliminares con tope de 10 filas y botón "Ver a detalle").
+- **Modal de Detalle y Previsualización Multiformato**: `frontend/src/features/ia/components/QueryResultDetailModal.vue` (Modal centrado de inspección completa sin límite de registros. Permite previsualizar en tiempo real el resultado en 4 formatos oficiales: *Tabla de Consulta*, *Matriz Heatmap día a día*, *Parte Ágil por intervalos* y *Estadística de Totales*, con exportación directa en Excel `.xlsx` y PDF `.pdf`).
+- **Servicio de Feature**: `frontend/src/features/ia/services/ia.service.ts` (Cliente HTTP para chat, gestión de sesiones persistentes, exportación de tablas en blob, estado de salud y apreciación).
+- **Tipos de Feature**: `frontend/src/features/ia/types/ia.types.ts` (Modelos TypeScript para mensajes, contexto militar, sesiones, estado de IA, metadatos de reportes y tablas).
 - **Integración Global**:
   - `frontend/src/App.vue`: Botón permanente en el Header institucional (`[ 🤖 Asistente IA ]`).
   - `frontend/src/components/layout/Sidebar.vue`: Botón táctico de invocación rápida en el menú lateral.
@@ -67,6 +68,7 @@ El módulo cuenta con una arquitectura de backend híbrida que soporta tanto mod
 | `DELETE` | `/api/ia/sesiones/{session_id}` | `session_id` (path) | Elimina en cascada la sesión y todos sus mensajes asociados. |
 | `POST` | `/api/ia/chat` | `message`, `history`, `session_id`, `context`, `active_militar`, `model`, `mode` | Procesa una solicitud en lenguaje natural, ejecuta la consulta SQL segura en PostgreSQL y retorna la síntesis militar vinculada a la sesión. |
 | `POST` | `/api/ia/apreciacion` | `mes`, `model` | Genera de forma automatizada el informe formal de Apreciación de Situación de Personal para la comandancia. |
+| `POST` | `/api/ia/exportar-tabla` | `titulo`, `columns`, `rows`, `formato` (`excel`/`pdf`), `mes`, `subtitulo` | Genera y descarga como archivo binario (Blob) la exportación oficial formateada con membrete militar de la tabla de cualquier consulta sin límite. |
 
 ---
 

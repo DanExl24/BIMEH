@@ -272,14 +272,22 @@ frontend/src/
 │   │   │   └── 📄 novedades.types.ts   # Interfaces del módulo de novedades
 │   │   └── 📂 views/
 │   │       └── 📄 NovedadesView.vue    # Vista principal de novedades
+│   ├── 📂 estadisticas/                # DOMINIO: Análisis y Rankings
+│   │   ├── 📂 services/
+│   │   │   └── 📄 estadisticas.service.ts # Endpoint /api/stats/ranking
+│   │   ├── 📂 types/
+│   │   │   └── 📄 estadisticas.types.ts # Interfaces: RankingItem, PersonnelRankingItem, RankingsData
+│   │   └── 📂 views/
+│   │       └── 📄 EstadisticasView.vue # Vista de rankings de novedades y miembros destacados
 │   │
-│   └── 📂 estadisticas/                # DOMINIO: Análisis y Rankings
+│   └── 📂 ia/                          # DOMINIO: Asistente IA Militar y Analítica Conversacional
+│       ├── 📂 components/
+│       │   ├── 📄 AIAssistantDrawer.vue        # Drawer lateral flotante con observador de contexto táctico y sesiones
+│       │   └── 📄 QueryResultDetailModal.vue   # Modal de desglose íntegro con previsualización de 4 formatos (Heatmap, Ágil, Estadística)
 │       ├── 📂 services/
-│       │   └── 📄 estadisticas.service.ts # Endpoint /api/stats/ranking
-│       ├── 📂 types/
-│       │   └── 📄 estadisticas.types.ts # Interfaces: RankingItem, PersonnelRankingItem, RankingsData
-│       └── 📂 views/
-│           └── 📄 EstadisticasView.vue # Vista de rankings de novedades y miembros destacados
+│       │   └── 📄 ia.service.ts                # Endpoints /api/ia/chat, /sesiones, /status, /config, /exportar-tabla
+│       └── 📂 types/
+│           └── 📄 ia.types.ts                  # Interfaces: IAChatResponse, ChatContext, IASesion, IAReportInfo
 │
 ├── 📂 router/
 │   └── 📄 index.ts                     # Configuración de Vue Router con lazy loading por feature y auth guard

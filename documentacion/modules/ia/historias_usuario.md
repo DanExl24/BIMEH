@@ -185,3 +185,38 @@ El sistema persiste los hilos de conversación en la base de datos relacional Po
 - **Endpoints relacionados**: `GET /api/ia/sesiones`, `POST /api/ia/sesiones`, `GET /api/ia/sesiones/{session_id}`, `DELETE /api/ia/sesiones/{session_id}`, `POST /api/ia/chat`
 - **Componentes frontend relacionados**: `frontend/src/features/ia/components/AIAssistantDrawer.vue`, `frontend/src/features/ia/services/ia.service.ts`
 - **Controllers/Services relacionados**: `backend/app/routers/ia.py`, `backend/app/database.py`
+
+---
+
+# HU-IA-008
+
+## Historia
+**Como** Comandante de Batallón u Oficial S-1  
+**Quiero** inspeccionar el listado completo de registros de una consulta en un modal centrado y previsualizarla en formato Heatmap, Parte Ágil o Estadística antes de exportar  
+**Para** analizar con total comodidad los datos sin límites de visualización en el chat y descargar exactamente el informe oficial que necesito en Excel o PDF.
+
+## Descripción
+Cuando el Asistente IA retorna resultados tabulares, muestra una vista preliminar de los 10 primeros registros en el Drawer para no saturar la conversación. Si hay más registros (o el usuario desea un análisis profundo), un botón destacado *"Ver a detalle"* abre el componente `QueryResultDetailModal.vue` en el centro de la pantalla. El modal ofrece cuatro pestañas interactivas de previsualización dinámica:
+1. **Tabla de Consulta**: Desglose con numeración, badges oficiales de novedad y buscador en tiempo real.
+2. **Matriz Heatmap**: Proyección día a día del mes activo con celdas de colores y tooltips explicativos.
+3. **Parte Ágil**: Consolidación automática de fechas consecutivas en rangos castrenses (ej: `01-04 CDO UNIDAD`, `05-06 PERMISO`).
+4. **Estadística Totales**: Métricas de resumen (KPIs) y barras de distribución porcentual.
+Desde la cabecera superior, el usuario puede exportar directamente la vista previsualizada en formato Excel (`.xlsx`) o PDF (`.pdf`), o copiar los datos al portapapeles en formato TSV. El pie de página se mantiene limpio sin controles redundantes.
+
+## Criterios de Aceptación
+- El botón *"Ver a detalle [N registros]"* debe presentarse en el chat siempre que la consulta retorne filas de datos.
+- El modal debe desplegarse centrado, con fondo desenfocado (*backdrop blur*), soporte de tecla `Esc` y responsive.
+- Debe permitir alternar en tiempo real entre las 4 pestañas de formato (Tabla, Heatmap, Parte Ágil, Estadística) recalculando reactivamente la proyección visual.
+- El buscador reactivo debe filtrar los datos instantáneamente en cualquiera de las 4 vistas.
+- El botón *"Copiar"* debe copiar al portapapeles los datos formateados en formato TSV según la pestaña activa.
+- Los botones superiores de exportación en Excel y PDF deben generar el archivo correspondiente a la vista seleccionada.
+- El footer del modal solo debe mostrar el contador de registros y el botón de cierre, sin botones redundantes de descarga.
+
+## Metadata
+- **Prioridad**: Alta
+- **Roles involucrados**: `ADMINISTRATIVO`, `CONSULTA`
+- **Reglas de negocio relacionadas**: [RN-IA-008](file:///c:/Users/alejo/Downloads/proyectos-dev/BIMEH/documentacion/modules/ia/reglas_negocio.md#rn-ia-008), [RN-IA-009](file:///c:/Users/alejo/Downloads/proyectos-dev/BIMEH/documentacion/modules/ia/reglas_negocio.md#rn-ia-009)
+- **Endpoints relacionados**: `POST /api/ia/exportar-tabla`, `GET /api/exportar/excel`, `GET /api/exportar/pdf`
+- **Componentes frontend relacionados**: `frontend/src/features/ia/components/QueryResultDetailModal.vue`, `frontend/src/features/ia/components/AIAssistantDrawer.vue`, `frontend/src/features/ia/services/ia.service.ts`
+- **Controllers/Services relacionados**: `backend/app/routers/ia.py`, `backend/app/routers/exportar.py`
+

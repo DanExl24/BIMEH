@@ -160,6 +160,34 @@ Permite subir nuevos reportes operacionales a la base de datos de manera interac
 
 ---
 
+### 🤖 Módulo 7: Asistente Virtual IA & Consultas Especializadas
+
+Proporciona un asistente conversacional inteligente accesible desde el botón flotante en la esquina inferior derecha de la pantalla. Permite realizar consultas operacionales complejas en lenguaje natural militar sin necesidad de aplicar filtros manuales.
+
+- **Consultas soportadas**:
+  - Estado de disponibilidad: *"¿Cuántos militares disponibles hay hoy en el área de operaciones?"*
+  - Historial y búsqueda de novedades: *"Muéstrame el personal con incapacidad médica este mes"*, *"¿Quiénes salieron a permiso la semana pasada?"*
+  - Generación de reportes: *"Genera un reporte del personal de vacaciones en formato Heatmap"*, *"Dame el parte ágil de la unidad para este mes"*.
+
+- **Arquitectura de Visualización en 2 Niveles**:
+  1. **Vista Previa en el Chat**: Las respuestas con tablas de personal muestran una vista compacta de hasta 10 integrantes para no saturar la conversación. Si existen más registros, se presenta un badge contador y el botón interactivo **"Ver a detalle"**.
+  2. **Modal de Inspección Detallada**: Al hacer clic en "Ver a detalle", se abre un visor centralizado que elimina todo límite de paginación y permite auditar el 100% de los resultados.
+
+- **Previsualizador Multiformato en Tiempo Real**:
+  Desde el modal de inspección, el usuario puede alternar entre 4 pestañas interactivas para examinar cómo se estructurará la información antes de descargarla:
+  - 📋 **Tabla de Consulta**: Grilla interactiva con búsqueda en tiempo real, cédulas, nombres completos y subnovedades.
+  - 🗓️ **Matriz Heatmap**: Matriz de disponibilidad día a día con codificación militar (verde para Disponible `D` y ámbar para Novedad `N`).
+  - ⚡ **Parte Ágil**: Desglose consolidado agrupado por intervalos de fechas y tipo de novedad.
+  - 📊 **Estadística**: Resumen numérico y porcentual de disponibilidad de la fuerza.
+
+- **Exportación Oficial Directa**:
+  En la cabecera del modal se encuentran los botones de descarga directa en **Excel (.xlsx)** y **PDF**:
+  - Incorporan membrete institucional oficial de la unidad militar.
+  - Respetan el tipo de formato seleccionado en las pestañas (Tabla, Heatmap, Parte Ágil o Estadística).
+  - Incluyen la totalidad de los registros de la consulta sin truncamientos.
+
+---
+
 ## 7. Mensajes y Errores Frecuentes
 
 | Mensaje en Pantalla                                         | Significado                                                 | Acción Sugerida                                                                               |
