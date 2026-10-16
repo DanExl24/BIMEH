@@ -1,4 +1,4 @@
-import { http } from '@services/http'
+import { http, fetchWithAuth } from '@services/http'
 import type {
   IAStatusResponse,
   IAChatResponse,
@@ -94,5 +94,30 @@ export const iaService = {
    */
   actualizarConfig: async (baseUrl?: string, model?: string): Promise<IAStatusResponse> => {
     return http.post<IAStatusResponse>('/api/ia/config', { base_url: baseUrl, model })
+  },
+
+  /**
+   * Exporta la tabla desglosada de cualquier consulta del Asistente en Excel o PDF oficial
+   */
+  exportarTabla: async (params: {
+    titulo: string
+    columns: string[]
+    rows: Record<string, any>[]
+    formato: 'excel' | 'pdf'
+    mes?: string | null
+    subtitulo?: string | null
+  }): Promise<Blob> => {
+    const res = await fetchWithAuth('/api/ia/exportar-tabla', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(params)
+    })
+    if (!res.ok) {
+      throw new Error(`Error exportando consulta: ${res.statusText}`)
+    }
+    return res.blob()
   }
 }
+

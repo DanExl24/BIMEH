@@ -1015,6 +1015,9 @@
       :total-records="modalDetalleData.totalRecords"
       :sql="modalDetalleData.sql"
       :title="modalDetalleData.title"
+      :report-info="modalDetalleData.reportInfo"
+      :active-mes="dateStore.mesSeleccionado"
+      :active-militar="activeMilitar"
       @close="cerrarModalDetalle"
     />
   </div>
@@ -1232,12 +1235,14 @@ const modalDetalleData = ref<{
   totalRecords: number
   sql?: string | null
   title?: string
+  reportInfo?: IAReportInfo | null
 }>({
   columns: [],
   rows: [],
   totalRecords: 0,
   sql: null,
-  title: ''
+  title: '',
+  reportInfo: null
 })
 
 const abrirModalDetalle = (msg: IAChatMessage) => {
@@ -1246,7 +1251,8 @@ const abrirModalDetalle = (msg: IAChatMessage) => {
     rows: msg.rows || [],
     totalRecords: msg.total_records || (msg.rows ? msg.rows.length : 0),
     sql: msg.sql || null,
-    title: 'Detalle Completo de Consulta de Personal'
+    title: 'Detalle Completo de Consulta de Personal',
+    reportInfo: msg.report_info || null
   }
   modalDetalleOpen.value = true
 }
