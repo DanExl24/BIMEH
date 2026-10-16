@@ -88,6 +88,24 @@ def _extract_report_date(msg_norm: str, user_msg: str) -> Optional[str]:
             
     return None
 
+def get_month_name_from_date(date_str: str) -> Optional[str]:
+    """Retorna el nombre oficial del mes en mayúsculas a partir de una fecha YYYY-MM-DD."""
+    NUM_TO_MES = {
+        1: "ENERO", 2: "FEBRERO", 3: "MARZO", 4: "ABRIL",
+        5: "MAYO", 6: "JUNIO", 7: "JULIO", 8: "AGOSTO",
+        9: "SEPTIEMBRE", 10: "OCTUBRE", 11: "NOVIEMBRE", 12: "DICIEMBRE"
+    }
+    try:
+        if not date_str:
+            return None
+        parts = date_str.split("-")
+        if len(parts) >= 2:
+            m_num = int(parts[1])
+            return NUM_TO_MES.get(m_num)
+    except Exception:
+        pass
+    return None
+
 def check_month_has_data(month_name_or_num: Any, db=None) -> bool:
     """
     Verifica si un mes cuenta con reportes registrados en la base de datos de BIMEJ 12.

@@ -16,7 +16,8 @@ El módulo cuenta con una arquitectura de backend híbrida que soporta tanto mod
   - `EfectivosSkill`: Gestión de censo de personal, fuerza disponible, activos, retirados, área de operaciones (AO) y retaguardia.
   - `NovedadesSkill`: Novedades del día, rankings más/menos frecuentes, incapacidades médicas, casos de leishmaniasis y permisos.
   - `MilitarSkill`: Búsqueda de personal militar por cédula, nombre (fuzzy search) y expediente de novedades.
-  - `ReportesExportSkill`: Despacho y configuración interactiva de enlaces de descarga en Excel (.xlsx), PDF (.pdf) y CSV (Heatmap, Parte Ágil, Historial y reportes diarios).
+  - `ReportesExportSkill`: Habilidad de exportación que analiza la intención y delega el ensamblado al motor de entrega.
+  - `ReportDeliveryEngine` ([`report_delivery.py`](file:///c:/Users/alejo/Downloads/proyectos-dev/BIMEH/backend/app/ia/skills/report_delivery.py)): Motor desacoplado de formatos de entrega de reportes (Excel, PDF, CSV), responsable de estructurar la terna interactiva oficial (Heatmap, Parte Ágil, Historial y Diario), priorizar dinámicamente según preferencia del usuario y garantizar continuidad multiturno de fechas y períodos.
   - `ApreciacionSkill`: Elaboración de informes formales de Apreciación de Situación de Personal para la comandancia.
 - **LLM Gateway & Proveedores** ([`backend/app/ia/providers/`](file:///c:/Users/alejo/Downloads/proyectos-dev/BIMEH/backend/app/ia/providers/)):
   - `BaseLLMProvider`: Interfaz abstracta común para Text-to-SQL y síntesis en lenguaje natural.

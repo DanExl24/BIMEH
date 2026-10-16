@@ -10,6 +10,7 @@ from app.ia.nlp.date_extractor import (
     _extract_year,
     _extract_day_range,
     _extract_report_date,
+    get_month_name_from_date,
     check_month_has_data,
 )
 from app.ia.nlp.militar_matcher import (
@@ -32,6 +33,7 @@ __all__ = [
     "_extract_year",
     "_extract_day_range",
     "_extract_report_date",
+    "get_month_name_from_date",
     "check_month_has_data",
     "NOVEDADES_MAP",
     "MAPA_SUBNOVEDADES_OFICIAL",

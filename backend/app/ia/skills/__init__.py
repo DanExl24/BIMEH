@@ -5,6 +5,7 @@ Módulo de Habilidades (Skills) del Asistente IA de BIMEH.
 from app.ia.skills.base import BaseSkill, QueryContext, SkillResult
 from app.ia.skills.registry import SkillRegistry
 from app.ia.skills.reportes_export_skill import ReportesExportSkill
+from app.ia.skills.report_delivery import ReportDeliveryEngine, ReportDeliveryRequest
 from app.ia.skills.militar_skill import MilitarSkill
 from app.ia.skills.novedades_skill import NovedadesSkill
 from app.ia.skills.efectivos_skill import EfectivosSkill
@@ -26,6 +27,8 @@ __all__ = [
     "SkillResult",
     "SkillRegistry",
     "ReportesExportSkill",
+    "ReportDeliveryEngine",
+    "ReportDeliveryRequest",
     "MilitarSkill",
     "NovedadesSkill",
     "EfectivosSkill",
