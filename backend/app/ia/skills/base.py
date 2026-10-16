@@ -35,6 +35,24 @@ class QueryContext:
         self.cedula_en_msg = _extract_cedula(self.user_message)
         self.mes_num = _extract_month(self.msg_norm)
         self.mes_nom = _extract_month_name(self.msg_norm)
+        
+        # Si no se extrajo mes del mensaje pero viene en el contexto activo
+        if self.mes_num is None and self.context:
+            ctx_period = self.context.get("active_period") or {}
+            ctx_mes = ctx_period.get("mes")
+            if ctx_mes:
+                if isinstance(ctx_mes, int):
+                    self.mes_num = ctx_mes
+                elif str(ctx_mes).isdigit():
+                    self.mes_num = int(ctx_mes)
+                else:
+                    self.mes_num = _extract_month(_norm(str(ctx_mes)))
+                    
+        if self.mes_nom is None and self.mes_num is not None:
+            nombres = ["ENERO", "FEBRERO", "MARZO", "ABRIL", "MAYO", "JUNIO", "JULIO", "AGOSTO", "SEPTIEMBRE", "OCTUBRE", "NOVIEMBRE", "DICIEMBRE"]
+            if 1 <= self.mes_num <= 12:
+                self.mes_nom = nombres[self.mes_num - 1]
+
         self.anio = _extract_year(self.msg_norm, self.current_year)
         self.day_range = _extract_day_range(self.msg_norm)
         self.novedad_type = _extract_novedad_type(self.msg_norm)

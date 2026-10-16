@@ -69,7 +69,17 @@ def build_system_prompt(
     Construye el System Prompt completo incorporando el esquema de base de datos,
     el contexto de la vista/pantalla activa, los filtros de fecha y el militar en foco.
     """
+    from datetime import datetime
+    now = datetime.now()
+    meses_nombres = ["ENERO", "FEBRERO", "MARZO", "ABRIL", "MAYO", "JUNIO", "JULIO", "AGOSTO", "SEPTIEMBRE", "OCTUBRE", "NOVIEMBRE", "DICIEMBRE"]
+    mes_actual_nom = meses_nombres[now.month - 1]
+
     prompt = DATABASE_SCHEMA_CONTEXT.strip()
+    prompt += f"\n\nFECHA Y HORA ACTUAL DEL SISTEMA:\n"
+    prompt += f"- Fecha de hoy: {now.strftime('%Y-%m-%d')}\n"
+    prompt += f"- Año actual: {now.year}\n"
+    prompt += f"- Mes actual ('este mes', 'mes actual'): {now.month:02d} ({mes_actual_nom})\n"
+    prompt += f"- DIRECTIVA TEMPORAL: Si el usuario menciona 'este mes', 'en este mes', 'mes en curso' o 'mes actual', DEBES acotar la consulta estrictamente usando: fecha_reporte LIKE '{now.year}-{now.month:02d}-%'. NUNCA devuelvas novedades acumuladas de meses pasados o de todo el año si se especificó el mes actual."
 
     if context:
         view_name = context.get("current_view") or context.get("current_route") or "General"

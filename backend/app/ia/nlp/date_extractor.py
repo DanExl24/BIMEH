@@ -24,7 +24,15 @@ MESES_STR_MAP: Dict[str, str] = {
 }
 
 def _extract_month(msg_norm: str) -> Optional[int]:
-    """Extrae el número de mes (1..12) a partir de texto normalizado."""
+    """Extrae el número de mes (1..12) a partir de texto normalizado o expresiones relativas."""
+    # 1. Triggers relativos directos
+    if re.search(r"\b(este mes|en este mes|mes actual|presente mes|mes en curso|del mes)\b", msg_norm):
+        return datetime.now().month
+    if re.search(r"\b(mes pasado|el mes pasado|mes anterior|el mes anterior)\b", msg_norm):
+        m = datetime.now().month - 1
+        return 12 if m == 0 else m
+
+    # 2. Búsqueda explícita de nombres de mes
     for nombre, num in MESES_ES.items():
         if re.search(rf"\b{re.escape(nombre)}\b", msg_norm):
             return num
@@ -34,6 +42,15 @@ def _extract_month_name(msg_norm: str) -> Optional[str]:
     """Extrae el nombre oficial del mes en mayúsculas o 'TODOS'."""
     if re.search(r"\b(todos|todo el ano|anual|ano completo|anualidad|todos los meses)\b", msg_norm):
         return "TODOS"
+    if re.search(r"\b(este mes|en este mes|mes actual|presente mes|mes en curso|del mes)\b", msg_norm):
+        now_m = datetime.now().month
+        nombres = ["ENERO", "FEBRERO", "MARZO", "ABRIL", "MAYO", "JUNIO", "JULIO", "AGOSTO", "SEPTIEMBRE", "OCTUBRE", "NOVIEMBRE", "DICIEMBRE"]
+        return nombres[now_m - 1]
+    if re.search(r"\b(mes pasado|el mes pasado|mes anterior|el mes anterior)\b", msg_norm):
+        m = datetime.now().month - 1
+        idx = 11 if m == 0 else (m - 1)
+        nombres = ["ENERO", "FEBRERO", "MARZO", "ABRIL", "MAYO", "JUNIO", "JULIO", "AGOSTO", "SEPTIEMBRE", "OCTUBRE", "NOVIEMBRE", "DICIEMBRE"]
+        return nombres[idx]
     for k, v in MESES_STR_MAP.items():
         if re.search(rf"\b{re.escape(k)}\b", msg_norm):
             return v
