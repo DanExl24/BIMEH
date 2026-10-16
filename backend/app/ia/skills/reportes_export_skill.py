@@ -23,7 +23,7 @@ from app.ia.nlp.militar_matcher import (
     _extract_subnovedad_oficial, _extract_novedad_type
 )
 from app.ia.nlp.date_extractor import (
-    _extract_report_date, _extract_month_name,
+    _extract_report_date, _extract_month_name, _extract_month_range,
     get_month_name_from_date, check_month_has_data
 )
 from app.ia.prompts.guardrails import _is_conversational_inquiry
@@ -90,8 +90,15 @@ class ReportesExportSkill(BaseSkill):
         elif any(k in msg for k in ["parte diario", "reporte diario"]):
             format_preference = "dia"
 
+        is_query_export = any(k in msg for k in [
+            "esa consulta", "esta consulta", "dame esa", "dame esta", "dame eso", "dame este",
+            "exportar esa", "exportar esta", "la consulta", "esta tabla", "esa tabla", "exportar tabla"
+        ])
+
         # 2. Recuperación de contexto previo desde el historial (multiturno)
         history_month = None
+        history_month_range = None
+        history_range_label = None
         history_date = None
         history_subnov = None
         history_cedula = None
@@ -101,11 +108,17 @@ class ReportesExportSkill(BaseSkill):
                 if not h_text:
                     continue
                 h_norm = _norm(h_text)
-                if not history_month:
+                if not history_month_range:
+                    history_month_range = _extract_month_range(h_norm)
+                    if history_month_range:
+                        m1, m2 = history_month_range
+                        nombres = ["ENERO", "FEBRERO", "MARZO", "ABRIL", "MAYO", "JUNIO", "JULIO", "AGOSTO", "SEPTIEMBRE", "OCTUBRE", "NOVIEMBRE", "DICIEMBRE"]
+                        history_range_label = f"{nombres[m1-1]} - {nombres[m2-1]} {current_year}"
+                if not history_month and not history_month_range:
                     history_month = _extract_month_name(h_norm)
                 if not history_date:
                     history_date = _extract_report_date(h_norm, h_text)
-                    if history_date and not history_month:
+                    if history_date and not history_month and not history_month_range:
                         history_month = get_month_name_from_date(history_date)
                 if not history_subnov:
                     history_subnov = _extract_subnovedad_oficial(h_norm) or _extract_novedad_type(h_norm)
@@ -125,33 +138,37 @@ class ReportesExportSkill(BaseSkill):
 
         # 4. Detección de militar / expediente individual
         cedula_match = re.search(r"\b(\d{6,10})\b", user_message)
-        is_personal_intent = bool(cedula_match) or any(k in msg for k in [
+        referencia_personal = any(k in msg for k in [
             "expediente", "hoja de vida", "de el", "del militar", "del soldado",
             "este personal", "este militar", "su reporte", "sus reportes", "su historial",
-            "su consolidado", "su parte", "su novedad", "sus novedades"
+            "su consolidado", "su parte", "su novedad", "sus novedades",
+            "esa consulta", "esta consulta", "dame esa", "dame esta", "dame eso", "dame este",
+            "exportar esa", "exportar esta", "la consulta", "de esa", "de esta", "de ese",
+            "del mismo", "de este", "su expediente", "sus datos", "esta tabla", "esa tabla",
+            "exportar tabla", "descargar tabla"
         ])
-        is_personal_followup = bool(
-            active_militar and active_militar.get("cedula") and 
-            any(k in msg for k in ["agil", "heatmap", "matriz", "historial", "excel", "pdf"]) and
-            not any(t in msg for t in ["unidad", "batallon", "del mes", "en el mes", "general", "todos"])
-        )
+        is_unidad_explicit = any(t in msg for t in [
+            "unidad", "batallon", "bimej", "toda la unidad", "todo el batallon",
+            "general", "todos los militares", "todos los efectivos", "censo", "de todos"
+        ])
 
         cedula_val = None
         nom_mil = None
         if cedula_match:
             cedula_val = int(cedula_match.group(1))
             nom_mil = active_militar.get("nombre") if active_militar and str(active_militar.get("cedula")) == str(cedula_val) else None
-        elif is_personal_intent and active_militar and active_militar.get("cedula"):
+        elif active_militar and active_militar.get("cedula") and not is_unidad_explicit:
+            # Preservación de contexto militar: si hay un militar activo, el reporte le pertenece a él
             cedula_val = int(active_militar.get("cedula"))
             nom_mil = active_militar.get("nombre")
-        elif is_personal_followup and active_militar and active_militar.get("cedula"):
-            cedula_val = int(active_militar.get("cedula"))
-            nom_mil = active_militar.get("nombre")
+        elif referencia_personal and history_cedula and not is_unidad_explicit:
+            cedula_val = history_cedula
+            nom_mil = active_militar.get("nombre") if active_militar else None
 
         is_explicit_soldier_name_request = bool(re.search(
             r"\b(reporte|informe|expediente|hoja\s+de\s+vida|historial|datos|sabana)\s+(de|del|para|sobre)\s+([a-záéíóúñ]+)",
             msg
-        )) or is_personal_intent
+        )) or referencia_personal
 
         name_tokens = _extract_name_tokens(msg)
         if not cedula_val and db and name_tokens and is_explicit_soldier_name_request:
@@ -194,8 +211,18 @@ class ReportesExportSkill(BaseSkill):
 
         # Si se identificó a un militar concreto
         if cedula_val:
-            m_nombre = _extract_month_name(msg) or history_month or ""
             nom_mil = nom_mil or (active_militar.get("nombre") if active_militar else f"C.C. {cedula_val}")
+
+            m_range = ctx.month_range or history_month_range
+            range_label = ctx.range_label or history_range_label
+            m_nombre = _extract_month_name(msg)
+            if not m_nombre and not m_range:
+                m_nombre = history_month or ""
+
+            # Si es un rango multimes y no se pidió un mes específico en el mensaje actual,
+            # no forzamos un solo mes como 'MARZO'
+            if m_range and not _extract_month_name(msg):
+                m_nombre = ""
 
             pide_top_novedad = bool(re.search(
                 r"\b(novedad\s+m[aá]s\s+(presente|frecuente|comun|común|reiterada)|m[aá]s\s+(presente|frecuente)|mayor\s+novedad|principal\s+novedad)\b",
@@ -214,6 +241,8 @@ class ReportesExportSkill(BaseSkill):
                 format_preference=format_preference,
                 visual_mode=modo_matriz,
                 mes=m_nombre,
+                range_label=range_label,
+                is_query_export=is_query_export,
                 cedula=cedula_val,
                 nombre=nom_mil,
                 subnovedad=subnov_val,

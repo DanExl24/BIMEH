@@ -7,7 +7,7 @@ import re
 from datetime import datetime
 from typing import Optional, List, Dict, Any, Tuple
 from app.ia.nlp.normalizer import _norm
-from app.ia.nlp.date_extractor import _extract_month, MESES_ES, check_month_has_data
+from app.ia.nlp.date_extractor import _extract_month, _extract_month_range, MESES_ES, check_month_has_data
 from app.ia.nlp.militar_matcher import _extract_novedad_type
 
 REFUSAL_PHRASES: List[str] = [
@@ -192,8 +192,16 @@ def _auto_synthesize(user_message: str, query_result: Dict[str, Any], db=None) -
             "enero", "febrero", "marzo", "abril", "mayo", "junio",
             "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"
         ]
-        mes_mencionado = next((m for m in meses_nombres if m in _norm(user_message)), None)
-        mes_str = f" durante el mes de {mes_mencionado}" if mes_mencionado else ""
+        norm_msg = _norm(user_message)
+        m_range = _extract_month_range(norm_msg)
+        if m_range:
+            m1, m2 = m_range
+            nom1 = meses_nombres[m1 - 1]
+            nom2 = meses_nombres[m2 - 1]
+            mes_str = f" en el rango de {nom1} a {nom2}"
+        else:
+            mes_mencionado = next((m for m in meses_nombres if m in norm_msg), None)
+            mes_str = f" durante el mes de {mes_mencionado}" if mes_mencionado else ""
 
         if is_least:
             target = rows[0] if first_dias <= last_dias else rows[-1]

@@ -29,6 +29,8 @@ class ReportDeliveryRequest:
     # Parámetros temporales
     mes: Optional[str] = None  # "ENERO" .. "DICIEMBRE", "TODOS"
     fecha: Optional[str] = None  # "YYYY-MM-DD"
+    range_label: Optional[str] = None
+    is_query_export: bool = False
     current_year: int = 2026
     
     # Parámetros de personal
@@ -144,7 +146,13 @@ class ReportDeliveryEngine:
         mes_query = f"&mes={m_nombre}" if m_nombre else ""
         subnov_query = f"&subnovedad={quote_plus(subnov_val)}" if subnov_val else ""
         filtro_subnov_txt = f" [Filtro: {subnov_val}]" if subnov_val else ""
-        periodo_txt = f" para el mes de {m_nombre}" if m_nombre else " (historial completo)"
+        range_lbl = getattr(req, "range_label", None)
+        if range_lbl:
+            periodo_txt = f" para el período {range_lbl}"
+        elif m_nombre:
+            periodo_txt = f" para el mes de {m_nombre}"
+        else:
+            periodo_txt = " (historial completo)"
 
         # Opciones disponibles para militar
         desc_hm = f"Operatividad día a día (D, N, R) de {nom_mil}{periodo_txt} con codificación oficial."
@@ -211,11 +219,19 @@ class ReportDeliveryEngine:
                 mensaje_novedad += f"💡 Registra novedades en los meses de:\n{meses_txt}\n\nPuede pulsar cualquiera de los accesos a continuación:"
         else:
             subnov_msg = f"\n• Subnovedad filtrada: **{subnov_val}**" if subnov_val else ""
+            periodo_display = range_lbl or m_nombre or 'Todo el año / Historial completo'
+            nota_consulta = ""
+            if getattr(req, "is_query_export", False):
+                nota_consulta = (
+                    "\n\n💡 *Tip de exportación de consulta:* Para exportar directamente la tabla con los "
+                    "registros resumidos de la consulta en pantalla (por ejemplo, el ranking o resumen), "
+                    "puede pulsar el botón **'Ver a detalle'** en el mensaje anterior y hacer clic en **Excel (.xlsx)** o **PDF (.pdf)**."
+                )
             mensaje_novedad = (
-                f"He identificado al militar **{nom_mil}** (C.C. {cedula_val}).\n\n"
-                f"• Período: **{m_nombre or 'Todo el año / Historial completo'}**{subnov_msg}\n\n"
-                f"Para este integrante tiene a su disposición 3 formatos oficiales de reporte. "
-                f"Seleccione la modalidad que desea generar:"
+                f"He preparado los reportes oficiales para **{nom_mil}** (C.C. {cedula_val}).\n\n"
+                f"• Período: **{periodo_display}**{subnov_msg}\n\n"
+                f"Para este integrante tiene a su disposición los 3 formatos oficiales de reporte del BIMEJ 12. "
+                f"Seleccione la modalidad que desea generar:{nota_consulta}"
             )
 
         detected_militar = {"cedula": cedula_val, "nombre": nom_mil}
