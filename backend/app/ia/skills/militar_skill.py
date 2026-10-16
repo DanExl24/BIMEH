@@ -39,8 +39,26 @@ class MilitarSkill(BaseSkill):
         msg = ctx.msg_norm
         anio = ctx.anio
         mes_num = ctx.mes_num
-        ranking_triggers = r"\b(frecuentes?|comunes?|mas\s+presente|mas\s+tiene|mas\s+registro|mas\s+registrada?|ranking|mayor\s+cantidad|mas\s+repetida?|mas\s+dias|principal\s+novedad|menos\s+frecuente|menos\s+registrada?|menor)\b"
+        ranking_triggers = (
+            r"\b(frecuentes?|comunes?|mas\s+presente|mas\s+tiene|mas\s+registro|"
+            r"mas\s+registrada?|ranking|mayor\s+cantidad|mas\s+repetida?|mas\s+dias|"
+            r"principal\s+novedad|menos\s+frecuente|menos\s+registrada?|menor|"
+            r"visible|mas\s+visible|mas\s+visibles?|notable|notables?|destacada?|"
+            r"destacadas?|predominante|predominantes?|relevante|relevantes?|"
+            r"principal|principales)\b"
+        )
         nov_kw = r"\b(novedad|novedades|permiso|permisos|vacacion|vacaciones|incapacidad|incapacidades|excusa|excusas|historial|dias|sancion|sanciones|retiro)\b"
+
+        # Resolución unificada de fechas (mes único o rango de fechas/meses)
+        date_clause: Optional[str] = None
+        desc_periodo: Optional[str] = None
+        if ctx.is_range and ctx.date_range:
+            f_ini, f_fin = ctx.date_range
+            date_clause = f"fecha_reporte >= '{f_ini}' AND fecha_reporte <= '{f_fin}'"
+            desc_periodo = ctx.range_label or f"{f_ini} al {f_fin}"
+        elif mes_num:
+            date_clause = f"fecha_reporte LIKE '{anio}-{mes_num:02d}-%'"
+            desc_periodo = f"mes {mes_num}/{anio}"
 
         # ------------------------------------------------------------------
         # CASO 1: CEDULA EXPLICITA EN EL MENSAJE (Máxima prioridad)
@@ -48,44 +66,44 @@ class MilitarSkill(BaseSkill):
         if ctx.cedula_en_msg:
             cv = ctx.cedula_en_msg
 
-            # 1a. Cédula + ranking (con o sin mes)
+            # 1a. Cédula + ranking (con o sin período)
             if re.search(ranking_triggers, msg) or ctx.is_least:
                 order = "ASC" if ctx.is_least else "DESC"
                 desc_tipo = "menos frecuente" if ctx.is_least else "más frecuente"
-                if mes_num:
+                if date_clause:
                     return SkillResult(
                         type="sql",
                         sql=(
                             f"SELECT cedula, nombre, novedad, COUNT(*) AS total_dias "
                             f"FROM v_novedades_detalle WHERE cedula = {cv} "
-                            f"AND fecha_reporte LIKE '{anio}-{mes_num:02d}-%' "
-                            f"GROUP BY cedula, nombre, novedad ORDER BY total_dias {order} LIMIT 10"
+                            f"AND {date_clause} "
+                            f"GROUP BY cedula, nombre, novedad ORDER BY total_dias {order} LIMIT 20"
                         ),
-                        description=f"Novedad {desc_tipo} de cédula {cv} en mes {mes_num}/{anio}"
+                        description=f"Novedad {desc_tipo} de cédula {cv} en {desc_periodo}"
                     )
                 return SkillResult(
                     type="sql",
                     sql=(
                         f"SELECT cedula, nombre, novedad, COUNT(*) AS total_dias "
                         f"FROM v_novedades_detalle WHERE cedula = {cv} "
-                        f"GROUP BY cedula, nombre, novedad ORDER BY total_dias {order} LIMIT 10"
+                        f"GROUP BY cedula, nombre, novedad ORDER BY total_dias {order} LIMIT 20"
                     ),
                     description=f"Novedades {desc_tipo}s de cédula {cv}"
                 )
 
-            # 1b. Cédula + tipo de novedad específico (con o sin mes)
+            # 1b. Cédula + tipo de novedad específico (con o sin período)
             if ctx.novedad_type:
-                if mes_num:
+                if date_clause:
                     return SkillResult(
                         type="sql",
                         sql=(
                             f"SELECT cedula, nombre, fecha_reporte, novedad, descripcion "
                             f"FROM v_novedades_detalle WHERE cedula = {cv} "
                             f"AND UPPER(novedad) LIKE '%{ctx.novedad_type}%' "
-                            f"AND fecha_reporte LIKE '{anio}-{mes_num:02d}-%' "
-                            f"ORDER BY fecha_reporte ASC LIMIT 50"
+                            f"AND {date_clause} "
+                            f"ORDER BY fecha_reporte ASC"
                         ),
-                        description=f"Días de {ctx.novedad_type} de cédula {cv} en mes {mes_num}/{anio}"
+                        description=f"Días de {ctx.novedad_type} de cédula {cv} en {desc_periodo}"
                     )
                 return SkillResult(
                     type="sql",
@@ -93,22 +111,22 @@ class MilitarSkill(BaseSkill):
                         f"SELECT cedula, nombre, fecha_reporte, novedad, descripcion "
                         f"FROM v_novedades_detalle WHERE cedula = {cv} "
                         f"AND UPPER(novedad) LIKE '%{ctx.novedad_type}%' "
-                        f"ORDER BY fecha_reporte DESC LIMIT 50"
+                        f"ORDER BY fecha_reporte DESC LIMIT 100"
                     ),
                     description=f"Historial de {ctx.novedad_type} de cédula {cv}"
                 )
 
-            # 1c. Cédula + mes (novedades de ese mes)
-            if mes_num:
+            # 1c. Cédula + período (mes o rango de meses)
+            if date_clause:
                 return SkillResult(
                     type="sql",
                     sql=(
                         f"SELECT cedula, nombre, fecha_reporte, novedad, descripcion "
                         f"FROM v_novedades_detalle WHERE cedula = {cv} "
-                        f"AND fecha_reporte LIKE '{anio}-{mes_num:02d}-%' "
-                        f"ORDER BY fecha_reporte ASC LIMIT 50"
+                        f"AND {date_clause} "
+                        f"ORDER BY fecha_reporte ASC"
                     ),
-                    description=f"Novedades de cédula {cv} en mes {mes_num}/{anio}"
+                    description=f"Novedades de cédula {cv} en {desc_periodo}"
                 )
 
             # 1d. Cédula + palabras de novedades
@@ -118,7 +136,7 @@ class MilitarSkill(BaseSkill):
                     sql=(
                         f"SELECT cedula, nombre, fecha_reporte, novedad, descripcion "
                         f"FROM v_novedades_detalle WHERE cedula = {cv} "
-                        f"ORDER BY fecha_reporte DESC LIMIT 30"
+                        f"ORDER BY fecha_reporte DESC LIMIT 100"
                     ),
                     description=f"Historial de novedades de cédula {cv}"
                 )
@@ -136,7 +154,7 @@ class MilitarSkill(BaseSkill):
         ced = str(ctx.active_militar.get("cedula", "")) if ctx.active_militar else ""
         nom = str(ctx.active_militar.get("nombre", "")) if ctx.active_militar else ""
         if ced:
-            if mes_num:
+            if date_clause:
                 if re.search(ranking_triggers, msg) or ctx.is_least:
                     order = "ASC" if ctx.is_least else "DESC"
                     desc_tipo = "menos frecuente" if ctx.is_least else "más frecuente"
@@ -145,10 +163,10 @@ class MilitarSkill(BaseSkill):
                         sql=(
                             f"SELECT cedula, nombre, novedad, COUNT(*) AS total_dias "
                             f"FROM v_novedades_detalle WHERE cedula = {ced} "
-                            f"AND fecha_reporte LIKE '{anio}-{mes_num:02d}-%' "
-                            f"GROUP BY cedula, nombre, novedad ORDER BY total_dias {order} LIMIT 10"
+                            f"AND {date_clause} "
+                            f"GROUP BY cedula, nombre, novedad ORDER BY total_dias {order} LIMIT 20"
                         ),
-                        description=f"Novedad {desc_tipo} de {nom} en mes {mes_num}/{anio}"
+                        description=f"Novedad {desc_tipo} de {nom} en {desc_periodo}"
                     )
                 if ctx.novedad_type:
                     return SkillResult(
@@ -157,20 +175,20 @@ class MilitarSkill(BaseSkill):
                             f"SELECT cedula, nombre, fecha_reporte, novedad, descripcion "
                             f"FROM v_novedades_detalle WHERE cedula = {ced} "
                             f"AND UPPER(novedad) LIKE '%{ctx.novedad_type}%' "
-                            f"AND fecha_reporte LIKE '{anio}-{mes_num:02d}-%' "
-                            f"ORDER BY fecha_reporte ASC LIMIT 50"
+                            f"AND {date_clause} "
+                            f"ORDER BY fecha_reporte ASC"
                         ),
-                        description=f"Días de {ctx.novedad_type} de {nom} en mes {mes_num}/{anio}"
+                        description=f"Días de {ctx.novedad_type} de {nom} en {desc_periodo}"
                     )
                 return SkillResult(
                     type="sql",
                     sql=(
                         f"SELECT cedula, nombre, fecha_reporte, novedad, descripcion "
                         f"FROM v_novedades_detalle WHERE cedula = {ced} "
-                        f"AND fecha_reporte LIKE '{anio}-{mes_num:02d}-%' "
-                        f"ORDER BY fecha_reporte ASC LIMIT 50"
+                        f"AND {date_clause} "
+                        f"ORDER BY fecha_reporte ASC"
                     ),
-                    description=f"Novedades de {nom} en mes {mes_num}/{anio}"
+                    description=f"Novedades de {nom} en {desc_periodo}"
                 )
 
             # Consultas conversacionales de seguimiento
@@ -194,7 +212,7 @@ class MilitarSkill(BaseSkill):
                         sql=(
                             f"SELECT cedula, nombre, novedad, COUNT(*) AS total_dias "
                             f"FROM v_novedades_detalle WHERE cedula = {ced} "
-                            f"GROUP BY cedula, nombre, novedad ORDER BY total_dias {order} LIMIT 10"
+                            f"GROUP BY cedula, nombre, novedad ORDER BY total_dias {order} LIMIT 20"
                         ),
                         description=f"Novedades {desc_tipo}s de {nom}"
                     )
@@ -220,7 +238,7 @@ class MilitarSkill(BaseSkill):
 
                 return SkillResult(
                     type="sql",
-                    sql=f"SELECT cedula, nombre, fecha_reporte, novedad, descripcion FROM v_novedades_detalle WHERE cedula = {ced} ORDER BY fecha_reporte DESC LIMIT 30",
+                    sql=f"SELECT cedula, nombre, fecha_reporte, novedad, descripcion FROM v_novedades_detalle WHERE cedula = {ced} ORDER BY fecha_reporte DESC LIMIT 100",
                     description=f"Historial de novedades de {nom}"
                 )
 
@@ -232,18 +250,33 @@ class MilitarSkill(BaseSkill):
             like_clauses = " AND ".join(_name_like_clause(t) for t in name_tokens[:4])
             nom_label = " ".join(name_tokens)
 
-            # Nombre + novedad + mes
-            if ctx.novedad_type and mes_num:
+            # Nombre + ranking
+            if re.search(ranking_triggers, msg) or ctx.is_least:
+                order = "ASC" if ctx.is_least else "DESC"
+                desc_tipo = "menos frecuente" if ctx.is_least else "más frecuente"
+                date_filter = f"AND {date_clause}" if date_clause else ""
+                return SkillResult(
+                    type="sql",
+                    sql=(
+                        f"SELECT cedula, nombre, novedad, COUNT(*) AS total_dias "
+                        f"FROM v_novedades_detalle WHERE {like_clauses} {date_filter} "
+                        f"GROUP BY cedula, nombre, novedad ORDER BY total_dias {order} LIMIT 20"
+                    ),
+                    description=f"Novedad {desc_tipo} de {nom_label}" + (f" en {desc_periodo}" if desc_periodo else "")
+                )
+
+            # Nombre + novedad + período
+            if ctx.novedad_type and date_clause:
                 return SkillResult(
                     type="sql",
                     sql=(
                         f"SELECT cedula, nombre, fecha_reporte, novedad, descripcion "
                         f"FROM v_novedades_detalle WHERE {like_clauses} "
                         f"AND UPPER(novedad) LIKE '%{ctx.novedad_type}%' "
-                        f"AND fecha_reporte LIKE '{anio}-{mes_num:02d}-%' "
-                        f"ORDER BY fecha_reporte ASC LIMIT 50"
+                        f"AND {date_clause} "
+                        f"ORDER BY fecha_reporte ASC"
                     ),
-                    description=f"Días de {ctx.novedad_type} de {nom_label} en mes {mes_num}/{anio}"
+                    description=f"Días de {ctx.novedad_type} de {nom_label} en {desc_periodo}"
                 )
 
             # Nombre + novedad
@@ -254,22 +287,22 @@ class MilitarSkill(BaseSkill):
                         f"SELECT cedula, nombre, fecha_reporte, novedad, descripcion "
                         f"FROM v_novedades_detalle WHERE {like_clauses} "
                         f"AND UPPER(novedad) LIKE '%{ctx.novedad_type}%' "
-                        f"ORDER BY fecha_reporte DESC LIMIT 50"
+                        f"ORDER BY fecha_reporte DESC LIMIT 100"
                     ),
                     description=f"Historial de {ctx.novedad_type} de {nom_label}"
                 )
 
-            # Nombre + mes
-            if mes_num:
+            # Nombre + período
+            if date_clause:
                 return SkillResult(
                     type="sql",
                     sql=(
                         f"SELECT cedula, nombre, fecha_reporte, novedad, descripcion "
                         f"FROM v_novedades_detalle WHERE {like_clauses} "
-                        f"AND fecha_reporte LIKE '{anio}-{mes_num:02d}-%' "
-                        f"ORDER BY fecha_reporte ASC LIMIT 50"
+                        f"AND {date_clause} "
+                        f"ORDER BY fecha_reporte ASC"
                     ),
-                    description=f"Novedades de {nom_label} en mes {mes_num}/{anio}"
+                    description=f"Novedades de {nom_label} en {desc_periodo}"
                 )
 
             # Búsqueda pura de personal por nombre (solo con trigger explícito)

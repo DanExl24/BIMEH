@@ -45,18 +45,21 @@ VISTAS DISPONIBLES EN BASE DE DATOS:
 2. v_novedades_detalle:
    Columnas: id_registro, cedula, nombre, estado, fecha_reporte, novedad, descripcion, fecha_inicio, fecha_final
    NOTA CRÍTICA: fecha_reporte es tipo VARCHAR ('YYYY-MM-DD').
-   Para filtrar por mes/año usa SIEMPRE:
-     fecha_reporte LIKE '<YYYY>-<MM>-%'  (ej: fecha_reporte LIKE '2026-08-%' para agosto de 2026)
-     o si usas EXTRACT, castea a fecha: EXTRACT(MONTH FROM fecha_reporte::date) = <num>
+   - Para filtrar por un solo mes/año: fecha_reporte LIKE '<YYYY>-<MM>-%' (ej: '2026-08-%')
+   - Para filtrar por RANGOS DE MESES O FECHAS (ej: 'marzo a octubre', 'entre marzo y octubre'):
+     DEBES usar: fecha_reporte >= '<YYYY>-<MM_INICIO>-01' AND fecha_reporte <= '<YYYY>-<MM_FIN>-<ULTIMO_DIA>'
+     (ejemplo marzo a octubre 2026: fecha_reporte >= '2026-03-01' AND fecha_reporte <= '2026-10-31')
+     ¡NUNCA uses LIKE del primer mes cuando el usuario pide un rango de varios meses!
+   - Para casteos de fecha: fecha_reporte::date
 
 3. v_conteo_novedades:
    Columnas: novedad, total_dias_registrados, total_personal_afectado
 
 REGLAS CRÍTICAS DE SQL:
 - Solo genera SELECT. NUNCA INSERT, UPDATE, DELETE, DROP, ALTER, TRUNCATE.
-- Siempre usa un LIMIT razonable (LIMIT <= 100).
-- Si el usuario pregunta "¿Quiénes...", "cuáles militares...", o solicita un listado de personal con cierta novedad o estado en un periodo, NO repitas filas por cada día; consolida por militar usando GROUP BY cedula, nombre, novedad (ej: SELECT cedula, nombre, novedad, COUNT(*) AS dias, MIN(fecha_reporte) AS desde, MAX(fecha_reporte) AS hasta FROM v_novedades_detalle WHERE ... GROUP BY cedula, nombre, novedad ORDER BY nombre ASC LIMIT 100) o DISTINCT.
-- Para filtrar mes/año usa LIKE 'YYYY-MM-%' (ej: '2026-08-%') o fecha_reporte::date.
+- Si el usuario pregunta "¿Quiénes...", "cuáles militares...", o solicita un listado de personal con cierta novedad o estado en un periodo, NO repitas filas por cada día; consolida por militar usando GROUP BY cedula, nombre, novedad o DISTINCT.
+- Si la consulta pide ranking, novedad más visible o más frecuente: usa COUNT(*) AS total_dias ... GROUP BY ... ORDER BY total_dias DESC.
+- En rangos de fechas (ej: varios meses), usa fecha_reporte >= 'YYYY-MM-DD' AND fecha_reporte <= 'YYYY-MM-DD'.
 - Cédula exacta: WHERE cedula = <numero> (sin CAST).
 """
 

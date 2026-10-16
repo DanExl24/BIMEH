@@ -62,6 +62,17 @@ class NovedadesSkill(BaseSkill):
                 description="Personal con novedad registrada hoy en BIMEJ 12"
             )
 
+        # Resolución unificada de fechas (mes único o rango de fechas/meses)
+        date_clause: Optional[str] = None
+        desc_periodo: Optional[str] = None
+        if ctx.is_range and ctx.date_range:
+            f_ini, f_fin = ctx.date_range
+            date_clause = f"fecha_reporte >= '{f_ini}' AND fecha_reporte <= '{f_fin}'"
+            desc_periodo = ctx.range_label or f"{f_ini} al {f_fin}"
+        elif mes_num:
+            date_clause = f"fecha_reporte LIKE '{anio}-{mes_num:02d}-%'"
+            desc_periodo = f"mes {mes_num}/{anio}"
+
         # 2. Ranking de novedades del batallón
         ranking_triggers = (
             r"\b(ranking|rankings|top\s*\d*|mas\s+frecuentes?|mas\s+comunes?|"
@@ -74,15 +85,15 @@ class NovedadesSkill(BaseSkill):
         if re.search(ranking_triggers, msg) or ctx.is_least:
             order = "ASC" if ctx.is_least else "DESC"
             desc_tipo = "menos frecuentes" if ctx.is_least else "más frecuentes"
-            if mes_num:
+            if date_clause:
                 return SkillResult(
                     type="sql",
                     sql=(
                         f"SELECT novedad, COUNT(*) AS total_dias_registrados, COUNT(DISTINCT cedula) AS total_personal_afectado "
-                        f"FROM v_novedades_detalle WHERE fecha_reporte LIKE '{anio}-{mes_num:02d}-%' "
+                        f"FROM v_novedades_detalle WHERE {date_clause} "
                         f"GROUP BY novedad ORDER BY total_dias_registrados {order} LIMIT 10"
                     ),
-                    description=f"Ranking de novedades {desc_tipo} en mes {mes_num}/{anio}"
+                    description=f"Ranking de novedades {desc_tipo} en {desc_periodo}"
                 )
             return SkillResult(
                 type="sql",
@@ -98,16 +109,16 @@ class NovedadesSkill(BaseSkill):
         min_days = int(min_days_match.group(1)) if min_days_match else None
         if min_days is not None:
             novedad_clause = f"AND UPPER(novedad) LIKE '%{ctx.novedad_type}%'" if ctx.novedad_type else ""
-            mes_clause = f"AND fecha_reporte LIKE '{anio}-{mes_num:02d}-%'" if mes_num else f"AND fecha_reporte LIKE '{anio}-%'"
+            mes_clause = f"AND {date_clause}" if date_clause else f"AND fecha_reporte LIKE '{anio}-%'"
             nov_desc = f" de {ctx.novedad_type}" if ctx.novedad_type else ""
-            mes_desc = f" en mes {mes_num}/{anio}" if mes_num else f" en {anio}"
+            mes_desc = f" en {desc_periodo}" if desc_periodo else f" en {anio}"
             return SkillResult(
                 type="sql",
                 sql=(
                     f"SELECT cedula, nombre, novedad, COUNT(*) AS total_dias "
                     f"FROM v_novedades_detalle WHERE 1=1 {novedad_clause} {mes_clause} "
                     f"GROUP BY cedula, nombre, novedad HAVING COUNT(*) > {min_days} "
-                    f"ORDER BY total_dias DESC LIMIT 50"
+                    f"ORDER BY total_dias DESC LIMIT 100"
                 ),
                 description=f"Personal con más de {min_days} días{nov_desc}{mes_desc}"
             )
@@ -120,8 +131,8 @@ class NovedadesSkill(BaseSkill):
         ]
         is_who_query = any(k in msg for k in who_keywords)
 
-        # 4. Novedad por tipo + rango de días
-        if ctx.novedad_type and ctx.day_range and mes_num:
+        # 4. Novedad por tipo + rango de días específico
+        if ctx.novedad_type and ctx.day_range and mes_num and not ctx.is_range:
             d1, d2 = ctx.day_range
             if is_who_query:
                 return SkillResult(
@@ -149,8 +160,8 @@ class NovedadesSkill(BaseSkill):
                 description=f"Personal con {ctx.novedad_type} del {d1} al {d2} de mes {mes_num}/{anio}"
             )
 
-        # 5. Novedad por tipo + mes completo
-        if ctx.novedad_type and mes_num:
+        # 5. Novedad por tipo + período (mes completo o rango de fechas/meses)
+        if ctx.novedad_type and date_clause:
             if is_who_query:
                 return SkillResult(
                     type="sql",
@@ -158,21 +169,21 @@ class NovedadesSkill(BaseSkill):
                         f"SELECT cedula, nombre, novedad, COUNT(*) AS dias, "
                         f"MIN(fecha_reporte) AS desde, MAX(fecha_reporte) AS hasta "
                         f"FROM v_novedades_detalle WHERE UPPER(novedad) LIKE '%{ctx.novedad_type}%' "
-                        f"AND fecha_reporte LIKE '{anio}-{mes_num:02d}-%' "
+                        f"AND {date_clause} "
                         f"GROUP BY cedula, nombre, novedad "
-                        f"ORDER BY nombre ASC LIMIT 500"
+                        f"ORDER BY nombre ASC LIMIT 1000"
                     ),
-                    description=f"Militares con {ctx.novedad_type} en mes {mes_num}/{anio}"
+                    description=f"Militares con {ctx.novedad_type} en {desc_periodo}"
                 )
             return SkillResult(
                 type="sql",
                 sql=(
                     f"SELECT cedula, nombre, fecha_reporte, novedad, descripcion "
                     f"FROM v_novedades_detalle WHERE UPPER(novedad) LIKE '%{ctx.novedad_type}%' "
-                    f"AND fecha_reporte LIKE '{anio}-{mes_num:02d}-%' "
-                    f"ORDER BY fecha_reporte ASC, nombre ASC LIMIT 500"
+                    f"AND {date_clause} "
+                    f"ORDER BY fecha_reporte ASC, nombre ASC LIMIT 1000"
                 ),
-                description=f"Personal con {ctx.novedad_type} en mes {mes_num}/{anio}"
+                description=f"Personal con {ctx.novedad_type} en {desc_periodo}"
             )
 
         # 6. Novedad por tipo general

@@ -309,7 +309,10 @@
                     <span>PREVISUALIZACIÓN DE MATRIZ HEATMAP DÍA A DÍA</span>
                   </div>
                   <p class="text-[11px] text-slate-400 mt-0.5">
-                    Período proyectado: <strong class="text-slate-200">{{ detectedMonthInfo.monthName }} {{ detectedMonthInfo.year }}</strong> ({{ detectedMonthInfo.daysCount }} días). Cada celda proyecta la disponibilidad del efectivo.
+                    Mes en matriz: <strong class="text-slate-200">{{ activeHeatmapMonth.monthName }} {{ activeHeatmapMonth.year }}</strong> ({{ activeHeatmapMonth.daysCount }} días).
+                    <span v-if="detectedMonthsList.length > 1" class="text-purple-300 ml-1 font-semibold">
+                      · Período total consultado: {{ detectedPeriodLabel }}
+                    </span>
                   </p>
                 </div>
                 <!-- Leyenda de Colores del Heatmap -->
@@ -335,6 +338,40 @@
                     V (Vacaciones)
                   </span>
                 </div>
+              </div>
+
+              <!-- Selector de Meses cuando la consulta abarca un rango de varios meses -->
+              <div 
+                v-if="detectedMonthsList.length > 1" 
+                class="px-4 py-2.5 rounded-2xl bg-slate-900/90 border border-purple-500/30 flex items-center justify-between gap-3 flex-wrap"
+              >
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span class="text-[11px] font-bold uppercase tracking-wider text-purple-300 flex items-center gap-1 mr-1 select-none">
+                    <Calendar class="w-3.5 h-3.5 text-purple-400" />
+                    Inspeccionar Mes en Matriz:
+                  </span>
+                  <button
+                    v-for="m in detectedMonthsList"
+                    :key="m.key"
+                    type="button"
+                    @click="selectedHeatmapMonthKey = m.key"
+                    class="px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-xs"
+                    :class="selectedHeatmapMonthKey === m.key
+                      ? 'bg-purple-500 text-white shadow-md shadow-purple-500/25 border border-purple-400'
+                      : 'bg-slate-950/80 text-slate-300 hover:text-white hover:bg-slate-800 border border-darkBorder'"
+                  >
+                    <span>{{ m.monthName }} {{ m.year }}</span>
+                    <span 
+                      class="text-[10px] px-1.5 py-0.2 rounded font-mono font-bold"
+                      :class="selectedHeatmapMonthKey === m.key ? 'bg-purple-700/80 text-purple-100' : 'bg-slate-800 text-slate-400'"
+                    >
+                      {{ m.countRows }}
+                    </span>
+                  </button>
+                </div>
+                <span class="text-[11px] text-slate-400 font-mono">
+                  Mostrando {{ activeHeatmapMonth.monthName }}
+                </span>
               </div>
 
               <!-- Tabla Matriz Heatmap con Scroll Horizontal -->
@@ -428,7 +465,7 @@
                     <span>PREVISUALIZACIÓN DE PARTE ÁGIL EJECUTIVO DE NOVEDADES</span>
                   </div>
                   <p class="text-[11px] text-slate-400 mt-0.5">
-                    Extracto nominal consolidado por intervalos continuos de novedad · Mes: <strong class="text-slate-200">{{ detectedMonthInfo.monthName }} {{ detectedMonthInfo.year }}</strong>
+                    Extracto nominal consolidado por intervalos continuos de novedad · Período: <strong class="text-slate-200">{{ detectedPeriodLabel }}</strong>
                   </p>
                 </div>
                 <div class="flex items-center gap-2">
@@ -535,7 +572,7 @@
                     <span>PREVISUALIZACIÓN DE ESTADÍSTICAS Y TOTALES DE AFECTACIÓN</span>
                   </div>
                   <p class="text-[11px] text-slate-400 mt-0.5">
-                    Consolidado analítico de distribución porcentual y métricas de ausentismo militar · Mes: <strong class="text-slate-200">{{ detectedMonthInfo.monthName }} {{ detectedMonthInfo.year }}</strong>
+                    Consolidado analítico de distribución porcentual y métricas de ausentismo militar · Período: <strong class="text-slate-200">{{ detectedPeriodLabel }}</strong>
                   </p>
                 </div>
               </div>
@@ -783,8 +820,17 @@ const formatValue = (val: any): string => {
 }
 
 // ---------------------------------------------------------------------------
-// 2. Detección Inteligente del Período Temporal y Militar Involucrado
+// 2. Detección Inteligente del Período Temporal (Soporte Monomes y Multimes)
 // ---------------------------------------------------------------------------
+interface DetectedMonthEntry {
+  key: string // e.g. "2026-03"
+  year: number
+  monthNum: number
+  monthName: string
+  daysCount: number
+  countRows: number
+}
+
 const getDaysInMonth = (monthName: string, year: number = 2026): number => {
   const m = monthName.toUpperCase()
   if (['ABRIL', 'JUNIO', 'SEPTIEMBRE', 'NOVIEMBRE'].includes(m)) return 30
@@ -792,44 +838,85 @@ const getDaysInMonth = (monthName: string, year: number = 2026): number => {
   return 31
 }
 
-const detectedMonthInfo = computed(() => {
-  let detectedMonthNum: number | null = null
-  let detectedYear = 2026
-  
+const MESES = ["ENERO", "FEBRERO", "MARZO", "ABRIL", "MAYO", "JUNIO", "JULIO", "AGOSTO", "SEPTIEMBRE", "OCTUBRE", "NOVIEMBRE", "DICIEMBRE"]
+
+// Extrae todos los meses presentes en el conjunto de datos de la consulta
+const detectedMonthsList = computed<DetectedMonthEntry[]>(() => {
+  const map = new Map<string, { year: number; monthNum: number; count: number }>()
+
   for (const row of props.rows) {
     const f = row.fecha_reporte || row.fecha || row.desde || row.primer_reporte
     if (f && typeof f === 'string' && f.includes('-')) {
       const parts = f.split('-')
-      if (parts.length >= 2 && !isNaN(parseInt(parts[1]))) {
-        detectedMonthNum = parseInt(parts[1])
-        detectedYear = parseInt(parts[0]) || 2026
-        break
+      if (parts.length >= 2) {
+        const y = parseInt(parts[0]) || 2026
+        const m = parseInt(parts[1])
+        if (!isNaN(m) && m >= 1 && m <= 12) {
+          const key = `${y}-${String(m).padStart(2, '0')}`
+          if (!map.has(key)) {
+            map.set(key, { year: y, monthNum: m, count: 0 })
+          }
+          map.get(key)!.count++
+        }
       }
     }
   }
 
-  const MESES = ["ENERO", "FEBRERO", "MARZO", "ABRIL", "MAYO", "JUNIO", "JULIO", "AGOSTO", "SEPTIEMBRE", "OCTUBRE", "NOVIEMBRE", "DICIEMBRE"]
-  let monthName = 'OCTUBRE'
-  
-  if (detectedMonthNum && detectedMonthNum >= 1 && detectedMonthNum <= 12) {
-    monthName = MESES[detectedMonthNum - 1]
-  } else if (props.activeMes) {
-    monthName = props.activeMes.toUpperCase()
-  } else if (dateStore.mesSeleccionado) {
-    monthName = dateStore.mesSeleccionado.toUpperCase()
+  if (map.size === 0) {
+    let fallbackName = props.activeMes || dateStore.mesSeleccionado || 'OCTUBRE'
+    fallbackName = fallbackName.toUpperCase()
+    const idx = MESES.indexOf(fallbackName)
+    const mNum = idx >= 0 ? idx + 1 : 10
+    const y = 2026
+    const key = `${y}-${String(mNum).padStart(2, '0')}`
+    return [{
+      key,
+      year: y,
+      monthNum: mNum,
+      monthName: fallbackName,
+      daysCount: getDaysInMonth(fallbackName, y),
+      countRows: props.rows.length
+    }]
   }
 
-  const daysCount = getDaysInMonth(monthName, detectedYear)
-  return {
-    monthName,
-    monthNum: detectedMonthNum,
-    year: detectedYear,
-    daysCount
+  const sortedKeys = Array.from(map.keys()).sort()
+  return sortedKeys.map(k => {
+    const item = map.get(k)!
+    const monthName = MESES[item.monthNum - 1]
+    return {
+      key: k,
+      year: item.year,
+      monthNum: item.monthNum,
+      monthName,
+      daysCount: getDaysInMonth(monthName, item.year),
+      countRows: item.count
+    }
+  })
+})
+
+// Mes seleccionado para la previsualización del Heatmap día a día (1..31)
+const selectedHeatmapMonthKey = ref<string>('')
+
+watch(detectedMonthsList, (list) => {
+  if (list.length > 0 && (!selectedHeatmapMonthKey.value || !list.some(m => m.key === selectedHeatmapMonthKey.value))) {
+    selectedHeatmapMonthKey.value = list[0].key
   }
+}, { immediate: true })
+
+const activeHeatmapMonth = computed<DetectedMonthEntry>(() => {
+  const found = detectedMonthsList.value.find(m => m.key === selectedHeatmapMonthKey.value)
+  return found || detectedMonthsList.value[0]
+})
+
+const detectedPeriodLabel = computed<string>(() => {
+  const list = detectedMonthsList.value
+  if (list.length === 0) return 'Período Activo'
+  if (list.length === 1) return `${list[0].monthName} ${list[0].year}`
+  return `${list[0].monthName} ${list[0].year} - ${list[list.length - 1].monthName} ${list[list.length - 1].year} (${list.length} meses)`
 })
 
 const daysArray = computed(() => {
-  return Array.from({ length: detectedMonthInfo.value.daysCount }, (_, i) => i + 1)
+  return Array.from({ length: activeHeatmapMonth.value.daysCount }, (_, i) => i + 1)
 })
 
 const detectedSingleMilitarCedula = computed(() => {
@@ -842,7 +929,7 @@ const detectedSingleMilitarCedula = computed(() => {
 })
 
 // ---------------------------------------------------------------------------
-// 3. Transformación de Datos para la Matriz Heatmap
+// 3. Transformación de Datos para la Matriz Heatmap (por Mes Activo)
 // ---------------------------------------------------------------------------
 interface MilitarHeatmapRecord {
   cedula: string
@@ -852,14 +939,15 @@ interface MilitarHeatmapRecord {
 }
 
 const heatmapMilitares = computed<MilitarHeatmapRecord[]>(() => {
+  const curY = activeHeatmapMonth.value.year
+  const curM = activeHeatmapMonth.value.monthNum
+  const daysLimit = activeHeatmapMonth.value.daysCount
   const map = new Map<string, MilitarHeatmapRecord>()
 
+  // 1. Inicializar todos los militares involucrados para asegurar su fila
   for (const row of props.rows) {
     const ced = String(row.cedula || row.identificacion || '0000').trim()
     const nom = String(row.nombre || row.integrante || 'INTEGRANTE').trim()
-    const nov = String(row.novedad || row.sub_novedad || 'NOVEDAD').trim().toUpperCase()
-    const desc = row.descripcion ? String(row.descripcion) : undefined
-
     if (!map.has(ced)) {
       map.set(ced, {
         cedula: ced,
@@ -868,15 +956,24 @@ const heatmapMilitares = computed<MilitarHeatmapRecord[]>(() => {
         daysMap: new Map()
       })
     }
+  }
+
+  // 2. Mapear días de novedades estrictamente del mes activo
+  for (const row of props.rows) {
+    const ced = String(row.cedula || row.identificacion || '0000').trim()
+    const nov = String(row.novedad || row.sub_novedad || 'NOVEDAD').trim().toUpperCase()
+    const desc = row.descripcion ? String(row.descripcion) : undefined
     const item = map.get(ced)!
 
-    // Caso A: Reporte diario por fecha puntual
+    // Caso A: Reporte puntual por fecha
     const fStr = row.fecha_reporte || row.fecha
     if (fStr && typeof fStr === 'string' && fStr.includes('-')) {
       const parts = fStr.split('-')
       if (parts.length === 3) {
+        const y = parseInt(parts[0])
+        const m = parseInt(parts[1])
         const d = parseInt(parts[2])
-        if (!isNaN(d) && d >= 1 && d <= detectedMonthInfo.value.daysCount) {
+        if (y === curY && m === curM && !isNaN(d) && d >= 1 && d <= daysLimit) {
           if (!item.daysMap.has(d)) {
             item.daysMap.set(d, { novedad: nov, descripcion: desc })
             item.totalDiasNovedad++
@@ -884,14 +981,14 @@ const heatmapMilitares = computed<MilitarHeatmapRecord[]>(() => {
         }
       }
     } 
-    // Caso B: Reporte consolidado con rango 'desde' y 'hasta'
+    // Caso B: Reporte consolidado por rango 'desde' y 'hasta'
     else if (row.desde && row.hasta) {
       try {
-        const d1 = parseInt(String(row.desde).split('-')[2])
-        const d2 = parseInt(String(row.hasta).split('-')[2])
-        if (!isNaN(d1) && !isNaN(d2)) {
-          const minD = Math.max(1, Math.min(d1, d2))
-          const maxD = Math.min(detectedMonthInfo.value.daysCount, Math.max(d1, d2))
+        const [y1, m1, d1] = String(row.desde).split('-').map(Number)
+        const [y2, m2, d2] = String(row.hasta).split('-').map(Number)
+        if (y1 === curY && m1 === curM) {
+          const minD = Math.max(1, d1)
+          const maxD = Math.min(daysLimit, (m2 === curM ? d2 : daysLimit))
           for (let d = minD; d <= maxD; d++) {
             if (!item.daysMap.has(d)) {
               item.daysMap.set(d, { novedad: nov, descripcion: desc })
@@ -955,7 +1052,7 @@ const getHeatmapCellBadgeClass = (cellData?: { novedad: string }) => {
 const getHeatmapCellTooltip = (militar: MilitarHeatmapRecord, day: number) => {
   const cellData = militar.daysMap.get(day)
   const dStr = String(day).padStart(2, '0')
-  const fechaCompleta = `${detectedMonthInfo.value.year}-${String(detectedMonthInfo.value.monthNum || 10).padStart(2, '0')}-${dStr}`
+  const fechaCompleta = `${activeHeatmapMonth.value.year}-${String(activeHeatmapMonth.value.monthNum).padStart(2, '0')}-${dStr}`
   if (!cellData) {
     return `${militar.nombre} | ${fechaCompleta} : DISPONIBLE`
   }
@@ -963,61 +1060,118 @@ const getHeatmapCellTooltip = (militar: MilitarHeatmapRecord, day: number) => {
 }
 
 // ---------------------------------------------------------------------------
-// 4. Transformación de Datos para el Parte Ágil Ejecutivo
+// 4. Transformación de Datos para el Parte Ágil Ejecutivo (Rango Real de Fechas)
 // ---------------------------------------------------------------------------
 interface AgilMilitarSummary {
   cedula: string
   nombre: string
   totalDias: number
-  ranges: { startDay: number; endDay: number; novedad: string; labelDays: string }[]
+  ranges: { startDay: number; endDay: number; novedad: string; labelDays: string; daysCount: number }[]
 }
 
 const agilSummaryRows = computed<AgilMilitarSummary[]>(() => {
+  const militaresMap = new Map<string, { cedula: string; nombre: string; dateEvents: { dateStr: string; novedad: string; desc?: string }[] }>()
+
+  for (const row of props.rows) {
+    const ced = String(row.cedula || row.identificacion || '0000').trim()
+    const nom = String(row.nombre || row.integrante || 'INTEGRANTE').trim()
+    const nov = String(row.novedad || row.sub_novedad || 'NOVEDAD').trim().toUpperCase()
+    const desc = row.descripcion ? String(row.descripcion) : undefined
+
+    if (!militaresMap.has(ced)) {
+      militaresMap.set(ced, { cedula: ced, nombre: nom, dateEvents: [] })
+    }
+
+    const fStr = row.fecha_reporte || row.fecha
+    if (fStr && typeof fStr === 'string' && fStr.includes('-')) {
+      militaresMap.get(ced)!.dateEvents.push({ dateStr: fStr.trim(), novedad: nov, desc })
+    } else if (row.desde && row.hasta) {
+      militaresMap.get(ced)!.dateEvents.push({ dateStr: String(row.desde).trim(), novedad: nov, desc })
+    }
+  }
+
+  const isConsecutiveDay = (d1Str: string, d2Str: string): boolean => {
+    try {
+      const dt1 = new Date(d1Str + 'T00:00:00')
+      const dt2 = new Date(d2Str + 'T00:00:00')
+      const diff = Math.round((dt2.getTime() - dt1.getTime()) / (1000 * 60 * 60 * 24))
+      return diff === 1
+    } catch {
+      return false
+    }
+  }
+
+  const formatRangeText = (d1Str: string, d2Str: string): string => {
+    const MESES_ABR = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
+    try {
+      const parts1 = d1Str.split('-').map(Number)
+      const parts2 = d2Str.split('-').map(Number)
+      const m1 = MESES_ABR[parts1[1] - 1] || ''
+      const m2 = MESES_ABR[parts2[1] - 1] || ''
+      const d1 = String(parts1[2]).padStart(2, '0')
+      const d2 = String(parts2[2]).padStart(2, '0')
+
+      if (d1Str === d2Str) {
+        return `${d1} ${m1}`
+      }
+      if (parts1[0] === parts2[0] && parts1[1] === parts2[1]) {
+        return `${d1}-${d2} ${m1}`
+      }
+      return `${d1} ${m1} - ${d2} ${m2}`
+    } catch {
+      return `${d1Str} a ${d2Str}`
+    }
+  }
+
   const result: AgilMilitarSummary[] = []
 
-  for (const militar of heatmapMilitares.value) {
-    const daysWithNov = Array.from(militar.daysMap.entries())
-      .map(([day, val]) => ({ day, novedad: val.novedad, desc: val.descripcion }))
-      .sort((a, b) => a.day - b.day)
+  for (const mData of militaresMap.values()) {
+    const uniqueByDate = new Map<string, { dateStr: string; novedad: string; desc?: string }>()
+    for (const ev of mData.dateEvents) {
+      uniqueByDate.set(ev.dateStr, ev)
+    }
+    const sortedEvents = Array.from(uniqueByDate.values()).sort((a, b) => a.dateStr.localeCompare(b.dateStr))
 
-    if (daysWithNov.length === 0) continue
+    if (sortedEvents.length === 0) continue
 
-    const ranges: { startDay: number; endDay: number; novedad: string; labelDays: string }[] = []
-    let currStart = daysWithNov[0].day
-    let currEnd = daysWithNov[0].day
-    let currNov = daysWithNov[0].novedad
+    const ranges: { startDay: number; endDay: number; novedad: string; labelDays: string; daysCount: number }[] = []
+    let currStartStr = sortedEvents[0].dateStr
+    let currEndStr = sortedEvents[0].dateStr
+    let currNov = sortedEvents[0].novedad
+    let countInRange = 1
 
-    for (let i = 1; i < daysWithNov.length; i++) {
-      const item = daysWithNov[i]
-      if (item.day === currEnd + 1 && item.novedad === currNov) {
-        currEnd = item.day
+    for (let i = 1; i < sortedEvents.length; i++) {
+      const ev = sortedEvents[i]
+      if (ev.novedad === currNov && isConsecutiveDay(currEndStr, ev.dateStr)) {
+        currEndStr = ev.dateStr
+        countInRange++
       } else {
-        const d1 = String(currStart).padStart(2, '0')
-        const d2 = String(currEnd).padStart(2, '0')
         ranges.push({
-          startDay: currStart,
-          endDay: currEnd,
+          startDay: 0,
+          endDay: 0,
           novedad: currNov,
-          labelDays: currStart === currEnd ? d1 : `${d1}-${d2}`
+          labelDays: formatRangeText(currStartStr, currEndStr),
+          daysCount: countInRange
         })
-        currStart = item.day
-        currEnd = item.day
-        currNov = item.novedad
+        currStartStr = ev.dateStr
+        currEndStr = ev.dateStr
+        currNov = ev.novedad
+        countInRange = 1
       }
     }
-    const d1 = String(currStart).padStart(2, '0')
-    const d2 = String(currEnd).padStart(2, '0')
+
     ranges.push({
-      startDay: currStart,
-      endDay: currEnd,
+      startDay: 0,
+      endDay: 0,
       novedad: currNov,
-      labelDays: currStart === currEnd ? d1 : `${d1}-${d2}`
+      labelDays: formatRangeText(currStartStr, currEndStr),
+      daysCount: countInRange
     })
 
     result.push({
-      cedula: militar.cedula,
-      nombre: militar.nombre,
-      totalDias: daysWithNov.length,
+      cedula: mData.cedula,
+      nombre: mData.nombre,
+      totalDias: sortedEvents.length,
       ranges
     })
   }
@@ -1045,7 +1199,7 @@ const agilCategories = computed(() => {
         map.set(r.novedad, { novedad: r.novedad, totalDias: 0, militares: new Set() })
       }
       const cat = map.get(r.novedad)!
-      cat.totalDias += (r.endDay - r.startDay + 1)
+      cat.totalDias += r.daysCount
       cat.militares.add(item.nombre)
     }
   }
@@ -1195,7 +1349,8 @@ const copiarTabla = async () => {
 const descargarFormato = async (tipo: 'excel' | 'pdf') => {
   if (isExportando.value) return
 
-  const mesObjetivo = detectedMonthInfo.value.monthName
+  const periodoConsulta = detectedPeriodLabel.value
+  const mesHeatmap = activeHeatmapMonth.value.monthName
   const cedulaMilitar = props.activeMilitar?.cedula || detectedSingleMilitarCedula.value
 
   // Caso 1: Descargar Tabla Actual de la Consulta
@@ -1209,8 +1364,8 @@ const descargarFormato = async (tipo: 'excel' | 'pdf') => {
         columns: props.columns,
         rows: filteredRows.value,
         formato: tipo,
-        mes: mesObjetivo,
-        subtitulo: props.sql ? 'Generado desde Asistente IA BIMEJ 12' : undefined
+        mes: periodoConsulta,
+        subtitulo: `Período: ${periodoConsulta}`
       })
 
       // Disparar descarga en el navegador
@@ -1238,25 +1393,25 @@ const descargarFormato = async (tipo: 'excel' | 'pdf') => {
   let tituloReporte = ''
 
   if (formatoSeleccionado.value === 'heatmap') {
-    tituloReporte = `Matriz Heatmap - ${mesObjetivo}`
+    tituloReporte = `Matriz Heatmap - ${mesHeatmap}`
     if (cedulaMilitar) {
-      url = `/api/exportar/${tipo}?tipo=consolidado_mensual&cedula=${cedulaMilitar}&mes=${mesObjetivo}&modo=letras`
+      url = `/api/exportar/${tipo}?tipo=consolidado_mensual&cedula=${cedulaMilitar}&mes=${mesHeatmap}&modo=letras`
     } else {
-      url = `/api/exportar/${tipo}?tipo=consolidado_mensual&mes=${mesObjetivo}&modo=letras`
+      url = `/api/exportar/${tipo}?tipo=consolidado_mensual&mes=${mesHeatmap}&modo=letras`
     }
   } else if (formatoSeleccionado.value === 'agil') {
-    tituloReporte = `Parte Ágil de Novedades - ${mesObjetivo}`
+    tituloReporte = `Parte Ágil de Novedades - ${mesHeatmap}`
     if (cedulaMilitar) {
-      url = `/api/exportar/${tipo}?tipo=agil&cedula=${cedulaMilitar}&mes=${mesObjetivo}`
+      url = `/api/exportar/${tipo}?tipo=agil&cedula=${cedulaMilitar}&mes=${mesHeatmap}`
     } else {
-      url = `/api/exportar/${tipo}?tipo=agil&mes=${mesObjetivo}`
+      url = `/api/exportar/${tipo}?tipo=agil&mes=${mesHeatmap}`
     }
   } else if (formatoSeleccionado.value === 'estadistica') {
-    tituloReporte = `Estadística de Novedades - ${mesObjetivo}`
+    tituloReporte = `Estadística de Novedades - ${mesHeatmap}`
     if (cedulaMilitar) {
-      url = `/api/exportar/${tipo}?tipo=personal&cedula=${cedulaMilitar}&mes=${mesObjetivo}`
+      url = `/api/exportar/${tipo}?tipo=personal&cedula=${cedulaMilitar}&mes=${mesHeatmap}`
     } else {
-      url = `/api/exportar/${tipo}?tipo=consolidado_mensual&mes=${mesObjetivo}&modo=numeros`
+      url = `/api/exportar/${tipo}?tipo=consolidado_mensual&mes=${mesHeatmap}&modo=numeros`
     }
   }
 

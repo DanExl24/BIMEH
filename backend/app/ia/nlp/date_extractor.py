@@ -23,8 +23,47 @@ MESES_STR_MAP: Dict[str, str] = {
     "oct": "OCTUBRE", "nov": "NOVIEMBRE", "dic": "DICIEMBRE"
 }
 
+def _last_day_of_month(year: int, month: int) -> int:
+    """Retorna el último día calendario para un mes y año dados."""
+    if month in (1, 3, 5, 7, 8, 10, 12):
+        return 31
+    if month in (4, 6, 9, 11):
+        return 30
+    if (year % 4 == 0 and year % 100 != 0) or (year % 400 == 0):
+        return 29
+    return 28
+
+def _extract_month_range(msg_norm: str) -> Optional[Tuple[int, int]]:
+    """
+    Extrae un rango de meses (inicio, fin) en base a lenguaje natural.
+    Ejemplos:
+      - 'en el rango de marzo a octubre' -> (3, 10)
+      - 'entre marzo y octubre' -> (3, 10)
+      - 'de marzo a octubre' -> (3, 10)
+      - 'desde marzo hasta octubre' -> (3, 10)
+      - 'marzo a octubre' -> (3, 10)
+    """
+    patterns = [
+        r"\b(?:en\s+el\s+)?(?:rango|periodo|lapso|intervalo)\s+(?:de|entre|del?)?\s+([a-z]+)\s+(?:a|al|hasta|y)\s+(?:el\s+)?([a-z]+)\b",
+        r"\b(?:entre|desde|del?)\s+(?:mes\s+de\s+|de\s+)?([a-z]+)\s+(?:a|al|hasta|y)\s+(?:mes\s+de\s+|el\s+)?([a-z]+)\b",
+        r"\b([a-z]+)\s*(?:a|al|hasta|-)\s*([a-z]+)\b",
+    ]
+    for pat in patterns:
+        for m in re.finditer(pat, msg_norm):
+            w1, w2 = m.group(1).strip(), m.group(2).strip()
+            if w1 in MESES_ES and w2 in MESES_ES:
+                m1, m2 = MESES_ES[w1], MESES_ES[w2]
+                if m1 != m2:
+                    return (min(m1, m2), max(m1, m2))
+    return None
+
 def _extract_month(msg_norm: str) -> Optional[int]:
     """Extrae el número de mes (1..12) a partir de texto normalizado o expresiones relativas."""
+    # 0. Si es un rango de meses, el primer mes es el inicio
+    m_range = _extract_month_range(msg_norm)
+    if m_range:
+        return m_range[0]
+
     # 1. Triggers relativos directos
     if re.search(r"\b(este mes|en este mes|mes actual|presente mes|mes en curso|del mes)\b", msg_norm):
         return datetime.now().month
@@ -39,7 +78,12 @@ def _extract_month(msg_norm: str) -> Optional[int]:
     return None
 
 def _extract_month_name(msg_norm: str) -> Optional[str]:
-    """Extrae el nombre oficial del mes en mayúsculas o 'TODOS'."""
+    """Extrae el nombre oficial del mes en mayúsculas, rango de meses o 'TODOS'."""
+    m_range = _extract_month_range(msg_norm)
+    if m_range:
+        nombres = ["ENERO", "FEBRERO", "MARZO", "ABRIL", "MAYO", "JUNIO", "JULIO", "AGOSTO", "SEPTIEMBRE", "OCTUBRE", "NOVIEMBRE", "DICIEMBRE"]
+        return f"{nombres[m_range[0]-1]} - {nombres[m_range[1]-1]}"
+
     if re.search(r"\b(todos|todo el ano|anual|ano completo|anualidad|todos los meses)\b", msg_norm):
         return "TODOS"
     if re.search(r"\b(este mes|en este mes|mes actual|presente mes|mes en curso|del mes)\b", msg_norm):
@@ -74,6 +118,69 @@ def _extract_day_range(msg_norm: str) -> Optional[Tuple[int, int]]:
         if m:
             d1, d2 = int(m.group(1)), int(m.group(2))
             return (min(d1, d2), max(d1, d2))
+    return None
+
+def _extract_date_range(msg_norm: str, user_msg: str = "", default_year: int = 2026) -> Optional[Tuple[str, str]]:
+    """
+    Extrae un rango de fechas absoluto (fecha_inicio, fecha_fin) en formato 'YYYY-MM-DD'.
+    Maneja:
+      1. Rango explícito de fechas ISO: '2026-03-01 al 2026-10-31'
+      2. Rango entre días de diferentes meses: 'del 5 de marzo al 20 de octubre'
+      3. Rango de meses completos: 'de marzo a octubre' -> '2026-03-01' a '2026-10-31'
+      4. Rango de días en el mismo mes: 'del 1 al 15 de marzo' -> '2026-03-01' a '2026-03-15'
+      5. Mes individual completo: 'en marzo' -> '2026-03-01' a '2026-03-31'
+    """
+    anio = _extract_year(msg_norm, default_year)
+
+    # 1. Rango de fechas ISO YYYY-MM-DD
+    iso_range = re.search(r"\b(20\d{2}-\d{1,2}-\d{1,2})\s+(?:al?|hasta|-)\s+(20\d{2}-\d{1,2}-\d{1,2})\b", user_msg)
+    if iso_range:
+        f1, f2 = iso_range.group(1), iso_range.group(2)
+        return (f1, f2)
+
+    # 2. Días entre diferentes meses (ej: del 5 de marzo al 20 de octubre)
+    diff_months_day_range = re.search(
+        r"\b(?:del?|desde)\s+(\d{1,2})\s+de\s+([a-z]+)\s+(?:al?|hasta)\s+(?:el\s+)?(\d{1,2})\s+de\s+([a-z]+)\b",
+        msg_norm
+    )
+    if diff_months_day_range:
+        d1, m1_str, d2, m2_str = (
+            int(diff_months_day_range.group(1)),
+            diff_months_day_range.group(2),
+            int(diff_months_day_range.group(3)),
+            diff_months_day_range.group(4)
+        )
+        if m1_str in MESES_ES and m2_str in MESES_ES:
+            m1, m2 = MESES_ES[m1_str], MESES_ES[m2_str]
+            return (f"{anio}-{m1:02d}-{d1:02d}", f"{anio}-{m2:02d}-{d2:02d}")
+
+    # 3. Rango de meses completos (ej: rango de marzo a octubre, entre marzo y octubre)
+    m_range = _extract_month_range(msg_norm)
+    if m_range:
+        m1, m2 = m_range
+        last_d = _last_day_of_month(anio, m2)
+        return (f"{anio}-{m1:02d}-01", f"{anio}-{m2:02d}-{last_d:02d}")
+
+    # 4. Rango de días dentro del mismo mes (ej: del 1 al 15 de marzo)
+    d_range = _extract_day_range(msg_norm)
+    single_month = None
+    for nombre, num in MESES_ES.items():
+        if re.search(rf"\b{re.escape(nombre)}\b", msg_norm):
+            single_month = num
+            break
+    if single_month is None:
+        if re.search(r"\b(este mes|mes actual)\b", msg_norm):
+            single_month = datetime.now().month
+
+    if d_range and single_month:
+        d1, d2 = d_range
+        return (f"{anio}-{single_month:02d}-{d1:02d}", f"{anio}-{single_month:02d}-{d2:02d}")
+
+    # 5. Mes individual completo
+    if single_month:
+        last_d = _last_day_of_month(anio, single_month)
+        return (f"{anio}-{single_month:02d}-01", f"{anio}-{single_month:02d}-{last_d:02d}")
+
     return None
 
 def _extract_report_date(msg_norm: str, user_msg: str) -> Optional[str]:
