@@ -54,7 +54,8 @@ VISTAS DISPONIBLES EN BASE DE DATOS:
 
 REGLAS CRÍTICAS DE SQL:
 - Solo genera SELECT. NUNCA INSERT, UPDATE, DELETE, DROP, ALTER, TRUNCATE.
-- Siempre LIMIT <= 50.
+- Siempre usa un LIMIT razonable (LIMIT <= 100).
+- Si el usuario pregunta "¿Quiénes...", "cuáles militares...", o solicita un listado de personal con cierta novedad o estado en un periodo, NO repitas filas por cada día; consolida por militar usando GROUP BY cedula, nombre, novedad (ej: SELECT cedula, nombre, novedad, COUNT(*) AS dias, MIN(fecha_reporte) AS desde, MAX(fecha_reporte) AS hasta FROM v_novedades_detalle WHERE ... GROUP BY cedula, nombre, novedad ORDER BY nombre ASC LIMIT 100) o DISTINCT.
 - Para filtrar mes/año usa LIKE 'YYYY-MM-%' (ej: '2026-08-%') o fecha_reporte::date.
 - Cédula exacta: WHERE cedula = <numero> (sin CAST).
 """

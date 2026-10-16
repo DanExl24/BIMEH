@@ -8,7 +8,7 @@ from app.ia.sql.validator import is_sql_safe
 
 logger = logging.getLogger(__name__)
 
-def execute_safe_query(db, sql: str, max_rows: int = 100) -> Tuple[List[str], List[Dict[str, Any]]]:
+def execute_safe_query(db, sql: str, max_rows: int = 200) -> Tuple[List[str], List[Dict[str, Any]]]:
     """
     Ejecuta una consulta SQL validada en modo solo lectura sobre la base de datos PostgreSQL.
     

@@ -593,15 +593,29 @@
                       <Table2 class="w-3.5 h-3.5" />
                       Resultados ({{ msg.total_records }} registros):
                     </span>
-                    <span v-if="msg.rows.length > 10" class="text-[10px] text-slate-500">
-                      Mostrando primeros 10
+                    <button
+                      v-if="msg.rows.length > 10"
+                      type="button"
+                      @click="toggleExpandirTabla(msg.id)"
+                      class="text-[10px] font-semibold text-cyan-400 hover:text-cyan-300 hover:underline flex items-center gap-1 px-2 py-0.5 rounded-lg bg-cyan-950/50 border border-cyan-500/30 transition-all cursor-pointer select-none active:scale-95"
+                      :title="tablasExpandidas[msg.id] ? 'Reducir vista a los 10 primeros' : `Expandir y ver los ${msg.rows.length} registros completos`"
+                    >
+                      <span>{{ tablasExpandidas[msg.id] ? 'Mostrar primeros 10' : `Ver todos (${msg.rows.length})` }}</span>
+                      <ChevronDown v-if="!tablasExpandidas[msg.id]" class="w-3 h-3 stroke-[2.5]" />
+                      <ChevronUp v-else class="w-3 h-3 stroke-[2.5]" />
+                    </button>
+                    <span v-else class="text-[10px] text-slate-500">
+                      {{ msg.rows.length }} registros
                     </span>
                   </div>
 
-                  <div class="overflow-x-auto rounded-xl border border-darkBorder/70 max-h-56 scrollbar-thin">
+                  <div 
+                    class="overflow-x-auto rounded-xl border border-darkBorder/70 scrollbar-thin transition-all duration-200"
+                    :class="tablasExpandidas[msg.id] ? 'max-h-96' : 'max-h-56'"
+                  >
                     <table class="w-full text-left text-[11px] border-collapse bg-slate-900/90">
                       <thead>
-                        <tr class="border-b border-darkBorder/80 bg-slate-950/80 sticky top-0 text-[10px] font-mono text-slate-400 uppercase">
+                        <tr class="border-b border-darkBorder/80 bg-slate-950/90 sticky top-0 text-[10px] font-mono text-slate-400 uppercase z-10 backdrop-blur-sm">
                           <th v-for="col in msg.columns" :key="col" class="px-2.5 py-1.5 font-bold">
                             {{ col }}
                           </th>
@@ -609,7 +623,7 @@
                       </thead>
                       <tbody class="divide-y divide-darkBorder/40">
                         <tr 
-                          v-for="(row, idx) in msg.rows.slice(0, 10)" 
+                          v-for="(row, idx) in (tablasExpandidas[msg.id] ? msg.rows : msg.rows.slice(0, 10))" 
                           :key="idx"
                           class="hover:bg-cyan-500/5 transition-colors"
                         >
@@ -1018,7 +1032,9 @@ import {
   History,
   Trash2,
   Eye,
-  MessageSquarePlus
+  MessageSquarePlus,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-vue-next'
 
 import type {
@@ -1184,6 +1200,13 @@ const isLoadingApreciacion = ref(false)
 const inputTexto = ref('')
 const mensajes = ref<IAChatMessage[]>([])
 const activeMilitar = ref<ActiveMilitar | null>(null)
+
+// Control de tablas expandidas por ID de mensaje (para mostrar más de 10 filas o todos los registros)
+const tablasExpandidas = ref<Record<string, boolean>>({})
+
+const toggleExpandirTabla = (msgId: string) => {
+  tablasExpandidas.value[msgId] = !tablasExpandidas.value[msgId]
+}
 
 const limpiarMilitarActivo = () => {
   activeMilitar.value = null
