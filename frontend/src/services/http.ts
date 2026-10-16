@@ -47,5 +47,33 @@ export const http = {
       throw new Error(err.detail || `Error HTTP ${res.status}`)
     }
     return res.json()
+  },
+
+  put: async <T>(url: string, body?: any, options: RequestInit = {}): Promise<T> => {
+    const isFormData = body instanceof FormData
+    const headers = {
+      ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
+      ...(options.headers || {})
+    }
+    const res = await fetchWithAuth(url, {
+      ...options,
+      method: 'PUT',
+      headers,
+      body: isFormData ? body : (body ? JSON.stringify(body) : undefined)
+    })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      throw new Error(err.detail || `Error HTTP ${res.status}`)
+    }
+    return res.json()
+  },
+
+  delete: async <T>(url: string, options: RequestInit = {}): Promise<T> => {
+    const res = await fetchWithAuth(url, { ...options, method: 'DELETE' })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      throw new Error(err.detail || `Error HTTP ${res.status}`)
+    }
+    return res.json()
   }
 }

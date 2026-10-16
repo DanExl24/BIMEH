@@ -102,12 +102,20 @@ def eliminar_sesion(db, session_id: int) -> bool:
     """Elimina en cascada una sesión y todos sus mensajes asociados."""
     cursor = db.cursor()
     try:
+        cursor.execute("DELETE FROM IA_MENSAJES WHERE id_sesion = %s;", (session_id,))
         cursor.execute("DELETE FROM IA_SESIONES WHERE id = %s;", (session_id,))
         try:
             db.commit()
         except Exception:
             pass
         return True
+    except Exception as e:
+        logger.error(f"[SessionRepository] Error al eliminar sesión {session_id}: {e}")
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        return False
     finally:
         cursor.close()
 

@@ -159,7 +159,7 @@
             <button
               type="button"
               @click.stop="eliminarSesion(s.id, $event)"
-              class="p-1.5 text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors shrink-0"
+              class="p-1.5 text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors shrink-0 cursor-pointer"
               title="Eliminar conversación"
             >
               <Trash2 class="w-3.5 h-3.5" />
@@ -351,9 +351,20 @@
             {{ dateStore.mesSeleccionado }}{{ dateStore.diaSeleccionado ? ` · Día ${dateStore.diaSeleccionado}` : '' }}
           </span>
         </div>
-        <span v-if="sesionActivaTitulo" class="text-slate-500 text-[10px] font-mono shrink-0 truncate max-w-[140px]" :title="sesionActivaTitulo">
-          #{{ sesionActivaId }}: {{ sesionActivaTitulo }}
-        </span>
+        <div v-if="sesionActivaTitulo" class="flex items-center gap-1.5 shrink-0">
+          <span class="text-slate-500 text-[10px] font-mono truncate max-w-[140px]" :title="sesionActivaTitulo">
+            #{{ sesionActivaId }}: {{ sesionActivaTitulo }}
+          </span>
+          <button
+            v-if="sesionActivaId"
+            type="button"
+            @click.stop="eliminarSesion(sesionActivaId, $event)"
+            class="p-0.5 text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 rounded transition-colors cursor-pointer"
+            title="Eliminar esta conversación"
+          >
+            <Trash2 class="w-3 h-3" />
+          </button>
+        </div>
       </div>
 
       <!-- 2. Área de Mensajes del Chat (Scrollable) -->
@@ -958,9 +969,11 @@
               v-if="mensajes.length > 0" 
               @click="limpiarChat" 
               type="button" 
-              class="text-rose-400/80 hover:text-rose-300 underline cursor-pointer"
+              class="inline-flex items-center gap-1 text-rose-400/80 hover:text-rose-300 underline cursor-pointer"
+              title="Limpiar y eliminar esta conversación"
             >
-              Limpiar chat
+              <Trash2 class="w-2.5 h-2.5" />
+              <span>Limpiar chat</span>
             </button>
           </div>
           <span>Presione Enter para enviar</span>
@@ -1149,8 +1162,10 @@ const seleccionarSesion = async (s: IASesion) => {
   }
 }
 
-const eliminarSesion = async (id: number, event: Event) => {
-  event.stopPropagation()
+const eliminarSesion = async (id: number, event?: Event) => {
+  if (event) {
+    event.stopPropagation()
+  }
   try {
     await iaService.eliminarSesion(id)
     sesiones.value = sesiones.value.filter(s => s.id !== id)
@@ -1665,8 +1680,12 @@ const generarApreciacionDirecta = async () => {
   }
 }
 
-const limpiarChat = () => {
-  crearNuevaSesion()
+const limpiarChat = async () => {
+  if (sesionActivaId.value) {
+    await eliminarSesion(sesionActivaId.value)
+  } else {
+    crearNuevaSesion()
+  }
 }
 
 const cerrar = () => {
