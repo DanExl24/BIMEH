@@ -587,32 +587,32 @@
                 </div>
 
                 <!-- Mini Tabla de Datos si retornó registros -->
+                <!-- Mini Tabla de Datos si retornó registros (Primeros 10 con botón 'Ver a detalle') -->
                 <div v-if="msg.rows && msg.rows.length > 0" class="mt-3 pt-2.5 border-t border-darkBorder/60 space-y-2">
                   <div class="flex items-center justify-between text-[11px] font-semibold text-slate-400">
                     <span class="flex items-center gap-1.5 text-cyan-400">
                       <Table2 class="w-3.5 h-3.5" />
-                      Resultados ({{ msg.total_records }} registros):
+                      Resultados ({{ msg.total_records || msg.rows.length }} registros):
                     </span>
                     <button
                       v-if="msg.rows.length > 10"
                       type="button"
-                      @click="toggleExpandirTabla(msg.id)"
-                      class="text-[10px] font-semibold text-cyan-400 hover:text-cyan-300 hover:underline flex items-center gap-1 px-2 py-0.5 rounded-lg bg-cyan-950/50 border border-cyan-500/30 transition-all cursor-pointer select-none active:scale-95"
-                      :title="tablasExpandidas[msg.id] ? 'Reducir vista a los 10 primeros' : `Expandir y ver los ${msg.rows.length} registros completos`"
+                      @click="abrirModalDetalle(msg)"
+                      class="text-[10px] font-bold text-cyan-300 hover:text-cyan-100 bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-500/40 px-2 py-0.5 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer select-none active:scale-95 shadow-sm"
+                      title="Abrir ventana modal para ver la totalidad de registros"
                     >
-                      <span>{{ tablasExpandidas[msg.id] ? 'Mostrar primeros 10' : `Ver todos (${msg.rows.length})` }}</span>
-                      <ChevronDown v-if="!tablasExpandidas[msg.id]" class="w-3 h-3 stroke-[2.5]" />
-                      <ChevronUp v-else class="w-3 h-3 stroke-[2.5]" />
+                      <Maximize2 class="w-3 h-3" />
+                      <span>Ver a detalle</span>
+                      <span class="px-1 py-0.2 rounded-full bg-cyan-900/80 text-[9px] font-mono font-bold text-cyan-200">
+                        {{ msg.total_records || msg.rows.length }}
+                      </span>
                     </button>
                     <span v-else class="text-[10px] text-slate-500">
                       {{ msg.rows.length }} registros
                     </span>
                   </div>
 
-                  <div 
-                    class="overflow-x-auto rounded-xl border border-darkBorder/70 scrollbar-thin transition-all duration-200"
-                    :class="tablasExpandidas[msg.id] ? 'max-h-96' : 'max-h-56'"
-                  >
+                  <div class="overflow-x-auto rounded-xl border border-darkBorder/70 max-h-56 scrollbar-thin">
                     <table class="w-full text-left text-[11px] border-collapse bg-slate-900/90">
                       <thead>
                         <tr class="border-b border-darkBorder/80 bg-slate-950/90 sticky top-0 text-[10px] font-mono text-slate-400 uppercase z-10 backdrop-blur-sm">
@@ -623,7 +623,7 @@
                       </thead>
                       <tbody class="divide-y divide-darkBorder/40">
                         <tr 
-                          v-for="(row, idx) in (tablasExpandidas[msg.id] ? msg.rows : msg.rows.slice(0, 10))" 
+                          v-for="(row, idx) in msg.rows.slice(0, 10)" 
                           :key="idx"
                           class="hover:bg-cyan-500/5 transition-colors"
                         >
@@ -637,6 +637,18 @@
                         </tr>
                       </tbody>
                     </table>
+                  </div>
+
+                  <!-- Botón accesible al pie de la tabla cuando hay más de 10 registros -->
+                  <div v-if="msg.rows.length > 10" class="pt-1">
+                    <button
+                      type="button"
+                      @click="abrirModalDetalle(msg)"
+                      class="w-full py-1.5 px-3 rounded-xl bg-slate-950/60 hover:bg-cyan-950/40 border border-darkBorder/80 hover:border-cyan-500/40 text-[11px] font-semibold text-cyan-400 hover:text-cyan-300 flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-sm group active:scale-[0.99]"
+                    >
+                      <span>Mostrando 10 de {{ msg.total_records || msg.rows.length }} registros · Clic para ver a detalle</span>
+                      <Maximize2 class="w-3 h-3 group-hover:scale-110 transition-transform" />
+                    </button>
                   </div>
                 </div>
 
@@ -994,6 +1006,17 @@
         </div>
       </div>
     </aside>
+
+    <!-- Modal Centrado de Detalle Completo de Consulta Sin Límite -->
+    <QueryResultDetailModal
+      :is-open="modalDetalleOpen"
+      :columns="modalDetalleData.columns"
+      :rows="modalDetalleData.rows"
+      :total-records="modalDetalleData.totalRecords"
+      :sql="modalDetalleData.sql"
+      :title="modalDetalleData.title"
+      @close="cerrarModalDetalle"
+    />
   </div>
 </template>
 
@@ -1033,9 +1056,9 @@ import {
   Trash2,
   Eye,
   MessageSquarePlus,
-  ChevronDown,
-  ChevronUp
+  Maximize2
 } from 'lucide-vue-next'
+import QueryResultDetailModal from './QueryResultDetailModal.vue'
 
 import type {
   IAStatusResponse,
@@ -1201,11 +1224,35 @@ const inputTexto = ref('')
 const mensajes = ref<IAChatMessage[]>([])
 const activeMilitar = ref<ActiveMilitar | null>(null)
 
-// Control de tablas expandidas por ID de mensaje (para mostrar más de 10 filas o todos los registros)
-const tablasExpandidas = ref<Record<string, boolean>>({})
+// Control del Modal Centrado de Detalle de Consulta
+const modalDetalleOpen = ref(false)
+const modalDetalleData = ref<{
+  columns: string[]
+  rows: Record<string, any>[]
+  totalRecords: number
+  sql?: string | null
+  title?: string
+}>({
+  columns: [],
+  rows: [],
+  totalRecords: 0,
+  sql: null,
+  title: ''
+})
 
-const toggleExpandirTabla = (msgId: string) => {
-  tablasExpandidas.value[msgId] = !tablasExpandidas.value[msgId]
+const abrirModalDetalle = (msg: IAChatMessage) => {
+  modalDetalleData.value = {
+    columns: msg.columns || [],
+    rows: msg.rows || [],
+    totalRecords: msg.total_records || (msg.rows ? msg.rows.length : 0),
+    sql: msg.sql || null,
+    title: 'Detalle Completo de Consulta de Personal'
+  }
+  modalDetalleOpen.value = true
+}
+
+const cerrarModalDetalle = () => {
+  modalDetalleOpen.value = false
 }
 
 const limpiarMilitarActivo = () => {

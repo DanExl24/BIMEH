@@ -133,7 +133,7 @@ class NovedadesSkill(BaseSkill):
                         f"AND fecha_reporte >= '{anio}-{mes_num:02d}-{d1:02d}' "
                         f"AND fecha_reporte <= '{anio}-{mes_num:02d}-{d2:02d}' "
                         f"GROUP BY cedula, nombre, novedad "
-                        f"ORDER BY nombre ASC LIMIT 100"
+                        f"ORDER BY nombre ASC LIMIT 500"
                     ),
                     description=f"Militares con {ctx.novedad_type} del {d1} al {d2} de mes {mes_num}/{anio}"
                 )
@@ -144,7 +144,7 @@ class NovedadesSkill(BaseSkill):
                     f"FROM v_novedades_detalle WHERE UPPER(novedad) LIKE '%{ctx.novedad_type}%' "
                     f"AND fecha_reporte >= '{anio}-{mes_num:02d}-{d1:02d}' "
                     f"AND fecha_reporte <= '{anio}-{mes_num:02d}-{d2:02d}' "
-                    f"ORDER BY fecha_reporte ASC, nombre ASC LIMIT 100"
+                    f"ORDER BY fecha_reporte ASC, nombre ASC LIMIT 500"
                 ),
                 description=f"Personal con {ctx.novedad_type} del {d1} al {d2} de mes {mes_num}/{anio}"
             )
@@ -160,7 +160,7 @@ class NovedadesSkill(BaseSkill):
                         f"FROM v_novedades_detalle WHERE UPPER(novedad) LIKE '%{ctx.novedad_type}%' "
                         f"AND fecha_reporte LIKE '{anio}-{mes_num:02d}-%' "
                         f"GROUP BY cedula, nombre, novedad "
-                        f"ORDER BY nombre ASC LIMIT 100"
+                        f"ORDER BY nombre ASC LIMIT 500"
                     ),
                     description=f"Militares con {ctx.novedad_type} en mes {mes_num}/{anio}"
                 )
@@ -170,7 +170,7 @@ class NovedadesSkill(BaseSkill):
                     f"SELECT cedula, nombre, fecha_reporte, novedad, descripcion "
                     f"FROM v_novedades_detalle WHERE UPPER(novedad) LIKE '%{ctx.novedad_type}%' "
                     f"AND fecha_reporte LIKE '{anio}-{mes_num:02d}-%' "
-                    f"ORDER BY fecha_reporte ASC, nombre ASC LIMIT 100"
+                    f"ORDER BY fecha_reporte ASC, nombre ASC LIMIT 500"
                 ),
                 description=f"Personal con {ctx.novedad_type} en mes {mes_num}/{anio}"
             )
@@ -185,7 +185,7 @@ class NovedadesSkill(BaseSkill):
                         f"MIN(fecha_reporte) AS primer_reporte, MAX(fecha_reporte) AS ultimo_reporte "
                         f"FROM v_novedades_detalle WHERE UPPER(novedad) LIKE '%{ctx.novedad_type}%' "
                         f"GROUP BY cedula, nombre, novedad "
-                        f"ORDER BY nombre ASC LIMIT 100"
+                        f"ORDER BY nombre ASC LIMIT 500"
                     ),
                     description=f"Militares con {ctx.novedad_type} en BIMEJ 12"
                 )
@@ -194,7 +194,7 @@ class NovedadesSkill(BaseSkill):
                 sql=(
                     f"SELECT cedula, nombre, fecha_reporte, novedad, descripcion "
                     f"FROM v_novedades_detalle WHERE UPPER(novedad) LIKE '%{ctx.novedad_type}%' "
-                    f"ORDER BY fecha_reporte DESC LIMIT 100"
+                    f"ORDER BY fecha_reporte DESC LIMIT 500"
                 ),
                 description=f"Personal con {ctx.novedad_type} en BIMEJ 12"
             )
@@ -209,7 +209,7 @@ class NovedadesSkill(BaseSkill):
                         f"MIN(fecha_reporte) AS desde, MAX(fecha_reporte) AS hasta "
                         f"FROM v_novedades_detalle WHERE fecha_reporte LIKE '{anio}-{mes_num:02d}-%' "
                         f"GROUP BY cedula, nombre, novedad "
-                        f"ORDER BY nombre ASC LIMIT 100"
+                        f"ORDER BY nombre ASC LIMIT 500"
                     ),
                     description=f"Militares con novedades en mes {mes_num}/{anio}"
                 )
@@ -218,7 +218,7 @@ class NovedadesSkill(BaseSkill):
                 sql=(
                     f"SELECT cedula, nombre, fecha_reporte, novedad, descripcion "
                     f"FROM v_novedades_detalle WHERE fecha_reporte LIKE '{anio}-{mes_num:02d}-%' "
-                    f"ORDER BY fecha_reporte ASC LIMIT 100"
+                    f"ORDER BY fecha_reporte ASC LIMIT 500"
                 ),
                 description=f"Novedades del mes {mes_num}/{anio}"
             )
