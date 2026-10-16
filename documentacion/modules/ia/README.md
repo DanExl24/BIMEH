@@ -9,11 +9,34 @@ El módulo cuenta con una arquitectura de backend híbrida que soporta tanto mod
 
 ## 🏛️ Arquitectura del Módulo
 
-### Backend
-- **Router REST**: [`backend/app/routers/ia.py`](file:///c:/Users/alejo/Downloads/proyectos-dev/BIMEH/backend/app/routers/ia.py)
-- **Servicio Gemini (Cloud)**: [`backend/app/services/gemini_service.py`](file:///c:/Users/alejo/Downloads/proyectos-dev/BIMEH/backend/app/services/gemini_service.py) (SDK `google-genai`, llamadas estructuradas, fallback y memoria multi-turno).
-- **Servicio Ollama (Local)**: [`backend/app/services/ollama_service.py`](file:///c:/Users/alejo/Downloads/proyectos-dev/BIMEH/backend/app/services/ollama_service.py) (Conexión HTTP local a `http://localhost:11434`, Text-to-SQL determinista y guardrails).
-- **Catálogo de Consultas y Verificación**: [`backend/app/services/query_catalog.py`](file:///c:/Users/alejo/Downloads/proyectos-dev/BIMEH/backend/app/services/query_catalog.py) (Diccionario de patrones SQL institucionales optimizados para PostgreSQL).
+### Backend (Arquitectura Modular por Capas `backend/app/ia/`)
+- **Router REST**: [`backend/app/routers/ia.py`](file:///c:/Users/alejo/Downloads/proyectos-dev/BIMEH/backend/app/routers/ia.py) (Punto de entrada de la API HTTP, delega la orquestación a `IAOrchestrator` y la persistencia a `SessionRepository`).
+- **Orquestador Central**: [`backend/app/ia/orchestrator.py`](file:///c:/Users/alejo/Downloads/proyectos-dev/BIMEH/backend/app/ia/orchestrator.py) (`IAOrchestrator`: coordina el flujo unificado: Guardrails de dominio militar -> Respuestas rápidas de cortesía -> Registro de Skills deterministas -> Generación Text-to-SQL por LLM -> Validación y Ejecución SQL -> Síntesis militar).
+- **Habilidades Modulares (Skills)** ([`backend/app/ia/skills/`](file:///c:/Users/alejo/Downloads/proyectos-dev/BIMEH/backend/app/ia/skills/)):
+  - `EfectivosSkill`: Gestión de censo de personal, fuerza disponible, activos, retirados, área de operaciones (AO) y retaguardia.
+  - `NovedadesSkill`: Novedades del día, rankings más/menos frecuentes, incapacidades médicas, casos de leishmaniasis y permisos.
+  - `MilitarSkill`: Búsqueda de personal militar por cédula, nombre (fuzzy search) y expediente de novedades.
+  - `ReportesExportSkill`: Despacho y configuración interactiva de enlaces de descarga en Excel (.xlsx), PDF (.pdf) y CSV (Heatmap, Parte Ágil, Historial y reportes diarios).
+  - `ApreciacionSkill`: Elaboración de informes formales de Apreciación de Situación de Personal para la comandancia.
+- **LLM Gateway & Proveedores** ([`backend/app/ia/providers/`](file:///c:/Users/alejo/Downloads/proyectos-dev/BIMEH/backend/app/ia/providers/)):
+  - `BaseLLMProvider`: Interfaz abstracta común para Text-to-SQL y síntesis en lenguaje natural.
+  - `GeminiProvider`: Conector de nube con el SDK `google-genai`, soporte multiturno, control dinámico de cuotas y reintentos exponenciales.
+  - `OllamaProvider`: Conector de inferencia local HTTP (`http://localhost:11434`) para operación soberana off-grid sin internet.
+  - `get_llm_provider()`: Factory de conmutación en caliente entre proveedores.
+- **NLP & Procesamiento Lingüístico** ([`backend/app/ia/nlp/`](file:///c:/Users/alejo/Downloads/proyectos-dev/BIMEH/backend/app/ia/nlp/)):
+  - `normalizer.py`: Limpieza fonética, remoción de tildes y normalización de cadenas.
+  - `date_extractor.py`: Detección de meses militares, fechas ISO y validación de cobertura de datos en BD.
+  - `militar_matcher.py`: Algoritmos de fuzzy matching de nombres, construcción de cláusulas LIKE y extracción de cédulas/subnovedades.
+- **SQL Seguro & Validación** ([`backend/app/ia/sql/`](file:///c:/Users/alejo/Downloads/proyectos-dev/BIMEH/backend/app/ia/sql/)):
+  - `validator.py`: Guardrail estricto de solo lectura (`is_sql_safe`, bloqueo de `INSERT`, `UPDATE`, `DELETE`, `DROP`, `ALTER`, etc.).
+  - `executor.py`: Ejecutor con timeout de 10 segundos y mapeo automático de filas a diccionarios.
+- **Repositorio de Persistencia** ([`backend/app/ia/repository/session_repository.py`](file:///c:/Users/alejo/Downloads/proyectos-dev/BIMEH/backend/app/ia/repository/session_repository.py)):
+  - Manejador de persistencia desacoplado para hilos de conversación (`IA_SESIONES`) y mensajes atómicos (`IA_MENSAJES`).
+- **Prompts & Plantillas** ([`backend/app/ia/prompts/`](file:///c:/Users/alejo/Downloads/proyectos-dev/BIMEH/backend/app/ia/prompts/)):
+  - `system_prompts.py`: Definición del esquema relacional institucional y lineamientos doctrinales para el LLM.
+  - `guardrails.py`: Verificación de pertinencia de dominio militar y respuestas conversacionales de cortesía.
+  - `report_templates.py`: Plantilla estructurada para informes de Apreciación S-1.
+- **Fachada Retrocompatible**: [`backend/app/services/query_catalog.py`](file:///c:/Users/alejo/Downloads/proyectos-dev/BIMEH/backend/app/services/query_catalog.py) (Facade de <100 líneas que expone las funciones públicas heredadas garantizando retrocompatibilidad total sin romper clientes existentes).
 - **Tablas y Vistas SQL de Base de Datos**:
   - `ia_sesiones`: Hilos de conversación persistentes con título, fechas y conteo de interacciones.
   - `ia_mensajes`: Registro atómico de mensajes `user` y `assistant` vinculados a la sesión con contexto y metadatos.

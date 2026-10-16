@@ -1,0 +1,71 @@
+"""
+Clases base y contratos para las habilidades modulares (Skills) del Asistente IA.
+"""
+
+from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
+from typing import Optional, Dict, Any, List, Tuple
+from app.ia.nlp.normalizer import _norm
+from app.ia.nlp.date_extractor import _extract_month, _extract_year, _extract_day_range, _extract_month_name
+from app.ia.nlp.militar_matcher import _extract_novedad_type, _extract_cedula, _extract_subnovedad_oficial, _is_least_frequent
+
+@dataclass
+class QueryContext:
+    """Contenedor de información contextual preprocesada para el despacho de skills."""
+    user_message: str
+    active_militar: Optional[Dict[str, Any]] = None
+    context: Optional[Dict[str, Any]] = None
+    current_year: int = 2026
+    db: Optional[Any] = None
+    history: Optional[List[Dict[str, Any]]] = None
+
+    # Propiedades calculadas
+    msg_norm: str = field(init=False)
+    cedula_en_msg: Optional[str] = field(init=False)
+    mes_num: Optional[int] = field(init=False)
+    mes_nom: Optional[str] = field(init=False)
+    anio: int = field(init=False)
+    day_range: Optional[Tuple[int, int]] = field(init=False)
+    novedad_type: Optional[str] = field(init=False)
+    subnovedad_oficial: Optional[str] = field(init=False)
+    is_least: bool = field(init=False)
+
+    def __post_init__(self):
+        self.msg_norm = _norm(self.user_message)
+        self.cedula_en_msg = _extract_cedula(self.user_message)
+        self.mes_num = _extract_month(self.msg_norm)
+        self.mes_nom = _extract_month_name(self.msg_norm)
+        self.anio = _extract_year(self.msg_norm, self.current_year)
+        self.day_range = _extract_day_range(self.msg_norm)
+        self.novedad_type = _extract_novedad_type(self.msg_norm)
+        self.subnovedad_oficial = _extract_subnovedad_oficial(self.msg_norm)
+        self.is_least = _is_least_frequent(self.msg_norm)
+
+@dataclass
+class SkillResult:
+    """Resultado estructurado retornado por un Skill ejecutado con éxito."""
+    type: str  # 'sql', 'report', 'conversation', 'error'
+    sql: Optional[str] = None
+    description: Optional[str] = None
+    report_info: Optional[Dict[str, Any]] = None
+    answer: Optional[str] = None
+    active_militar: Optional[Dict[str, Any]] = None
+    columns: List[str] = field(default_factory=list)
+    rows: List[Dict[str, Any]] = field(default_factory=list)
+    total_records: int = 0
+
+class BaseSkill(ABC):
+    """Clase base que define una habilidad del sistema BIMEH."""
+
+    name: str = "base_skill"
+    description: str = "Descripción de la habilidad"
+
+    @abstractmethod
+    def can_handle(self, ctx: QueryContext) -> bool:
+        """Determina si este skill sabe cómo atender la consulta del usuario."""
+        pass
+
+    @abstractmethod
+    def execute(self, ctx: QueryContext) -> Optional[SkillResult]:
+        """Ejecuta la habilidad y retorna el resultado estructurado o SQL parametrizado."""
+        pass
