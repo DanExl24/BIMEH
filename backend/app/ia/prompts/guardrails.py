@@ -226,6 +226,15 @@ def _auto_synthesize(user_message: str, query_result: Dict[str, Any], db=None) -
 
     # Caso 4: Lista de personal
     if "cedula" in cols and "nombre" in cols:
+        if total == 1:
+            r0 = rows[0]
+            nom = r0.get("nombre", "")
+            ced = r0.get("cedula", "")
+            est = r0.get("estado", "ACTIVO")
+            nov_hist = r0.get("total_novedades_historicas", 0)
+            f_ret = r0.get("fecha_retiro")
+            ret_txt = f" (retirado el {f_ret})" if f_ret else ""
+            return f"Se identificó a **{nom}** (C.C. {ced}), estado operacional: **{est}**{ret_txt} con {nov_hist} novedades históricas en BIMEJ 12."
         nombres = [r.get("nombre", "") for r in rows[:5] if r.get("nombre")]
         muestra = ", ".join(nombres[:3])
         resto = f" y {total - 3} más" if total > 3 else ""

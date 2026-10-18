@@ -248,6 +248,27 @@ class IAOrchestrator:
 
             cols, rows = execute_safe_query(db, clean_sql)
             query_result = {"columns": cols, "rows": rows, "total": len(rows)}
+
+            # Tolerancia resiliente para búsquedas de nombres si devolvió 0 registros:
+            # Reintenta aplicando unaccent() para salvar inconsistencias de N/Ñ y tildes
+            if query_result["total"] == 0 and "nombre" in clean_sql.lower():
+                relaxed_sql = re.sub(
+                    r"(?:UPPER\s*\(\s*(?:[a-zA-Z_]+\.)?nombre\s*\)|(?:[a-zA-Z_]+\.)?nombre)\s+(?:I?LIKE)\s*('%\w+%')",
+                    r"unaccent(nombre) ILIKE unaccent(\1)",
+                    clean_sql,
+                    flags=re.IGNORECASE
+                )
+                if relaxed_sql != clean_sql:
+                    try:
+                        r_cols, r_rows = execute_safe_query(db, relaxed_sql)
+                        if len(r_rows) > 0:
+                            logger.info(f"[IAOrchestrator] Búsqueda relajada con unaccent encontró {len(r_rows)} resultados")
+                            cols, rows = r_cols, r_rows
+                            clean_sql = relaxed_sql
+                            query_result = {"columns": cols, "rows": rows, "total": len(rows)}
+                    except Exception as e_relax:
+                        logger.debug(f"[IAOrchestrator] Error en consulta relajada: {e_relax}")
+
             synthesis = _auto_synthesize(user_message, query_result, db=db)
 
             return {

@@ -40,6 +40,9 @@ class MilitarSkill(BaseSkill):
             ]
             if any(t in ctx.msg_norm for t in buscar_triggers):
                 return True
+            # Búsqueda directa por nombre y apellido (ej: "jorge peña", "daniel mendez")
+            if len(tokens) >= 2:
+                return True
 
         return False
 
@@ -339,13 +342,13 @@ class MilitarSkill(BaseSkill):
                     description=f"Novedades de {nom_label} en {desc_periodo}"
                 )
 
-            # Búsqueda pura de personal por nombre (solo con trigger explícito)
+            # Búsqueda pura de personal por nombre (con trigger explícito o al menos 2 tokens de nombre)
             buscar_triggers = [
                 "quien es", "buscar a", "busca a", "informacion de",
                 "datos de", "que sabes de", "mostrar personal", "buscar personal",
                 "sabes quien es", "dime quien es", "expediente de", "reporte de", "historial de"
             ]
-            if any(t in msg for t in buscar_triggers):
+            if any(t in msg for t in buscar_triggers) or len(name_tokens) >= 2:
                 return SkillResult(
                     type="sql",
                     sql=f"SELECT cedula, nombre, estado, fecha_retiro, total_novedades_historicas FROM v_personal_resumen WHERE {like_clauses} LIMIT 10",

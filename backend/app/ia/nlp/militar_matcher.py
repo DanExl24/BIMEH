@@ -153,17 +153,11 @@ def _extract_name_tokens(msg_norm: str) -> List[str]:
 
 def _name_like_clause(token: str) -> str:
     """
-    Genera una condición LIKE tolerante a N/Ñ para PostgreSQL.
-    Ej: 'PENA' -> "(UPPER(nombre) LIKE '%PENA%' OR UPPER(nombre) LIKE '%PEÑA%')"
+    Genera una condición LIKE insensible a mayúsculas, tildes y N/Ñ mediante unaccent().
+    Ej: 'peña' o 'pena' -> "unaccent(nombre) ILIKE unaccent('%pena%')"
     """
-    t = token.upper()
-    has_enie = "Ñ" in t
-    t_norm = t.replace("Ñ", "N")
-    common_enie = {"PENA", "MUNOZ", "NINO", "CASTANO", "IBANEZ", "ORDONEZ", "BRICENO", "NUNEZ", "MONTANA", "PATINO", "CORUNA"}
-    if has_enie or t in common_enie:
-        t_enie = t_norm.replace("N", "\u00d1")
-        return f"(UPPER(nombre) LIKE '%{t_norm}%' OR UPPER(nombre) LIKE '%{t_enie}%')"
-    return f"UPPER(nombre) LIKE '%{t}%'"
+    t = token.strip()
+    return f"unaccent(nombre) ILIKE unaccent('%{t}%')"
 
 def _find_best_militar_fuzzy(user_tokens: List[str], candidates: List[Tuple[Any, str]]) -> Optional[Tuple[Any, str]]:
     """Tolerancia a erratas de digitación en nombres de militares (ej: 'iglesis' -> 'IGLESIAS')."""

@@ -66,8 +66,9 @@ GUARDRAILS ESTRICTOS (DOMINIO EXCLUSIVO DEL ECOSISTEMA BIMEH):
 VISTAS DISPONIBLES EN BASE DE DATOS:
 1. v_personal_resumen:
    Columnas: id, cedula, nombre, estado ('ACTIVO'/'RETIRADO'), fecha_retiro, total_novedades_historicas
-   Nombres en formato: "APELLIDOS NOMBRES" (ej: "PENA MUNOZ JORGE ENRIQUE")
-   Búsqueda por nombre: WHERE UPPER(nombre) LIKE '%PENA%' AND UPPER(nombre) LIKE '%JORGE%'
+   Nombres en formato: "APELLIDOS NOMBRES" (ej: "PEÑA MUÑOZ JORGE ENRIQUE")
+   Búsqueda por nombre (Tolerante a tildes y eñes N/Ñ):
+   WHERE unaccent(nombre) ILIKE unaccent('%PENA%') AND unaccent(nombre) ILIKE unaccent('%JORGE%')
 
 2. v_novedades_detalle:
    Columnas: id_registro, cedula, nombre, estado, fecha_reporte, novedad, descripcion, fecha_inicio, fecha_final
