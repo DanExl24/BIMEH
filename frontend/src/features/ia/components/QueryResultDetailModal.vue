@@ -395,7 +395,7 @@
                         v-for="d in daysArray" 
                         :key="d"
                         class="py-2.5 text-center w-8 font-bold text-slate-400 select-none font-mono text-[10px]"
-                        :title="`Día ${d} de ${detectedMonthInfo.monthName}`"
+                        :title="`Día ${d} de ${activeHeatmapMonth.monthName}`"
                       >
                         {{ String(d).padStart(2, '0') }}
                       </th>
@@ -403,13 +403,13 @@
                   </thead>
                   <tbody class="divide-y divide-darkBorder/40 text-[11px]">
                     <tr 
-                      v-for="(militar, idx) in filteredHeatmapMilitares" 
+                      v-for="(militar, idx) in paginatedHeatmapMilitares" 
                       :key="militar.cedula"
                       class="hover:bg-purple-500/5 transition-colors group"
                     >
-                      <!-- Numeración -->
+                      <!-- Numeración considerando la página actual -->
                       <td class="w-10 px-2 py-2 text-center text-slate-500 text-[10px] font-bold border-r border-darkBorder/40 select-none">
-                        {{ idx + 1 }}
+                        {{ (heatmapPage - 1) * heatmapPageSize + idx + 1 }}
                       </td>
 
                       <!-- Nombre y Cédula Sticky -->
@@ -452,6 +452,50 @@
                     </tr>
                   </tbody>
                 </table>
+
+                <!-- Controles de Paginación para la Matriz Heatmap en Consultas Grandes -->
+                <div 
+                  v-if="filteredHeatmapMilitares.length > 25" 
+                  class="px-4 py-2.5 bg-slate-900/90 border-t border-darkBorder/80 flex items-center justify-between text-xs text-slate-400 flex-wrap gap-2 sticky left-0"
+                >
+                  <div class="flex items-center gap-2">
+                    <span>
+                      Mostrando {{ (heatmapPage - 1) * heatmapPageSize + 1 }} - {{ Math.min(heatmapPage * heatmapPageSize, filteredHeatmapMilitares.length) }} de {{ filteredHeatmapMilitares.length }} efectivos
+                    </span>
+                    <select 
+                      v-model.number="heatmapPageSize" 
+                      class="bg-slate-950 border border-darkBorder rounded-lg px-2 py-1 text-slate-300 text-xs focus:outline-none focus:border-purple-500/50"
+                    >
+                      <option :value="25">25 por página</option>
+                      <option :value="50">50 por página</option>
+                      <option :value="100">100 por página</option>
+                      <option :value="10000">Ver todos</option>
+                    </select>
+                  </div>
+                  <div class="flex items-center gap-1.5" v-if="totalHeatmapPages > 1">
+                    <button 
+                      type="button" 
+                      :disabled="heatmapPage <= 1"
+                      @click="heatmapPage--"
+                      class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-semibold text-slate-200 transition-colors flex items-center gap-1"
+                    >
+                      <ChevronLeft class="w-3.5 h-3.5" />
+                      <span>Anterior</span>
+                    </button>
+                    <span class="text-xs font-mono text-purple-300 font-bold px-2">
+                      {{ heatmapPage }} / {{ totalHeatmapPages }}
+                    </span>
+                    <button 
+                      type="button" 
+                      :disabled="heatmapPage >= totalHeatmapPages"
+                      @click="heatmapPage++"
+                      class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-semibold text-slate-200 transition-colors flex items-center gap-1"
+                    >
+                      <span>Siguiente</span>
+                      <ChevronRight class="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -721,7 +765,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, nextTick } from 'vue'
+import { ref, computed, watch, nextTick, onErrorCaptured } from 'vue'
 import {
   Table2,
   X,
@@ -738,7 +782,9 @@ import {
   Loader2,
   Calendar,
   Users,
-  TrendingUp
+  TrendingUp,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-vue-next'
 import { iaService } from '../services/ia.service'
 import { useReportDownloadStore } from '@stores/reportDownloadStore'
@@ -786,16 +832,24 @@ const cerrar = () => {
   emit('close')
 }
 
-// Autoenfocar el overlay al abrir para permitir cerrar con tecla Escape
+// Autoenfocar el overlay al abrir para permitir cerrar con tecla Escape y resetear vista
 watch(() => props.isOpen, (open) => {
   if (open) {
     busqueda.value = ''
     copiado.value = false
     formatoSeleccionado.value = 'consulta'
+    heatmapPage.value = 1
     nextTick(() => {
       modalOverlayRef.value?.focus()
     })
   }
+})
+
+// Protección reactiva: evitar que cualquier excepción imprevista desmonte el modal
+onErrorCaptured((err, instance, info) => {
+  console.warn('[QueryResultDetailModal] Error interceptado en render:', err, info)
+  formatoSeleccionado.value = 'consulta'
+  return false
 })
 
 // ---------------------------------------------------------------------------
@@ -898,30 +952,49 @@ const detectedMonthsList = computed<DetectedMonthEntry[]>(() => {
 const selectedHeatmapMonthKey = ref<string>('')
 
 watch(detectedMonthsList, (list) => {
-  if (list.length > 0 && (!selectedHeatmapMonthKey.value || !list.some(m => m.key === selectedHeatmapMonthKey.value))) {
+  if (list && list.length > 0 && (!selectedHeatmapMonthKey.value || !list.some(m => m.key === selectedHeatmapMonthKey.value))) {
     selectedHeatmapMonthKey.value = list[0].key
   }
 }, { immediate: true })
 
 const activeHeatmapMonth = computed<DetectedMonthEntry>(() => {
-  const found = detectedMonthsList.value.find(m => m.key === selectedHeatmapMonthKey.value)
-  return found || detectedMonthsList.value[0]
+  const list = detectedMonthsList.value
+  if (!list || list.length === 0) {
+    const fallbackName = (props.activeMes || dateStore.mesSeleccionado || 'OCTUBRE').toUpperCase()
+    const idx = MESES.indexOf(fallbackName)
+    const mNum = idx >= 0 ? idx + 1 : 10
+    const y = 2026
+    return {
+      key: `${y}-${String(mNum).padStart(2, '0')}`,
+      year: y,
+      monthNum: mNum,
+      monthName: fallbackName,
+      daysCount: getDaysInMonth(fallbackName, y),
+      countRows: props.rows?.length || 0
+    }
+  }
+  const found = list.find(m => m.key === selectedHeatmapMonthKey.value)
+  return found || list[0]
 })
 
 const detectedPeriodLabel = computed<string>(() => {
   const list = detectedMonthsList.value
-  if (list.length === 0) return 'Período Activo'
+  if (!list || list.length === 0) return 'Período Activo'
   if (list.length === 1) return `${list[0].monthName} ${list[0].year}`
   return `${list[0].monthName} ${list[0].year} - ${list[list.length - 1].monthName} ${list[list.length - 1].year} (${list.length} meses)`
 })
 
-const daysArray = computed(() => {
-  return Array.from({ length: activeHeatmapMonth.value.daysCount }, (_, i) => i + 1)
+const daysArray = computed<number[]>(() => {
+  const count = activeHeatmapMonth.value?.daysCount || 31
+  const safeCount = Math.max(1, Math.min(31, isNaN(count) ? 31 : count))
+  return Array.from({ length: safeCount }, (_, i) => i + 1)
 })
 
 const detectedSingleMilitarCedula = computed(() => {
+  if (!props.rows) return null
   const cedulas = new Set<string>()
   for (const row of props.rows) {
+    if (!row) continue
     const c = row.cedula || row.identificacion
     if (c) cedulas.add(String(c).trim())
   }
@@ -939,19 +1012,25 @@ interface MilitarHeatmapRecord {
 }
 
 const heatmapMilitares = computed<MilitarHeatmapRecord[]>(() => {
-  const curY = activeHeatmapMonth.value.year
-  const curM = activeHeatmapMonth.value.monthNum
-  const daysLimit = activeHeatmapMonth.value.daysCount
+  if (!props.rows || props.rows.length === 0) return []
+
+  const curY = activeHeatmapMonth.value?.year || 2026
+  const curM = activeHeatmapMonth.value?.monthNum || 10
+  const daysLimit = activeHeatmapMonth.value?.daysCount || 31
   const map = new Map<string, MilitarHeatmapRecord>()
 
   // 1. Inicializar todos los militares involucrados para asegurar su fila
   for (const row of props.rows) {
-    const ced = String(row.cedula || row.identificacion || '0000').trim()
-    const nom = String(row.nombre || row.integrante || 'INTEGRANTE').trim()
-    if (!map.has(ced)) {
-      map.set(ced, {
-        cedula: ced,
-        nombre: nom,
+    if (!row) continue
+    const ced = String(row.cedula || row.identificacion || '').trim()
+    const nom = String(row.nombre || row.integrante || row.militar || '').trim()
+    const finalCed = ced || (nom ? nom : '0000')
+    const finalNom = nom || (ced ? `CC ${ced}` : 'INTEGRANTE')
+
+    if (!map.has(finalCed)) {
+      map.set(finalCed, {
+        cedula: finalCed,
+        nombre: finalNom,
         totalDiasNovedad: 0,
         daysMap: new Map()
       })
@@ -960,16 +1039,22 @@ const heatmapMilitares = computed<MilitarHeatmapRecord[]>(() => {
 
   // 2. Mapear días de novedades estrictamente del mes activo
   for (const row of props.rows) {
-    const ced = String(row.cedula || row.identificacion || '0000').trim()
+    if (!row) continue
+    const ced = String(row.cedula || row.identificacion || '').trim()
+    const nom = String(row.nombre || row.integrante || row.militar || '').trim()
+    const finalCed = ced || (nom ? nom : '0000')
+
+    const item = map.get(finalCed)
+    if (!item) continue
+
     const nov = String(row.novedad || row.sub_novedad || 'NOVEDAD').trim().toUpperCase()
     const desc = row.descripcion ? String(row.descripcion) : undefined
-    const item = map.get(ced)!
 
     // Caso A: Reporte puntual por fecha
     const fStr = row.fecha_reporte || row.fecha
     if (fStr && typeof fStr === 'string' && fStr.includes('-')) {
       const parts = fStr.split('-')
-      if (parts.length === 3) {
+      if (parts.length >= 3) {
         const y = parseInt(parts[0])
         const m = parseInt(parts[1])
         const d = parseInt(parts[2])
@@ -986,9 +1071,9 @@ const heatmapMilitares = computed<MilitarHeatmapRecord[]>(() => {
       try {
         const [y1, m1, d1] = String(row.desde).split('-').map(Number)
         const [y2, m2, d2] = String(row.hasta).split('-').map(Number)
-        if (y1 === curY && m1 === curM) {
+        if (y1 === curY && m1 === curM && !isNaN(d1)) {
           const minD = Math.max(1, d1)
-          const maxD = Math.min(daysLimit, (m2 === curM ? d2 : daysLimit))
+          const maxD = Math.min(daysLimit, (!isNaN(d2) && m2 === curM ? d2 : daysLimit))
           for (let d = minD; d <= maxD; d++) {
             if (!item.daysMap.has(d)) {
               item.daysMap.set(d, { novedad: nov, descripcion: desc })
@@ -997,7 +1082,7 @@ const heatmapMilitares = computed<MilitarHeatmapRecord[]>(() => {
           }
         }
       } catch (e) {
-        // Fallback
+        // Fallback silencioso
       }
     }
   }
@@ -1013,9 +1098,29 @@ const filteredHeatmapMilitares = computed(() => {
   })
 })
 
+// Paginación eficiente para la Matriz Heatmap (óptima para consultas con cientos de registros)
+const heatmapPage = ref(1)
+const heatmapPageSize = ref(50)
+
+const totalHeatmapPages = computed(() => {
+  const total = filteredHeatmapMilitares.value.length
+  return Math.max(1, Math.ceil(total / heatmapPageSize.value))
+})
+
+const paginatedHeatmapMilitares = computed(() => {
+  const list = filteredHeatmapMilitares.value
+  if (list.length <= heatmapPageSize.value) return list
+  const start = (heatmapPage.value - 1) * heatmapPageSize.value
+  return list.slice(start, start + heatmapPageSize.value)
+})
+
+watch([busqueda, selectedHeatmapMonthKey], () => {
+  heatmapPage.value = 1
+})
+
 const getHeatmapCellShortLabel = (cellData?: { novedad: string }) => {
-  if (!cellData) return 'D'
-  const nov = cellData.novedad
+  if (!cellData || !cellData.novedad) return 'D'
+  const nov = String(cellData.novedad).toUpperCase()
   if (nov.includes('CDO') || nov.includes('COMANDO')) return 'CDO'
   if (nov.includes('PERMISO')) return 'PER'
   if (nov.includes('INCAPACIDAD') || nov.includes('EXCUSA')) return 'INC'
@@ -1027,10 +1132,10 @@ const getHeatmapCellShortLabel = (cellData?: { novedad: string }) => {
 }
 
 const getHeatmapCellBadgeClass = (cellData?: { novedad: string }) => {
-  if (!cellData) {
+  if (!cellData || !cellData.novedad) {
     return 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
   }
-  const nov = cellData.novedad
+  const nov = String(cellData.novedad).toUpperCase()
   if (nov.includes('CDO') || nov.includes('COMANDO')) {
     return 'bg-purple-500/40 text-purple-200 border border-purple-500/60'
   }
@@ -1050,9 +1155,12 @@ const getHeatmapCellBadgeClass = (cellData?: { novedad: string }) => {
 }
 
 const getHeatmapCellTooltip = (militar: MilitarHeatmapRecord, day: number) => {
+  if (!militar || !militar.daysMap) return ''
   const cellData = militar.daysMap.get(day)
   const dStr = String(day).padStart(2, '0')
-  const fechaCompleta = `${activeHeatmapMonth.value.year}-${String(activeHeatmapMonth.value.monthNum).padStart(2, '0')}-${dStr}`
+  const y = activeHeatmapMonth.value?.year || 2026
+  const m = String(activeHeatmapMonth.value?.monthNum || 10).padStart(2, '0')
+  const fechaCompleta = `${y}-${m}-${dStr}`
   if (!cellData) {
     return `${militar.nombre} | ${fechaCompleta} : DISPONIBLE`
   }

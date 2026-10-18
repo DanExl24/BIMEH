@@ -1245,7 +1245,7 @@ const modalDetalleData = ref<{
   reportInfo: null
 })
 
-const abrirModalDetalle = (msg: IAChatMessage) => {
+const abrirModalDetalle = async (msg: IAChatMessage) => {
   modalDetalleData.value = {
     columns: msg.columns || [],
     rows: msg.rows || [],
@@ -1253,6 +1253,10 @@ const abrirModalDetalle = (msg: IAChatMessage) => {
     sql: msg.sql || null,
     title: 'Detalle Completo de Consulta de Personal',
     reportInfo: msg.report_info || null
+  }
+  if (modalDetalleOpen.value) {
+    modalDetalleOpen.value = false
+    await nextTick()
   }
   modalDetalleOpen.value = true
 }
