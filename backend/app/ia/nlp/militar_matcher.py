@@ -35,10 +35,13 @@ NOVEDADES_MAP: Dict[str, str] = {
     "detencion": "DETENIDO",
     "prision": "PRISION",
     "preso": "PRISION",
+    "i/r": "INCAPACIDAD",
+    "ir": "INCAPACIDAD",
+    "reposo": "INCAPACIDAD",
 }
 
 MAPA_SUBNOVEDADES_OFICIAL: List[Tuple[str, str]] = [
-    (r"\b(incapacidad(es)?(\s+medica?s?)?|incapacitad[oa]s?|excusa(\s+medica)?)\b", "INCAPACIDAD"),
+    (r"\b(incapacidad(es)?(\s+medica?s?)?|incapacitad[oa]s?|excusa(\s+medica)?|i/?r|reposo)\b", "INCAPACIDAD"),
     (r"\b(vacacion(es)?|descanso)\b", "VACACIONES"),
     (r"\b(permiso(s)?)\b", "PERMISO"),
     (r"\b(comision(\s+de\s+servicio(s)?)?)\b", "COMISION DE SERVICIO"),
@@ -276,6 +279,17 @@ def _inspect_soldier_novedades(
         novedades_mes = {}
         top_novedad_mes = None
 
+        def _match_nov(subnov_query: str, nov_name: str) -> bool:
+            sq = subnov_query.upper().strip()
+            nv = nov_name.upper().strip()
+            if sq == nv or sq in nv or nv in sq:
+                return True
+            # Equivalencia oficial entre INCAPACIDAD e I/R (Incapacidad / Reposo)
+            if sq in ("INCAPACIDAD", "INCAPACIDADES", "I/R", "REPOSO", "EXCUSA", "EXCUSA MEDICA"):
+                if nv in ("INCAPACIDAD", "I/R") or "INCAPACIDAD" in nv or nv == "I/R":
+                    return True
+            return False
+
         if mes_solicitado and mes_solicitado.upper() not in ("TODOS", "ANUAL", "ALL"):
             m_req = mes_solicitado.upper()
             # Detección de rango de meses (ej: "MARZO - SEPTIEMBRE", "MARZO A SEPTIEMBRE")
@@ -298,7 +312,7 @@ def _inspect_soldier_novedades(
                 if novedades_mes:
                     top_novedad_mes = max(novedades_mes.items(), key=lambda x: x[1])[0]
                 if subnovedad_filtro:
-                    dias_filtro_mes = sum(c for nov, c in novedades_mes.items() if subnovedad_filtro.upper() in nov.upper())
+                    dias_filtro_mes = sum(c for nov, c in novedades_mes.items() if _match_nov(subnovedad_filtro, nov))
                     tiene_novedades_mes = (dias_filtro_mes > 0)
                 else:
                     tiene_novedades_mes = (dias_novedad_mes > 0)
@@ -309,7 +323,7 @@ def _inspect_soldier_novedades(
                 if novedades_mes:
                     top_novedad_mes = max(novedades_mes.items(), key=lambda x: x[1])[0]
                 if subnovedad_filtro:
-                    dias_filtro_mes = sum(c for nov, c in novedades_mes.items() if subnovedad_filtro.upper() in nov.upper())
+                    dias_filtro_mes = sum(c for nov, c in novedades_mes.items() if _match_nov(subnovedad_filtro, nov))
                     tiene_novedades_mes = (dias_filtro_mes > 0)
                 else:
                     tiene_novedades_mes = (dias_novedad_mes > 0)
@@ -321,7 +335,7 @@ def _inspect_soldier_novedades(
         meses_con_filtro = []
         if subnovedad_filtro:
             for m_info in meses_con_novedades:
-                matched_days = sum(c for nov, c in m_info["novedades"].items() if subnovedad_filtro.upper() in nov.upper())
+                matched_days = sum(c for nov, c in m_info["novedades"].items() if _match_nov(subnovedad_filtro, nov))
                 if matched_days > 0:
                     meses_con_filtro.append({
                         "mes": m_info["mes"],
@@ -343,3 +357,37 @@ def _inspect_soldier_novedades(
     except Exception as e:
         logger.warning(f"[_inspect_soldier_novedades] Error: {e}")
         return default_res
+
+
+def _detect_month_superlative_intent(msg_norm: str) -> Optional[str]:
+    """
+    Detecta si el usuario está solicitando identificar un mes superlativo
+    (el mes con mayor/máxima novedad, más frecuente, pico, o menor/mínima novedad).
+    Retorna 'max', 'min' o None.
+    """
+    m = msg_norm.lower()
+
+    # Patrones para máximo / mayor
+    max_patterns = [
+        r"\b(el\s+)?mes\b.*(mayor|m[aá]s|pico|m[aá]xima?o?|m[aá]s\s+(frecuente|presente|reiterad[ao]|comun|común|alto))\b",
+        r"\b(mayor|m[aá]s|pico|m[aá]xima?o?|m[aá]s\s+(frecuente|presente|reiterad[ao]|comun|común|alto))\b.*(el\s+)?mes\b",
+        r"\b(en\s+qu[eé]\s+mes|cu[aá]l\s+mes)\b.*(mayor|m[aá]s|pico|m[aá]xima?o?)\b",
+        r"\b(mes\s+para\s+exportar|mes\s+donde\s+tenga)\b.*(mayor|m[aá]s|pico|m[aá]xima?o?)\b",
+    ]
+    for pat in max_patterns:
+        if re.search(pat, m):
+            return "max"
+
+    # Patrones para mínimo / menor
+    min_patterns = [
+        r"\b(el\s+)?mes\b.*(menor|menos|m[ií]nima?o?|menos\s+(frecuente|presente|reiterad[ao]|comun|común|bajo))\b",
+        r"\b(menor|menos|m[ií]nima?o?|menos\s+(frecuente|presente|reiterad[ao]|comun|común|bajo))\b.*(el\s+)?mes\b",
+        r"\b(en\s+qu[eé]\s+mes|cu[aá]l\s+mes)\b.*(menor|menos|m[ií]nima?o?)\b",
+        r"\b(mes\s+para\s+exportar|mes\s+donde\s+tenga)\b.*(menor|menos|m[ií]nima?o?)\b",
+    ]
+    for pat in min_patterns:
+        if re.search(pat, m):
+            return "min"
+
+    return None
+

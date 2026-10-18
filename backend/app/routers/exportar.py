@@ -58,6 +58,19 @@ def format_agil_month_ranges(records: List[tuple], highlight_html: bool = False)
     return sep.join(ranges)
 
 
+def build_subnovedad_filter(subnovedad: str, params: list, col: str = "sn.nombre") -> str:
+    """
+    Construye la cláusula SQL para filtrar por subnovedad, contemplando
+    las equivalencias oficiales de BIMEJ 12 como INCAPACIDAD <-> I/R (Incapacidad / Reposo).
+    """
+    sub_clean = subnovedad.strip().upper()
+    if sub_clean in ("INCAPACIDAD", "INCAPACIDADES", "I/R", "IR", "REPOSO", "EXCUSA", "EXCUSA MEDICA"):
+        params.extend([f"%{subnovedad}%", "%INCAPACIDAD%"])
+        return f" AND (UPPER({col}) LIKE UPPER(%s) OR UPPER({col}) = 'I/R' OR UPPER({col}) LIKE UPPER(%s))"
+    else:
+        params.append(f"%{subnovedad}%")
+        return f" AND UPPER({col}) LIKE UPPER(%s)"
+
 
 router = APIRouter(prefix="/api/exportar", tags=["Exportaciones"])
 
@@ -164,8 +177,7 @@ def exportar_csv(
                 else:
                     query += " AND 1=0"
             if subnovedad:
-                query += " AND UPPER(sn.nombre) LIKE UPPER(%s)"
-                params.append(f"%{subnovedad}%")
+                query += build_subnovedad_filter(subnovedad, params, "sn.nombre")
             query += " ORDER BY r.fecha ASC;"
             cursor.execute(query, tuple(params))
             for row in cursor.fetchall():
@@ -227,8 +239,7 @@ def exportar_csv(
                 query += " AND p.cedula = %s"
                 params.append(cedula)
             if subnovedad:
-                query += " AND sn.nombre = %s"
-                params.append(subnovedad)
+                query += build_subnovedad_filter(subnovedad, params, "sn.nombre")
             query += " ORDER BY p.nombre ASC;"
             
             cursor.execute(query, params)
@@ -524,8 +535,7 @@ def exportar_excel(
                 else:
                     query += " AND 1=0"
             if subnovedad:
-                query += " AND UPPER(sn.nombre) LIKE UPPER(%s)"
-                params.append(f"%{subnovedad}%")
+                query += build_subnovedad_filter(subnovedad, params, "sn.nombre")
             query += " ORDER BY r.fecha ASC;"
             cursor.execute(query, tuple(params))
             for row in cursor.fetchall():
@@ -672,8 +682,7 @@ def exportar_excel(
                 """
                 params = list(report_ids) + [cedula]
                 if subnovedad:
-                    query += " AND UPPER(sn.nombre) LIKE UPPER(%s)"
-                    params.append(f"%{subnovedad}%")
+                    query += build_subnovedad_filter(subnovedad, params, "sn.nombre")
                 query += " ORDER BY r.fecha ASC;"
                 cursor.execute(query, params)
                 for row in cursor.fetchall():
@@ -868,8 +877,7 @@ def exportar_excel(
                     query += " AND p.cedula = %s"
                     params.append(cedula)
                 if subnovedad:
-                    query += " AND UPPER(sn.nombre) LIKE UPPER(%s)"
-                    params.append(f"%{subnovedad}%")
+                    query += build_subnovedad_filter(subnovedad, params, "sn.nombre")
                 query += " ORDER BY p.nombre ASC;"
                 
                 cursor.execute(query, params)
@@ -997,8 +1005,7 @@ def exportar_excel(
             query += " AND p.cedula = %s"
             params.append(cedula)
         if subnovedad:
-            query += " AND UPPER(sn.nombre) LIKE UPPER(%s)"
-            params.append(f"%{subnovedad}%")
+            query += build_subnovedad_filter(subnovedad, params, "sn.nombre")
         if fecha:
             query += " AND r.fecha = %s"
             params.append(fecha)
@@ -1072,8 +1079,7 @@ def exportar_excel(
             query += " AND p.cedula = %s"
             params.append(cedula)
         if subnovedad:
-            query += " AND UPPER(sn.nombre) LIKE UPPER(%s)"
-            params.append(f"%{subnovedad}%")
+            query += build_subnovedad_filter(subnovedad, params, "sn.nombre")
         if fecha:
             query += " AND r.fecha = %s"
             params.append(fecha)
@@ -1529,8 +1535,7 @@ def exportar_pdf(
             else:
                 query += " AND 1=0"
         if subnovedad:
-            query += " AND UPPER(sn.nombre) LIKE UPPER(%s)"
-            params.append(f"%{subnovedad}%")
+            query += build_subnovedad_filter(subnovedad, params, "sn.nombre")
         query += " ORDER BY r.fecha ASC;"
         cursor.execute(query, tuple(params))
         
@@ -1733,8 +1738,7 @@ def exportar_pdf(
                 query += " AND p.cedula = %s"
                 params.append(cedula)
             if subnovedad:
-                query += " AND UPPER(sn.nombre) LIKE UPPER(%s)"
-                params.append(f"%{subnovedad}%")
+                query += build_subnovedad_filter(subnovedad, params, "sn.nombre")
             query += " ORDER BY p.nombre ASC;"
             
             cursor.execute(query, params)
@@ -2012,8 +2016,7 @@ def exportar_pdf(
             query += " AND p.cedula = %s"
             params.append(cedula)
         if subnovedad:
-            query += " AND UPPER(sn.nombre) LIKE UPPER(%s)"
-            params.append(f"%{subnovedad}%")
+            query += build_subnovedad_filter(subnovedad, params, "sn.nombre")
         if fecha:
             query += " AND r.fecha = %s"
             params.append(fecha)
@@ -2099,8 +2102,7 @@ def exportar_pdf(
             query += " AND p.cedula = %s"
             params.append(cedula)
         if subnovedad:
-            query += " AND UPPER(sn.nombre) LIKE UPPER(%s)"
-            params.append(f"%{subnovedad}%")
+            query += build_subnovedad_filter(subnovedad, params, "sn.nombre")
         if fecha:
             query += " AND r.fecha = %s"
             params.append(fecha)

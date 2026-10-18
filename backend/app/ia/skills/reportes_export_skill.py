@@ -20,7 +20,8 @@ from app.ia.nlp.normalizer import _norm
 from app.ia.nlp.militar_matcher import (
     _extract_name_tokens, _name_like_clause,
     _find_best_militar_fuzzy, _inspect_soldier_novedades,
-    _extract_subnovedad_oficial, _extract_novedad_type
+    _extract_subnovedad_oficial, _extract_novedad_type,
+    _detect_month_superlative_intent
 )
 from app.ia.nlp.date_extractor import (
     _extract_report_date, _extract_month_name, _extract_month_range,
@@ -216,7 +217,35 @@ class ReportesExportSkill(BaseSkill):
             m_range = ctx.month_range or history_month_range
             range_label = ctx.range_label or history_range_label
             m_nombre = _extract_month_name(msg)
-            if not m_nombre and not m_range:
+            custom_explanation = None
+
+            # Detección de intención de mes superlativo (mayor/menor novedad, mes pico, etc.)
+            superlative_intent = _detect_month_superlative_intent(msg)
+            if superlative_intent and not m_nombre and db:
+                full_inspection = _inspect_soldier_novedades(db, cedula_val, None, subnov_val)
+                target_months = full_inspection.get("meses_con_filtro") if subnov_val else full_inspection.get("meses_con_novedades")
+                if target_months:
+                    best_m = max(target_months, key=lambda x: x["total_dias"]) if superlative_intent == "max" else min(target_months, key=lambda x: x["total_dias"])
+                    m_nombre = best_m["mes"]
+                    range_label = None  # Se prioriza el mes puntual superlativo solicitado
+                    m_range = None
+                    dias_pico = best_m["total_dias"]
+                    desc_sup = "mayor" if superlative_intent == "max" else "menor"
+                    if subnov_val:
+                        custom_explanation = (
+                            f"El mes con **{desc_sup} registro de {subnov_val.lower()}** para **{nom_mil}** es **{m_nombre}** "
+                            f"(con **{dias_pico} días** de novedad registrada en el sistema).\n\n"
+                            f"He configurado los reportes oficiales fijando automáticamente el mes de **{m_nombre}**:"
+                        )
+                    else:
+                        resumen_txt = best_m.get("resumen", "")
+                        custom_explanation = (
+                            f"El mes con **{desc_sup} cantidad de novedades** para **{nom_mil}** es **{m_nombre}** "
+                            f"(con **{dias_pico} días** con novedad: {resumen_txt}).\n\n"
+                            f"He configurado los reportes oficiales fijando automáticamente el mes de **{m_nombre}**:"
+                        )
+
+            if not m_nombre and not m_range and not superlative_intent:
                 m_nombre = history_month or ""
 
             # Si hay un rango multimes activo y el usuario no pidió un mes puntual individual en este turno:
@@ -247,6 +276,7 @@ class ReportesExportSkill(BaseSkill):
                 nombre=nom_mil,
                 subnovedad=subnov_val,
                 inspection=inspection,
+                custom_explanation=custom_explanation,
                 active_militar={"cedula": str(cedula_val), "nombre": nom_mil},
                 current_year=current_year,
                 db=db

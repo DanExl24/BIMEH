@@ -43,6 +43,7 @@ class ReportDeliveryRequest:
     
     # Inspección de novedades (soldado)
     inspection: Optional[Dict[str, Any]] = None
+    custom_explanation: Optional[str] = None
     
     # Conexión opcional a base de datos
     db: Any = None
@@ -227,12 +228,20 @@ class ReportDeliveryEngine:
                     "registros resumidos de la consulta en pantalla (por ejemplo, el ranking o resumen), "
                     "puede pulsar el botón **'Ver a detalle'** en el mensaje anterior y hacer clic en **Excel (.xlsx)** o **PDF (.pdf)**."
                 )
-            mensaje_novedad = (
-                f"He preparado los reportes oficiales para **{nom_mil}** (C.C. {cedula_val}).\n\n"
-                f"• Período: **{periodo_display}**{subnov_msg}\n\n"
-                f"Para este integrante tiene a su disposición los 3 formatos oficiales de reporte del BIMEJ 12. "
-                f"Seleccione la modalidad que desea generar:{nota_consulta}"
-            )
+            if req.custom_explanation:
+                mensaje_novedad = (
+                    f"{req.custom_explanation}\n\n"
+                    f"• Período: **{periodo_display}**{subnov_msg}\n\n"
+                    f"Para este integrante tiene a su disposición los 3 formatos oficiales de reporte del BIMEJ 12. "
+                    f"Seleccione la modalidad que desea generar:{nota_consulta}"
+                )
+            else:
+                mensaje_novedad = (
+                    f"He preparado los reportes oficiales para **{nom_mil}** (C.C. {cedula_val}).\n\n"
+                    f"• Período: **{periodo_display}**{subnov_msg}\n\n"
+                    f"Para este integrante tiene a su disposición los 3 formatos oficiales de reporte del BIMEJ 12. "
+                    f"Seleccione la modalidad que desea generar:{nota_consulta}"
+                )
 
         detected_militar = {"cedula": cedula_val, "nombre": nom_mil}
         primary_excel = opciones[0]["url_excel"]

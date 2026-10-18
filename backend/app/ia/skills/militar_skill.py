@@ -7,6 +7,14 @@ from typing import Optional
 from app.ia.skills.base import BaseSkill, QueryContext, SkillResult
 from app.ia.nlp.militar_matcher import _extract_name_tokens, _name_like_clause
 
+def _build_novedad_sql_clause(novedad_type: str, col_name: str = "novedad") -> str:
+    nt = novedad_type.upper().strip()
+    if nt in ("INCAPACIDAD", "INCAPACIDADES", "I/R", "IR", "REPOSO", "EXCUSA", "EXCUSA MEDICA"):
+        return f"({col_name} ILIKE '%INCAPACIDAD%' OR {col_name} = 'I/R' OR {col_name} ILIKE '%REPOSO%')"
+    elif nt in ("VACACION", "VACACIONES", "DESCANSO"):
+        return f"({col_name} ILIKE '%VACACION%' OR {col_name} ILIKE '%DESCANSO%')"
+    return f"UPPER({col_name}) LIKE '%{nt}%'"
+
 class MilitarSkill(BaseSkill):
     name = "militar_skill"
     description = "Consulta expedientes individuales, historiales de novedades y búsquedas por cédula o nombre propio."
@@ -99,7 +107,7 @@ class MilitarSkill(BaseSkill):
                         sql=(
                             f"SELECT cedula, nombre, fecha_reporte, novedad, descripcion "
                             f"FROM v_novedades_detalle WHERE cedula = {cv} "
-                            f"AND UPPER(novedad) LIKE '%{ctx.novedad_type}%' "
+                            f"AND {_build_novedad_sql_clause(ctx.novedad_type)} "
                             f"AND {date_clause} "
                             f"ORDER BY fecha_reporte ASC"
                         ),
@@ -110,7 +118,7 @@ class MilitarSkill(BaseSkill):
                     sql=(
                         f"SELECT cedula, nombre, fecha_reporte, novedad, descripcion "
                         f"FROM v_novedades_detalle WHERE cedula = {cv} "
-                        f"AND UPPER(novedad) LIKE '%{ctx.novedad_type}%' "
+                        f"AND {_build_novedad_sql_clause(ctx.novedad_type)} "
                         f"ORDER BY fecha_reporte DESC LIMIT 100"
                     ),
                     description=f"Historial de {ctx.novedad_type} de cédula {cv}"
@@ -174,7 +182,7 @@ class MilitarSkill(BaseSkill):
                         sql=(
                             f"SELECT cedula, nombre, fecha_reporte, novedad, descripcion "
                             f"FROM v_novedades_detalle WHERE cedula = {ced} "
-                            f"AND UPPER(novedad) LIKE '%{ctx.novedad_type}%' "
+                            f"AND {_build_novedad_sql_clause(ctx.novedad_type)} "
                             f"AND {date_clause} "
                             f"ORDER BY fecha_reporte ASC"
                         ),
@@ -236,6 +244,32 @@ class MilitarSkill(BaseSkill):
                         description=f"Estado general de {nom}"
                     )
 
+                if re.search(r"\b(en\s+que\s+mes|cual\s+mes|mes\s+con\s+mas|mes\s+con\s+mayor|mes\s+pico)\b", msg) and ctx.novedad_type:
+                    nov_cond = _build_novedad_sql_clause(ctx.novedad_type)
+                    return SkillResult(
+                        type="sql",
+                        sql=(
+                            f"SELECT EXTRACT(MONTH FROM fecha_reporte::date)::int AS mes, "
+                            f"COUNT(*) AS total_dias FROM v_novedades_detalle "
+                            f"WHERE cedula = {ced} AND {nov_cond} "
+                            f"GROUP BY mes ORDER BY total_dias DESC LIMIT 5"
+                        ),
+                        description=f"Meses con mayor registro de {ctx.novedad_type} de {nom}"
+                    )
+
+                if ctx.novedad_type:
+                    nov_cond = _build_novedad_sql_clause(ctx.novedad_type)
+                    return SkillResult(
+                        type="sql",
+                        sql=(
+                            f"SELECT cedula, nombre, fecha_reporte, novedad, descripcion "
+                            f"FROM v_novedades_detalle WHERE cedula = {ced} "
+                            f"AND {nov_cond} "
+                            f"ORDER BY fecha_reporte DESC LIMIT 100"
+                        ),
+                        description=f"Historial de {ctx.novedad_type} de {nom}"
+                    )
+
                 return SkillResult(
                     type="sql",
                     sql=f"SELECT cedula, nombre, fecha_reporte, novedad, descripcion FROM v_novedades_detalle WHERE cedula = {ced} ORDER BY fecha_reporte DESC LIMIT 100",
@@ -272,7 +306,7 @@ class MilitarSkill(BaseSkill):
                     sql=(
                         f"SELECT cedula, nombre, fecha_reporte, novedad, descripcion "
                         f"FROM v_novedades_detalle WHERE {like_clauses} "
-                        f"AND UPPER(novedad) LIKE '%{ctx.novedad_type}%' "
+                        f"AND {_build_novedad_sql_clause(ctx.novedad_type)} "
                         f"AND {date_clause} "
                         f"ORDER BY fecha_reporte ASC"
                     ),
@@ -286,7 +320,7 @@ class MilitarSkill(BaseSkill):
                     sql=(
                         f"SELECT cedula, nombre, fecha_reporte, novedad, descripcion "
                         f"FROM v_novedades_detalle WHERE {like_clauses} "
-                        f"AND UPPER(novedad) LIKE '%{ctx.novedad_type}%' "
+                        f"AND {_build_novedad_sql_clause(ctx.novedad_type)} "
                         f"ORDER BY fecha_reporte DESC LIMIT 100"
                     ),
                     description=f"Historial de {ctx.novedad_type} de {nom_label}"
