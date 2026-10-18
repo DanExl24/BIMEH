@@ -4,6 +4,7 @@ from typing import List, Optional
 from datetime import datetime
 import io
 import csv
+import re
 import openpyxl
 from openpyxl.utils import get_column_letter
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
@@ -624,7 +625,8 @@ def exportar_excel(
         filename = "catalogo_subnovedades.xlsx"
         
     elif tipo == "consolidado_mensual":
-        is_all_months = not mes or mes.upper() == "TODOS" or mes == ""
+        is_all_months = not mes or mes.upper() in ("TODOS", "ANUAL", "ALL") or mes == ""
+        is_range_mes = bool(mes and ("-" in mes or " A " in mes.upper() or " AL " in mes.upper() or " HASTA " in mes.upper()))
         is_colores = (modo == "colores")
         use_letras = (modo in ("letras", "colores"))
         
@@ -643,16 +645,18 @@ def exportar_excel(
             dates = get_month_dates(mes)
             if not dates:
                 r_info = get_available_date_range(db)
-                raise HTTPException(status_code=400, detail=f"No hay reportes registrados para el mes de {mes.upper()}. Los reportes disponibles en el sistema van de {r_info['texto']}.")
+                raise HTTPException(status_code=400, detail=f"No hay reportes registrados para el período {mes.upper()}. Los reportes disponibles en el sistema van de {r_info['texto']}.")
             placeholders = ",".join("%s" for _ in dates)
             cursor.execute(f"SELECT id, fecha FROM REPORTES WHERE fecha IN ({placeholders}) ORDER BY fecha ASC;", dates)
             reports_db = cursor.fetchall()
             
         report_ids = [r[0] for r in reports_db]
         report_dates = [r[1] for r in reports_db]
+        active_m_nums = sorted(list(set(r[1].split('-')[1] for r in reports_db))) if reports_db else []
+        is_personal_multimonth = bool(cedula and (is_all_months or is_range_mes or len(active_m_nums) > 1))
 
-        if cedula and is_all_months:
-            # Matriz Anual Individual (Mes x D01..D31)
+        if is_personal_multimonth:
+            # Matriz Heatmap Multimes / Anual Individual (Mes x D01..D31)
             p_name = ""
             p_ret = None
             rep_dict = {}
@@ -677,9 +681,10 @@ def exportar_excel(
                     p_ret = row[2]
                     rep_dict[row[4]] = row[5]
 
-            ws.title = "Matriz Heatmap Anual"
+            lbl_periodo = f"{mes.upper()}" if (mes and mes.upper() != "TODOS") else "ANUAL COMPLETA"
+            ws.title = f"Matriz {lbl_periodo}"[:31]
             ws.merge_cells("A1:AF1")
-            ws["A1"] = f"BIMEJ12 — MATRIZ HEATMAP ANUAL COMPLETA — CC {cedula} ({p_name})"
+            ws["A1"] = f"BIMEJ12 — MATRIZ HEATMAP ({lbl_periodo}) — CC {cedula} ({p_name})"
             ws["A1"].font = Font(name="Calibri", size=12, bold=True, color="FFFFFF")
             ws["A1"].fill = PatternFill(start_color="0F172A", end_color="0F172A", fill_type="solid")
             ws["A1"].alignment = Alignment(horizontal="center", vertical="center")
@@ -721,7 +726,20 @@ def exportar_excel(
             }
             date_to_rid = {r[1]: r[0] for r in reports_db}
             rep_year = reports_db[0][1].split('-')[0] if reports_db else str(datetime.now().year)
-            active_m_nums = sorted(list(set(r[1].split('-')[1] for r in reports_db))) if reports_db else [f"{m:02d}" for m in range(1, 13)]
+
+            month_order_lookup = {
+                "ENERO": 1, "FEBRERO": 2, "MARZO": 3, "ABRIL": 4, "MAYO": 5, "JUNIO": 6,
+                "JULIO": 7, "AGOSTO": 8, "SEPTIEMBRE": 9, "OCTUBRE": 10, "NOVIEMBRE": 11, "DICIEMBRE": 12
+            }
+            if is_range_mes and mes:
+                r_words = re.findall(r"\b[A-Z]+\b", mes.upper())
+                found_ms = [month_order_lookup[w] for w in r_words if w in month_order_lookup]
+                if len(found_ms) >= 2:
+                    active_m_nums = [f"{m:02d}" for m in range(min(found_ms[0], found_ms[-1]), max(found_ms[0], found_ms[-1]) + 1)]
+                else:
+                    active_m_nums = sorted(list(set(r[1].split('-')[1] for r in reports_db))) if reports_db else [f"{m:02d}" for m in range(1, 13)]
+            else:
+                active_m_nums = sorted(list(set(r[1].split('-')[1] for r in reports_db))) if reports_db else [f"{m:02d}" for m in range(1, 13)]
 
             cur_row = 5
             for m_num in active_m_nums:
@@ -789,7 +807,8 @@ def exportar_excel(
 
                 cur_row += 1
 
-            filename = f"matriz_heatmap_anual_{cedula}.xlsx"
+            clean_mes_fn = re.sub(r'[^A-Za-z0-9_]+', '_', mes.strip()) if mes else "anual"
+            filename = f"matriz_heatmap_{cedula}_{clean_mes_fn}.xlsx"
 
         else:
             ws.title = "Consolidado Completo" if is_all_months else f"Consolidado {mes if mes else ''}"
@@ -818,7 +837,7 @@ def exportar_excel(
             
             if fecha:
                 headers = ["CÉDULA", "INTEGRANTE", f"FECHA ({fecha})"]
-            elif is_all_months:
+            elif is_all_months or is_range_mes or len(active_m_nums) > 1:
                 headers = ["CÉDULA", "INTEGRANTE"] + [f"{d.split('-')[2]}/{d.split('-')[1]}" for d in report_dates]
             else:
                 headers = ["CÉDULA", "INTEGRANTE"] + [f"Día {d.split('-')[2]}" for d in report_dates]
@@ -1211,7 +1230,7 @@ def exportar_excel(
         
     # Auto-adjust column widths
     if tipo == "consolidado_mensual":
-        if not (cedula and (not mes or mes.upper() == "TODOS" or mes == "")):
+        if 'num_cols' in locals() and not locals().get('is_personal_multimonth'):
             ws.column_dimensions['A'].width = 12
             ws.column_dimensions['B'].width = 28
             for col_idx in range(3, num_cols + 1):
@@ -1636,7 +1655,8 @@ def exportar_pdf(
         filename = "catalogo_subnovedades.pdf"
         
     elif tipo == "consolidado_mensual":
-        is_all_months = not mes or mes.upper() == "TODOS" or mes == ""
+        is_all_months = not mes or mes.upper() in ("TODOS", "ANUAL", "ALL") or mes == ""
+        is_range_mes = bool(mes and ("-" in mes or " A " in mes.upper() or " AL " in mes.upper() or " HASTA " in mes.upper()))
         is_colores = (modo == "colores")
         use_letras = (modo in ("letras", "colores"))
         
@@ -1667,21 +1687,23 @@ def exportar_pdf(
                 else:
                     story.append(Paragraph(f"Generado: {datetime.now().strftime('%Y-%m-%d %H:%M')} | D = Disponible, N = Novedad, R = Retirado, - = Sin Registro", subtitle_style))
         else:
-            pdf_title = f"BIMEJ12 — CONSOLIDADO DIARIO DE PERSONAL — {mes.upper()}"
-            story.append(Paragraph(pdf_title, title_style))
-            if is_colores:
-                legend_txt = "<font color='#10B981'><b>■ [D] Verde = Disponible</b></font> &nbsp;|&nbsp; <font color='#F59E0B'><b>■ [N] Ámbar = Novedad</b></font> &nbsp;|&nbsp; <font color='#EF4444'><b>■ [R] Rojo = Retirado</b></font> &nbsp;|&nbsp; <font color='#64748B'><b>■ [-] Oscuro = Sin Registro</b></font>"
-            else:
-                legend_txt = "D = Disponible, N = Novedad, R = Retirado, - = Sin Registro" if use_letras else "Detalle Completo de Novedades"
-            story.append(Paragraph(f"Generado: {datetime.now().strftime('%Y-%m-%d %H:%M')} | {legend_txt}", subtitle_style))
-            
             dates = get_month_dates(mes)
             if not dates:
                 r_info = get_available_date_range(db)
-                raise HTTPException(status_code=400, detail=f"No hay reportes registrados para el mes de {mes.upper()}. Los reportes disponibles en el sistema van de {r_info['texto']}.")
+                raise HTTPException(status_code=400, detail=f"No hay reportes registrados para el período {mes.upper()}. Los reportes disponibles en el sistema van de {r_info['texto']}.")
             placeholders = ",".join("%s" for _ in dates)
             cursor.execute(f"SELECT id, fecha FROM REPORTES WHERE fecha IN ({placeholders}) ORDER BY fecha ASC;", dates)
             reports_db = cursor.fetchall()
+
+            # Encabezado general para unidad o vista individual de mes único
+            if not (cedula and (is_range_mes or len(set(r[1].split('-')[1] for r in reports_db)) > 1)):
+                pdf_title = f"BIMEJ12 — CONSOLIDADO DIARIO DE PERSONAL — {mes.upper()}"
+                story.append(Paragraph(pdf_title, title_style))
+                if is_colores:
+                    legend_txt = "<font color='#10B981'><b>■ [D] Verde = Disponible</b></font> &nbsp;|&nbsp; <font color='#F59E0B'><b>■ [N] Ámbar = Novedad</b></font> &nbsp;|&nbsp; <font color='#EF4444'><b>■ [R] Rojo = Retirado</b></font> &nbsp;|&nbsp; <font color='#64748B'><b>■ [-] Oscuro = Sin Registro</b></font>"
+                else:
+                    legend_txt = "D = Disponible, N = Novedad, R = Retirado, - = Sin Registro" if use_letras else "Detalle Completo de Novedades"
+                story.append(Paragraph(f"Generado: {datetime.now().strftime('%Y-%m-%d %H:%M')} | {legend_txt}", subtitle_style))
 
         report_ids = [r[0] for r in reports_db]
         
@@ -1731,15 +1753,19 @@ def exportar_pdf(
                 '09': ('SEPTIEMBRE', 30), '10': ('OCTUBRE', 31), '11': ('NOVIEMBRE', 30), '12': ('DICIEMBRE', 31)
             }
 
-            if cedula and is_all_months:
-                # PDF: Matriz Heatmap Anual para Personal Individual (Mes x D01..D31)
+            active_m_nums = sorted(list(set(r[1].split('-')[1] for r in reports_db))) if reports_db else []
+            is_personal_multimonth = bool(cedula and (is_all_months or is_range_mes or len(active_m_nums) > 1))
+
+            if is_personal_multimonth:
+                # PDF: Matriz Heatmap Multimes / Anual para Personal Individual (Mes x D01..D31)
                 person_rows = list(person_map.items())
                 p_name = person_rows[0][0][1] if person_rows else ""
                 f_ret = person_rows[0][0][2] if person_rows else None
                 rep_dict = person_rows[0][1] if person_rows else {}
                 rep_year = reports_db[0][1].split('-')[0] if reports_db else str(datetime.now().year)
 
-                story.append(Paragraph("BIMEJ12 — MATRIZ HEATMAP ANUAL COMPLETA", title_style))
+                lbl_periodo = f"PERÍODO {mes.upper()}" if (mes and mes.upper() != "TODOS") else "ANUAL COMPLETA"
+                story.append(Paragraph(f"BIMEJ12 — MATRIZ HEATMAP ({lbl_periodo})", title_style))
                 story.append(Paragraph(f"<b>Cédula:</b> {cedula} &nbsp;|&nbsp; <b>Integrante:</b> {p_name} &nbsp;|&nbsp; <b>Año:</b> {rep_year} &nbsp;|&nbsp; Generado: {datetime.now().strftime('%Y-%m-%d %H:%M')}", subtitle_style))
                 if is_colores:
                     story.append(Paragraph("<font color='#10B981'><b>■ [D] Verde = Disponible</b></font> &nbsp;&nbsp;|&nbsp;&nbsp; <font color='#F59E0B'><b>■ [N] Ámbar = Novedad</b></font> &nbsp;&nbsp;|&nbsp;&nbsp; <font color='#EF4444'><b>■ [R] Rojo = Retirado</b></font> &nbsp;&nbsp;|&nbsp;&nbsp; <font color='#64748B'><b>■ [-] Oscuro = Sin Registro</b></font>", subtitle_style))
@@ -1763,7 +1789,19 @@ def exportar_pdf(
                 ]
 
                 date_to_rid = {r[1]: r[0] for r in reports_db}
-                active_m_nums = sorted(list(set(r[1].split('-')[1] for r in reports_db))) if reports_db else [f"{m:02d}" for m in range(1, 13)]
+                month_order_lookup = {
+                    "ENERO": 1, "FEBRERO": 2, "MARZO": 3, "ABRIL": 4, "MAYO": 5, "JUNIO": 6,
+                    "JULIO": 7, "AGOSTO": 8, "SEPTIEMBRE": 9, "OCTUBRE": 10, "NOVIEMBRE": 11, "DICIEMBRE": 12
+                }
+                if is_range_mes and mes:
+                    r_words = re.findall(r"\b[A-Z]+\b", mes.upper())
+                    found_ms = [month_order_lookup[w] for w in r_words if w in month_order_lookup]
+                    if len(found_ms) >= 2:
+                        active_m_nums = [f"{m:02d}" for m in range(min(found_ms[0], found_ms[-1]), max(found_ms[0], found_ms[-1]) + 1)]
+                    else:
+                        active_m_nums = sorted(list(set(r[1].split('-')[1] for r in reports_db))) if reports_db else [f"{m:02d}" for m in range(1, 13)]
+                else:
+                    active_m_nums = sorted(list(set(r[1].split('-')[1] for r in reports_db))) if reports_db else [f"{m:02d}" for m in range(1, 13)]
 
                 r_idx = 1
                 for m_num in active_m_nums:
@@ -1825,7 +1863,8 @@ def exportar_pdf(
                 t.setStyle(TableStyle(table_styles))
                 story.append(t)
                 story.append(Spacer(1, 10))
-                filename = f"matriz_heatmap_anual_{cedula}.pdf"
+                clean_mes_fn = re.sub(r'[^A-Za-z0-9_]+', '_', mes.strip()) if mes else "anual"
+                filename = f"matriz_heatmap_{cedula}_{clean_mes_fn}.pdf"
 
             else:
                 from collections import defaultdict

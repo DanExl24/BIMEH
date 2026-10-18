@@ -219,10 +219,10 @@ class ReportesExportSkill(BaseSkill):
             if not m_nombre and not m_range:
                 m_nombre = history_month or ""
 
-            # Si es un rango multimes y no se pidió un mes específico en el mensaje actual,
-            # no forzamos un solo mes como 'MARZO'
-            if m_range and not _extract_month_name(msg):
-                m_nombre = ""
+            # Si hay un rango multimes activo y el usuario no pidió un mes puntual individual en este turno:
+            if m_range and (not m_nombre or "-" in m_nombre):
+                nombres = ["ENERO", "FEBRERO", "MARZO", "ABRIL", "MAYO", "JUNIO", "JULIO", "AGOSTO", "SEPTIEMBRE", "OCTUBRE", "NOVIEMBRE", "DICIEMBRE"]
+                m_nombre = f"{nombres[m_range[0]-1]} - {nombres[m_range[1]-1]}"
 
             pide_top_novedad = bool(re.search(
                 r"\b(novedad\s+m[aá]s\s+(presente|frecuente|comun|común|reiterada)|m[aá]s\s+(presente|frecuente)|mayor\s+novedad|principal\s+novedad)\b",

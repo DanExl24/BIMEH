@@ -1,7 +1,8 @@
+import re
 import psycopg2
 import psycopg2.extras
 from datetime import datetime
-from typing import List
+from typing import List, Set
 
 import os
 
@@ -141,24 +142,60 @@ def get_db():
         conn.close()
 
 def get_month_dates(month_name: str) -> List[str]:
+    if not month_name:
+        return []
+
+    clean_name = month_name.strip().upper()
+
     month_order = {
         "ENERO": 1, "FEBRERO": 2, "MARZO": 3, "ABRIL": 4,
         "MAYO": 5, "JUNIO": 6, "JULIO": 7, "AGOSTO": 8,
         "SEPTIEMBRE": 9, "OCTUBRE": 10, "NOVIEMBRE": 11, "DICIEMBRE": 12
     }
-    month_num = month_order.get(month_name.upper(), 1)
-    
+
     conn = ConnectionWrapper(conn_params=DB_CONN_PARAMS)
     cursor = conn.cursor()
     cursor.execute("SELECT fecha FROM REPORTES ORDER BY fecha ASC;")
     all_dates = [row[0] for row in cursor.fetchall()]
     conn.close()
-    
+
+    if clean_name in ("TODOS", "ANUAL", "ALL", "TODOS LOS MESES"):
+        return all_dates
+
+    target_months: Set[int] = set()
+
+    # Detección de nombres de mes en el texto (ej. "MARZO - SEPTIEMBRE", "MARZO 2026 - SEPTIEMBRE 2026", "DE MARZO A SEPTIEMBRE")
+    words = re.findall(r"\b[A-Z]+\b", clean_name)
+    found_months = [month_order[w] for w in words if w in month_order]
+    if len(found_months) >= 2:
+        ini, fin = min(found_months[0], found_months[-1]), max(found_months[0], found_months[-1])
+        target_months = set(range(ini, fin + 1))
+    elif len(found_months) == 1:
+        target_months = {found_months[0]}
+
+    # Rango numérico tipo "03-09" o "3-9"
+    if not target_months:
+        num_range_match = re.search(r"\b(\d{1,2})\s*-\s*(\d{1,2})\b", clean_name)
+        if num_range_match:
+            n1, n2 = int(num_range_match.group(1)), int(num_range_match.group(2))
+            if 1 <= n1 <= 12 and 1 <= n2 <= 12:
+                ini, fin = min(n1, n2), max(n1, n2)
+                target_months = set(range(ini, fin + 1))
+
+    # Mes numérico individual
+    if not target_months and clean_name.isdigit():
+        num_val = int(clean_name)
+        if 1 <= num_val <= 12:
+            target_months = {num_val}
+
+    if not target_months:
+        return all_dates
+
     filtered = []
     for d in all_dates:
         try:
             dt = datetime.strptime(d, "%Y-%m-%d")
-            if dt.month == month_num:
+            if dt.month in target_months:
                 filtered.append(d)
         except ValueError:
             continue

@@ -276,9 +276,33 @@ def _inspect_soldier_novedades(
         novedades_mes = {}
         top_novedad_mes = None
 
-        if mes_solicitado and mes_solicitado.upper() != "TODOS":
+        if mes_solicitado and mes_solicitado.upper() not in ("TODOS", "ANUAL", "ALL"):
             m_req = mes_solicitado.upper()
-            if m_req in meses_dict:
+            # Detección de rango de meses (ej: "MARZO - SEPTIEMBRE", "MARZO A SEPTIEMBRE")
+            r_words = re.findall(r"\b[A-Z]+\b", m_req)
+            lookup_meses = {
+                'ENERO': 1, 'FEBRERO': 2, 'MARZO': 3, 'ABRIL': 4,
+                'MAYO': 5, 'JUNIO': 6, 'JULIO': 7, 'AGOSTO': 8,
+                'SEPTIEMBRE': 9, 'OCTUBRE': 10, 'NOVIEMBRE': 11, 'DICIEMBRE': 12
+            }
+            range_nums = [lookup_meses[w] for w in r_words if w in lookup_meses]
+            if len(range_nums) >= 2:
+                target_range_nums = set(range(min(range_nums[0], range_nums[-1]), max(range_nums[0], range_nums[-1]) + 1))
+                target_m_infos = [info for info in meses_dict.values() if info["mes_num"] in target_range_nums]
+                dias_novedad_mes = sum(info["total_dias"] for info in target_m_infos)
+                combined_novs = {}
+                for info in target_m_infos:
+                    for nov, c in info["novedades"].items():
+                        combined_novs[nov] = combined_novs.get(nov, 0) + c
+                novedades_mes = combined_novs
+                if novedades_mes:
+                    top_novedad_mes = max(novedades_mes.items(), key=lambda x: x[1])[0]
+                if subnovedad_filtro:
+                    dias_filtro_mes = sum(c for nov, c in novedades_mes.items() if subnovedad_filtro.upper() in nov.upper())
+                    tiene_novedades_mes = (dias_filtro_mes > 0)
+                else:
+                    tiene_novedades_mes = (dias_novedad_mes > 0)
+            elif m_req in meses_dict:
                 m_info = meses_dict[m_req]
                 dias_novedad_mes = m_info["total_dias"]
                 novedades_mes = m_info["novedades"]
